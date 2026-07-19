@@ -25,11 +25,22 @@ namespace EndangeredAR.Missions
 
         public void Configure(MissionDefinition configuredDefinition, bool alreadyCompleted = false)
         {
+            var missionChanged = !IsSameMission(configuredDefinition);
             definition = configuredDefinition;
-            points = 0;
-            state = definition != null && alreadyCompleted
-                ? MissionState.Completed
-                : MissionState.NotStarted;
+
+            if (missionChanged)
+            {
+                points = 0;
+                state = definition != null && alreadyCompleted
+                    ? MissionState.Completed
+                    : MissionState.NotStarted;
+                return;
+            }
+
+            if (definition != null && alreadyCompleted)
+            {
+                state = MissionState.Completed;
+            }
         }
 
         public void StartMission()
@@ -126,6 +137,24 @@ namespace EndangeredAR.Missions
                 definition.LearnedKnowledgeId,
                 definition.BadgeId,
                 pointsAwarded);
+        }
+
+        private bool IsSameMission(MissionDefinition configuredDefinition)
+        {
+            if (definition == null || configuredDefinition == null)
+            {
+                return ReferenceEquals(definition, configuredDefinition);
+            }
+
+            var currentMissionId = definition.MissionId;
+            var configuredMissionId = configuredDefinition.MissionId;
+            if (!string.IsNullOrWhiteSpace(currentMissionId) &&
+                !string.IsNullOrWhiteSpace(configuredMissionId))
+            {
+                return string.Equals(currentMissionId, configuredMissionId, StringComparison.OrdinalIgnoreCase);
+            }
+
+            return ReferenceEquals(definition, configuredDefinition);
         }
     }
 

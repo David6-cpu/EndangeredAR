@@ -45,6 +45,25 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
+        public void Configure_SameMissionId_PreservesRestoredCompletionWithoutRewardingAgain()
+        {
+            var controller = CreateController();
+            var restoredMission = CreateMission("food", 20);
+            var reloadedMission = CreateMission(" FOOD ", 20);
+
+            controller.Configure(restoredMission, alreadyCompleted: true);
+            controller.Configure(reloadedMission);
+
+            Assert.That(controller.CurrentMissionId, Is.EqualTo("FOOD"));
+            Assert.That(controller.State, Is.EqualTo(MissionController.MissionState.Completed));
+            Assert.That(controller.IsCompleted, Is.True);
+            Assert.That(controller.Points, Is.Zero);
+            Assert.That(controller.SelectOption("leaf").PointsAwarded, Is.Zero);
+            Assert.That(controller.State, Is.EqualTo(MissionController.MissionState.Completed));
+            Assert.That(controller.Points, Is.Zero);
+        }
+
+        [Test]
         public void WrongOption_ReturnsDefinitionFeedbackWithoutReward()
         {
             var controller = CreateController();
