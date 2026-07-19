@@ -17,3 +17,11 @@
 - Commits: `71845c67..6c26c85b`
 - Verification: Unity EditMode XML reports 1 total, 1 passed, 0 failed.
 - Review: approved after replacing duplicate explicit TestRunner references with `optionalUnityReferences: ["TestAssemblies"]` and clarifying that this task is a characterization-test scaffold.
+
+## Task 3 - Animal Content Contracts
+
+- Status: complete
+- Commits: `9b9fb8e..b6a3ab3d`
+- Verification: focused contract tests 10/10; full EditMode 11/11.
+- Review: approved after adding edge-case coverage for case-insensitive matching, null/blank data, mission validation, and defensive copies.
+- Maintenance: Unity test asset metadata normalized in `186ec665`; Addressables `link.xml` was retained.
