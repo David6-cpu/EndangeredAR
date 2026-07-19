@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace EndangeredAR.Missions
@@ -13,18 +14,27 @@ namespace EndangeredAR.Missions
             Completed
         }
 
-        [SerializeField] private string currentMissionId = "sensen_food";
+        [SerializeField] private MissionDefinition definition;
         [SerializeField] private int points;
         [SerializeField] private MissionState state = MissionState.NotStarted;
 
-        public string CurrentMissionId => currentMissionId;
+        public string CurrentMissionId => definition == null ? string.Empty : definition.MissionId;
         public int Points => points;
         public MissionState State => state;
         public bool IsCompleted => state == MissionState.Completed;
 
-        public void StartFoodMission()
+        public void Configure(MissionDefinition configuredDefinition, bool alreadyCompleted = false)
         {
-            if (state == MissionState.Completed)
+            definition = configuredDefinition;
+            points = 0;
+            state = definition != null && alreadyCompleted
+                ? MissionState.Completed
+                : MissionState.NotStarted;
+        }
+
+        public void StartMission()
+        {
+            if (definition == null || state == MissionState.Completed)
             {
                 return;
             }
@@ -32,66 +42,116 @@ namespace EndangeredAR.Missions
             state = MissionState.Choosing;
         }
 
-        public MissionResult SelectFood(string option)
+        public void StartFoodMission()
         {
+            StartMission();
+        }
+
+        public MissionResult SelectOption(string optionId)
+        {
+            if (definition == null || !definition.TryGetOption(optionId, out var option))
+            {
+                return default;
+            }
+
             if (state == MissionState.Completed)
             {
-                return new MissionResult(
-                    true,
-                    "你已经帮我找到适合的森林食物啦！这枚生态守护者徽章会一直记录你的行动。",
-                    "缨冠灰叶猴主要吃嫩叶、果实和花朵，完整森林就是它们的食堂。"
-                );
+                return option.IsCorrect
+                    ? CreateResult(true, definition.CorrectFeedback, 0)
+                    : default;
             }
 
             if (state != MissionState.Choosing && state != MissionState.Wrong)
             {
-                StartFoodMission();
+                StartMission();
             }
 
-            var normalized = option == null ? string.Empty : option.Trim();
-            var isCorrect = normalized.Contains("嫩叶") || normalized.Contains("果实") || normalized.Contains("花朵");
-            if (!isCorrect)
+            if (state != MissionState.Choosing && state != MissionState.Wrong)
+            {
+                return default;
+            }
+
+            if (!option.IsCorrect)
             {
                 state = MissionState.Wrong;
-                return new MissionResult(
-                    false,
-                    "这个不适合我吃呀。野生动物不能吃人类零食，更不能碰塑料。",
-                    "森森学会了分辨不适合野生动物的食物。"
-                );
+                return CreateResult(false, definition.WrongFeedback, 0);
             }
 
             state = MissionState.Completed;
-            points += 20;
-            return new MissionResult(
-                true,
-                "找到啦！嫩叶、果实和花朵都是我喜欢的森林食物，谢谢你帮我守住餐桌。",
-                "缨冠灰叶猴主要吃嫩叶、果实和花朵，完整森林就是它们的食堂。"
-            );
+            points += definition.Points;
+            return CreateResult(true, definition.CorrectFeedback, definition.Points);
+        }
+
+        public MissionResult SelectFood(string option)
+        {
+            if (definition != null && !string.IsNullOrWhiteSpace(option))
+            {
+                var normalizedOption = option.Trim();
+                foreach (var candidate in definition.Options)
+                {
+                    if (candidate != null &&
+                        string.Equals(candidate.Label?.Trim(), normalizedOption, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return SelectOption(candidate.OptionId);
+                    }
+                }
+            }
+
+            return default;
         }
 
         public void CompleteCurrentMission()
         {
-            if (state == MissionState.Completed)
+            if (definition == null || state == MissionState.Completed)
             {
                 return;
             }
 
-            state = MissionState.Completed;
-            points += 20;
+            foreach (var option in definition.Options)
+            {
+                if (option != null && option.IsCorrect)
+                {
+                    SelectOption(option.OptionId);
+                    return;
+                }
+            }
+        }
+
+        private MissionResult CreateResult(bool success, string feedback, int pointsAwarded)
+        {
+            return new MissionResult(
+                success,
+                feedback,
+                definition.LearnedFact,
+                definition.LearnedKnowledgeId,
+                definition.BadgeId,
+                pointsAwarded);
         }
     }
 
     public struct MissionResult
     {
-        public MissionResult(bool success, string feedback, string learnedFact)
+        public MissionResult(
+            bool success,
+            string feedback,
+            string learnedFact,
+            string learnedKnowledgeId,
+            string badgeId,
+            int pointsAwarded)
         {
             Success = success;
             Feedback = feedback;
             LearnedFact = learnedFact;
+            LearnedKnowledgeId = learnedKnowledgeId;
+            BadgeId = badgeId;
+            PointsAwarded = pointsAwarded;
         }
 
         public bool Success { get; }
         public string Feedback { get; }
         public string LearnedFact { get; }
+        public string LearnedKnowledgeId { get; }
+        public string BadgeId { get; }
+        public int PointsAwarded { get; }
     }
 }
