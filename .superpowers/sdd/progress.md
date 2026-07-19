@@ -24,4 +24,12 @@
 - Commits: `9b9fb8e..b6a3ab3d`
 - Verification: focused contract tests 10/10; full EditMode 11/11.
 - Review: approved after adding edge-case coverage for case-insensitive matching, null/blank data, mission validation, and defensive copies.
-- Maintenance: Unity test asset metadata normalized in `186ec665`; Addressables `link.xml` was retained.
+- Maintenance: Unity test asset metadata normalized in `186ec665`.
+
+## Task 4 - Validated Animal Catalog
+
+- Status: complete
+- Commits: `6f0f150..92cdcb23`
+- Verification: focused catalog tests 11/11; full EditMode 22/22.
+- Review: approved after adding direct coverage for incomplete content, whitespace lookup, idempotent initialization, one-time issue logging, default selection, fallback, and lazy lookup.
+- Maintenance: stale Addressables linker output removed in `a7457d64` after repeated deterministic Unity deletion.
