@@ -70,3 +70,11 @@
 - Review: approved after fixing the nonblank missing-file branch so it always restores fallback renderers and adding direct load-failure plus Retry/stale-root coverage.
 - Compatibility: the existing `SensenGlbLoader` GUID and serialized field names remain intact; the generic loader owns only `Animal GLB Runtime Root` and never writes the experience host Transform.
 - Carried verification: after scene integration, visually confirm Sensen texture/material repair, fallback-hide timing, rotation, pinch, final placement, and inherited private-field scene deserialization in Play Mode/device build.
+
+## Task 10 - Animal Selection and Unlock Coordination
+
+- Status: complete.
+- Commits: `059a9ba2`, `b2f865cc`.
+- Verification: reconstructed missing-type RED 0/6; initial focused 6/6 and full 60/60; review regression RED 6/8; final focused 8/8 and full EditMode 62/62.
+- Review: approved after making `CurrentProgress` a fresh defensive per-animal read and resetting mission ownership when different animals share the same mission ID.
+- Behavior: `Prepare` never unlocks; only `SelectFromScan` unlocks; catalog selection rejects locked animals; successful selection restores the selected animal's mission/conversation state and moves only the experience host position.

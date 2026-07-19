@@ -695,6 +695,7 @@ git commit -m "feat: coordinate animal selection and unlock state"
 
 **Files:**
 - Modify: `EndangeredAR/Assets/Scripts/UI/DemoAppController.cs`
+- Modify: `EndangeredAR/Assets/Scripts/AR/ARImageScanController.cs`
 - Modify: `EndangeredAR/Assets/Editor/EndangeredARDemoSceneBuilder.cs`
 - Create: `EndangeredAR/Assets/Editor/AnimalArchitectureSceneMigrator.cs`
 - Modify: `EndangeredAR/Assets/Scenes/DemoScene.unity`
@@ -732,6 +733,7 @@ Migrate exactly:
 
 - simulated animals iterate catalog;
 - `ARImageScanController` Phase 1 mapping contains only `sensen_marker -> sensen`;
+- unmatched marker names resolve to no animal instead of silently falling back to Sensen;
 - scan detected calls `Prepare`; unknown IDs return immediately and cannot activate model navigation;
 - tracked/manual success calls `SelectFromScan` before model page and enters only when `IsSuccess` is true;
 - tracked marker Transform is intentionally ignored because placement is fixed on the independent 3D page;
@@ -778,6 +780,7 @@ Future `BuildDemoScene()` creates new services, but do not invoke it on the revi
   -logFile /private/tmp/editmode-all.log
 
 git add EndangeredAR/Assets/Scripts/UI/DemoAppController.cs \
+  EndangeredAR/Assets/Scripts/AR/ARImageScanController.cs \
   EndangeredAR/Assets/Editor/EndangeredARDemoSceneBuilder.cs \
   EndangeredAR/Assets/Editor/AnimalArchitectureSceneMigrator.cs \
   EndangeredAR/Assets/Scenes/DemoScene.unity \
