@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c342655d02cb54bff9ff733e391bc517, type: 3}
+  m_Name: SensenMission
+  m_EditorClassIdentifier: 
+  missionId: sensen-food
+  title: "\u5E2E\u68EE\u68EE\u5BFB\u627E\u98DF\u7269"
+  prompt: "\u8BF7\u9009\u62E9\u68EE\u68EE\u80FD\u5403\u7684\u5929\u7136\u98DF\u7269\u3002"
+  options:
+  - optionId: leaf
+    label: "\u5AE9\u53F6"
+    isCorrect: 1
+  - optionId: flower
+    label: "\u82B1\u6735"
+    isCorrect: 1
+  - optionId: snack
+    label: "\u4EBA\u7C7B\u96F6\u98DF"
+    isCorrect: 0
+  - optionId: plastic
+    label: "\u5851\u6599"
+    isCorrect: 0
+  correctFeedback: "\u7B54\u5BF9\u4E86\uFF01\u5AE9\u53F6\u548C\u82B1\u6735\u90FD\u662F\u68EE\u68EE\u7684\u5929\u7136\u98DF\u7269\u3002"
+  wrongFeedback: "\u4EBA\u7C7B\u96F6\u98DF\u548C\u5851\u6599\u4E0D\u662F\u68EE\u68EE\u7684\u98DF\u7269\u3002"
+  learnedKnowledgeId: food
+  learnedFact: "\u5929\u7136\u7684\u5AE9\u53F6\u548C\u82B1\u6735\u9002\u5408\u68EE\u68EE\u3002"
+  badgeId: eco-guardian-sensen
+  points: 20
