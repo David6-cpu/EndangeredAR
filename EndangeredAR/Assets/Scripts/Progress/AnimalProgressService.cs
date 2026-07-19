@@ -43,15 +43,38 @@ namespace EndangeredAR.Progress
         {
             if (initialized)
             {
+                if (string.IsNullOrWhiteSpace(overridePath))
+                {
+                    return;
+                }
+
+                var explicitRepositoryPath = ResolveRepositoryPath(overridePath);
+                if (string.Equals(ActiveRepositoryPath, explicitRepositoryPath, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                InitializeRepository(explicitRepositoryPath);
                 return;
             }
 
-            ActiveRepositoryPath = !string.IsNullOrWhiteSpace(overridePath)
+            InitializeRepository(ResolveRepositoryPath(overridePath));
+        }
+
+        private static string ResolveRepositoryPath(string overridePath)
+        {
+            var repositoryPath = !string.IsNullOrWhiteSpace(overridePath)
                 ? overridePath
                 : !string.IsNullOrWhiteSpace(RepositoryPathOverrideForTests)
                     ? RepositoryPathOverrideForTests
                     : Path.Combine(Application.persistentDataPath, "animal-progress.json");
-            repository = new JsonAnimalProgressRepository(ActiveRepositoryPath);
+            return Path.GetFullPath(repositoryPath);
+        }
+
+        private void InitializeRepository(string repositoryPath)
+        {
+            ActiveRepositoryPath = repositoryPath;
+            repository = new JsonAnimalProgressRepository(repositoryPath);
             document = repository.Load();
             initialized = true;
         }

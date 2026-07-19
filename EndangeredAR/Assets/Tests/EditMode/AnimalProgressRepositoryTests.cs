@@ -82,6 +82,26 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
+        public void Initialize_ExplicitPathAfterAwake_ReplacesTestOverrideRepository()
+        {
+            var initialPath = CreateRepositoryPath();
+            var explicitPath = CreateRepositoryPath();
+            AnimalProgressService.RepositoryPathOverrideForTests = initialPath;
+            var gameObject = new GameObject("AnimalProgressServiceExplicitPathTest");
+            createdObjects.Add(gameObject);
+            var service = gameObject.AddComponent<AnimalProgressService>();
+
+            service.Initialize();
+            Assert.That(service.ActiveRepositoryPath, Is.EqualTo(Path.GetFullPath(initialPath)));
+            service.Initialize(explicitPath);
+            service.Unlock("pangolin");
+
+            Assert.That(service.ActiveRepositoryPath, Is.EqualTo(Path.GetFullPath(explicitPath)));
+            Assert.That(File.Exists(initialPath), Is.False);
+            Assert.That(FindRecord(new JsonAnimalProgressRepository(explicitPath).Load(), "pangolin").unlocked, Is.True);
+        }
+
+        [Test]
         public void Conversations_AreTrimmedToTwentyMessagesPerAnimal()
         {
             var service = CreateService(CreateRepositoryPath());
