@@ -55,6 +55,7 @@ namespace EndangeredAR.Missions
 
         public void StartFoodMission()
         {
+            ConfigureLegacyDefinitionIfNeeded();
             StartMission();
         }
 
@@ -95,6 +96,8 @@ namespace EndangeredAR.Missions
 
         public MissionResult SelectFood(string option)
         {
+            ConfigureLegacyDefinitionIfNeeded();
+
             if (definition != null && !string.IsNullOrWhiteSpace(option))
             {
                 var normalizedOption = option.Trim();
@@ -109,6 +112,25 @@ namespace EndangeredAR.Missions
             }
 
             return default;
+        }
+
+        private void ConfigureLegacyDefinitionIfNeeded()
+        {
+            if (definition != null)
+            {
+                return;
+            }
+
+            foreach (var candidate in Resources.LoadAll<MissionDefinition>("Animals"))
+            {
+                if (candidate != null &&
+                    !string.IsNullOrWhiteSpace(candidate.MissionId) &&
+                    candidate.Validate().Count == 0)
+                {
+                    Configure(candidate);
+                    return;
+                }
+            }
         }
 
         public void CompleteCurrentMission()

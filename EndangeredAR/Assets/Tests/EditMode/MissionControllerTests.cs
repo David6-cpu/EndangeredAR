@@ -130,6 +130,26 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(controller.Points, Is.Zero);
         }
 
+        [Test]
+        public void LegacyWrappers_UnconfiguredController_LoadsValidResourceMissionAndAwardsOnce()
+        {
+            var controller = CreateController();
+            var committedMission = Resources.Load<MissionDefinition>("Animals/SensenMission");
+            Assert.That(committedMission, Is.Not.Null);
+
+            controller.StartFoodMission();
+
+            var firstResult = controller.SelectFood("嫩叶");
+            var repeatedResult = controller.SelectFood("嫩叶");
+
+            Assert.That(firstResult.Success, Is.True);
+            Assert.That(firstResult.PointsAwarded, Is.EqualTo(20));
+            Assert.That(repeatedResult.Success, Is.True);
+            Assert.That(repeatedResult.PointsAwarded, Is.Zero);
+            Assert.That(controller.CurrentMissionId, Is.EqualTo(committedMission.MissionId));
+            Assert.That(controller.Points, Is.EqualTo(20));
+        }
+
         private MissionController CreateController()
         {
             var gameObject = new GameObject("Mission Controller Test");
