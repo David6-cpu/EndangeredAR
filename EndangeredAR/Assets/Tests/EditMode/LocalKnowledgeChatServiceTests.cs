@@ -140,6 +140,58 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(selected, Is.SameAs(expectedProfile));
         }
 
+        [Test]
+        public void SelectLegacyProfile_SkipsReplyOnlyProfileBeforeReachableProfile()
+        {
+            var unreachableProfile = CreateProfile(" ", "Unreachable reply.", "Unreachable suggestion.", string.Empty);
+            var expectedProfile = CreateProfile("reachable", "Reachable reply.", "Reachable suggestion.", string.Empty);
+
+            var selected = LocalKnowledgeChatService.SelectLegacyProfile(
+                null,
+                Array.Empty<AnimalDefinition>(),
+                new[] { unreachableProfile, expectedProfile });
+
+            Assert.That(selected, Is.SameAs(expectedProfile));
+        }
+
+        [Test]
+        public void SelectLegacyProfile_SkipsDuplicateDefinitionIdsBeforeSelectingNextUniqueId()
+        {
+            var duplicateFirstProfile = CreateProfile("first", "First reply.", "First suggestion.", "First fallback.");
+            var duplicateSecondProfile = CreateProfile("second", "Second reply.", "Second suggestion.", "Second fallback.");
+            var expectedProfile = CreateProfile("expected", "Expected reply.", "Expected suggestion.", "Expected fallback.");
+
+            var selected = LocalKnowledgeChatService.SelectLegacyProfile(
+                null,
+                new[]
+                {
+                    CreateDefinition("Aardvark", duplicateFirstProfile),
+                    CreateDefinition(" aardvark ", duplicateSecondProfile),
+                    CreateDefinition("Antelope", expectedProfile)
+                },
+                Array.Empty<AnimalKnowledgeProfile>());
+
+            Assert.That(selected, Is.SameAs(expectedProfile));
+        }
+
+        [Test]
+        public void SelectLegacyProfile_SkipsDuplicateStandaloneProfileNamesBeforeSelectingNextUniqueName()
+        {
+            var duplicateFirstProfile = CreateProfile("first", "First reply.", "First suggestion.", "First fallback.");
+            duplicateFirstProfile.name = "Aardvark";
+            var duplicateSecondProfile = CreateProfile("second", "Second reply.", "Second suggestion.", "Second fallback.");
+            duplicateSecondProfile.name = " aardvark ";
+            var expectedProfile = CreateProfile("expected", "Expected reply.", "Expected suggestion.", "Expected fallback.");
+            expectedProfile.name = "Antelope";
+
+            var selected = LocalKnowledgeChatService.SelectLegacyProfile(
+                null,
+                Array.Empty<AnimalDefinition>(),
+                new[] { duplicateFirstProfile, duplicateSecondProfile, expectedProfile });
+
+            Assert.That(selected, Is.SameAs(expectedProfile));
+        }
+
         private AnimalKnowledgeProfile CreateProfile(string keyword, string reply, string suggestion, string unknownReply)
         {
             var profile = ScriptableObject.CreateInstance<AnimalKnowledgeProfile>();

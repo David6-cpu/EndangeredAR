@@ -45,43 +45,47 @@ namespace EndangeredAR.Chat
                 return serializedDefaultProfile;
             }
 
-            var validDefinitions = new List<AnimalDefinition>();
+            var definitionsById = new Dictionary<string, AnimalKnowledgeProfile>(StringComparer.Ordinal);
+            var duplicateDefinitionIds = new HashSet<string>(StringComparer.Ordinal);
             if (definitions != null)
             {
                 foreach (var definition in definitions)
                 {
                     if (definition != null && definition.IsConfigured && HasUsableAnswerContent(definition.Knowledge))
                     {
-                        validDefinitions.Add(definition);
+                        AddUniqueCandidate(
+                            definitionsById,
+                            duplicateDefinitionIds,
+                            NormalizeResourceKey(definition.AnimalId),
+                            definition.Knowledge);
                     }
                 }
             }
 
-            validDefinitions.Sort(CompareDefinitionsByAnimalId);
-            if (validDefinitions.Count > 0)
+            var selectedDefinitionProfile = SelectFirstUniqueProfile(definitionsById);
+            if (selectedDefinitionProfile != null)
             {
-                return validDefinitions[0].Knowledge;
+                return selectedDefinitionProfile;
             }
 
-            var validProfiles = new List<AnimalKnowledgeProfile>();
+            var profilesByName = new Dictionary<string, AnimalKnowledgeProfile>(StringComparer.Ordinal);
+            var duplicateProfileNames = new HashSet<string>(StringComparer.Ordinal);
             if (profiles != null)
             {
                 foreach (var profile in profiles)
                 {
                     if (HasUsableAnswerContent(profile))
                     {
-                        validProfiles.Add(profile);
+                        AddUniqueCandidate(
+                            profilesByName,
+                            duplicateProfileNames,
+                            NormalizeResourceKey(profile.name),
+                            profile);
                     }
                 }
             }
 
-            validProfiles.Sort(CompareProfilesByName);
-            if (validProfiles.Count > 0)
-            {
-                return validProfiles[0];
-            }
-
-            return null;
+            return SelectFirstUniqueProfile(profilesByName);
         }
 
         private static bool HasUsableAnswerContent(AnimalKnowledgeProfile profile)
@@ -98,7 +102,9 @@ namespace EndangeredAR.Chat
 
             foreach (var entry in profile.Entries)
             {
-                if (entry != null && !string.IsNullOrWhiteSpace(entry.Reply))
+                if (entry != null &&
+                    !string.IsNullOrWhiteSpace(entry.Reply) &&
+                    Array.Exists(entry.Keywords, keyword => !string.IsNullOrWhiteSpace(keyword)))
                 {
                     return true;
                 }
@@ -107,20 +113,47 @@ namespace EndangeredAR.Chat
             return false;
         }
 
-        private static int CompareDefinitionsByAnimalId(AnimalDefinition first, AnimalDefinition second)
+        private static void AddUniqueCandidate(
+            Dictionary<string, AnimalKnowledgeProfile> candidatesByKey,
+            HashSet<string> duplicateKeys,
+            string key,
+            AnimalKnowledgeProfile profile)
         {
-            var comparison = string.Compare(first.AnimalId, second.AnimalId, StringComparison.OrdinalIgnoreCase);
-            return comparison != 0
-                ? comparison
-                : string.Compare(first.AnimalId, second.AnimalId, StringComparison.Ordinal);
+            if (duplicateKeys.Contains(key))
+            {
+                return;
+            }
+
+            if (candidatesByKey.ContainsKey(key))
+            {
+                candidatesByKey.Remove(key);
+                duplicateKeys.Add(key);
+                return;
+            }
+
+            candidatesByKey.Add(key, profile);
         }
 
-        private static int CompareProfilesByName(AnimalKnowledgeProfile first, AnimalKnowledgeProfile second)
+        private static string NormalizeResourceKey(string value)
         {
-            var comparison = string.Compare(first.name, second.name, StringComparison.OrdinalIgnoreCase);
-            return comparison != 0
-                ? comparison
-                : string.Compare(first.name, second.name, StringComparison.Ordinal);
+            return string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim().ToLowerInvariant();
+        }
+
+        private static AnimalKnowledgeProfile SelectFirstUniqueProfile(
+            Dictionary<string, AnimalKnowledgeProfile> candidatesByKey)
+        {
+            string selectedKey = null;
+            AnimalKnowledgeProfile selectedProfile = null;
+            foreach (var candidate in candidatesByKey)
+            {
+                if (selectedKey == null || string.CompareOrdinal(candidate.Key, selectedKey) < 0)
+                {
+                    selectedKey = candidate.Key;
+                    selectedProfile = candidate.Value;
+                }
+            }
+
+            return selectedProfile;
         }
     }
 
