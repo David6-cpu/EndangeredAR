@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using EndangeredAR.Animals;
 using EndangeredAR.Chat;
+using EndangeredAR.Missions;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace EndangeredAR.Tests.EditMode
@@ -28,6 +30,7 @@ namespace EndangeredAR.Tests.EditMode
             var service = CreateService();
             var selectedProfile = CreateProfile("selected-keyword", "Selected reply.", "Selected suggestion.", "Selected unknown.");
             var otherProfile = CreateProfile("selected-keyword", "Other reply.", "Other suggestion.", "Other unknown.");
+            SetDefaultProfile(service, otherProfile);
 
             var answer = Answer(service, selectedProfile, "selected-keyword");
 
@@ -54,12 +57,14 @@ namespace EndangeredAR.Tests.EditMode
         public void Answer_NullProfileReturnsSafeGenericFallback()
         {
             var service = CreateService();
+            var conflictingDefault = CreateProfile("anything", "Conflicting reply.", "Conflicting suggestion.", "Conflicting fallback.");
+            SetDefaultProfile(service, conflictingDefault);
 
             Assert.DoesNotThrow(() => Answer(service, null, "anything"));
             var answer = Answer(service, null, "anything");
 
             Assert.That(answer.IsMatch, Is.False);
-            Assert.That(answer.Reply, Is.Not.Empty);
+            Assert.That(answer.Reply, Is.EqualTo(ChatAnswer.GenericFallback.Reply));
             Assert.That(answer.SuggestedQuestions, Is.Empty);
         }
 
@@ -77,21 +82,62 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
-        public void Answer_LegacyWrapperReturnsAssetBackedAnswer()
+        public void Answer_LegacyWrapperSkipsIncompleteSerializedDefaultProfile()
         {
             var definition = Array.Find(Resources.LoadAll<AnimalDefinition>("Animals"), candidate =>
-                candidate != null && candidate.Knowledge != null && candidate.Knowledge.Entries.Length > 0);
+                candidate != null && candidate.IsConfigured && HasUsableKnowledge(candidate.Knowledge));
             Assert.That(definition, Is.Not.Null, "Current resources need a configured animal knowledge profile.");
 
             var entry = Array.Find(definition.Knowledge.Entries, candidate =>
                 candidate != null && candidate.Keywords.Length > 0 && !string.IsNullOrWhiteSpace(candidate.Keywords[0]));
             Assert.That(entry, Is.Not.Null, "Current resources need an answer entry with a keyword.");
 
-            var answer = CreateService().Answer(entry.Keywords[0]);
+            var service = CreateService();
+            SetDefaultProfile(service, CreateProfile("incomplete", string.Empty, "", string.Empty));
+
+            var answer = service.Answer(entry.Keywords[0]);
 
             Assert.That(answer.IsMatch, Is.True);
             Assert.That(answer.Reply, Is.EqualTo(entry.Reply));
             Assert.That(answer.SuggestedQuestions, Is.EqualTo(entry.SuggestedQuestions));
+        }
+
+        [Test]
+        public void SelectLegacyProfile_SkipsIncompleteCandidatesAndSortsDefinitionsByAnimalId()
+        {
+            var incompleteDefault = CreateProfile("incomplete", string.Empty, string.Empty, string.Empty);
+            var unconfiguredDefinition = ScriptableObject.CreateInstance<AnimalDefinition>();
+            createdObjects.Add(unconfiguredDefinition);
+            var incompleteDefinition = CreateDefinition("aardvark", incompleteDefault);
+            var laterProfile = CreateProfile("later", "Later reply.", "Later suggestion.", "Later fallback.");
+            var laterDefinition = CreateDefinition("zebra", laterProfile);
+            var expectedProfile = CreateProfile("expected", "Expected reply.", "Expected suggestion.", "Expected fallback.");
+            var expectedDefinition = CreateDefinition("antelope", expectedProfile);
+
+            var selected = LocalKnowledgeChatService.SelectLegacyProfile(
+                incompleteDefault,
+                new[] { unconfiguredDefinition, incompleteDefinition, laterDefinition, expectedDefinition },
+                Array.Empty<AnimalKnowledgeProfile>());
+
+            Assert.That(selected, Is.SameAs(expectedProfile));
+        }
+
+        [Test]
+        public void SelectLegacyProfile_SkipsIncompleteStandaloneProfilesAndSortsByAssetName()
+        {
+            var incompleteProfile = CreateProfile("incomplete", string.Empty, string.Empty, string.Empty);
+            incompleteProfile.name = "Aardvark";
+            var laterProfile = CreateProfile("later", "Later reply.", "Later suggestion.", "Later fallback.");
+            laterProfile.name = "Zebra";
+            var expectedProfile = CreateProfile("expected", "Expected reply.", "Expected suggestion.", "Expected fallback.");
+            expectedProfile.name = "Antelope";
+
+            var selected = LocalKnowledgeChatService.SelectLegacyProfile(
+                null,
+                Array.Empty<AnimalDefinition>(),
+                new[] { incompleteProfile, laterProfile, expectedProfile });
+
+            Assert.That(selected, Is.SameAs(expectedProfile));
         }
 
         private AnimalKnowledgeProfile CreateProfile(string keyword, string reply, string suggestion, string unknownReply)
@@ -111,9 +157,58 @@ namespace EndangeredAR.Tests.EditMode
             return gameObject.AddComponent<LocalKnowledgeChatService>();
         }
 
+        private AnimalDefinition CreateDefinition(string animalId, AnimalKnowledgeProfile profile)
+        {
+            var definition = ScriptableObject.CreateInstance<AnimalDefinition>();
+            var mission = ScriptableObject.CreateInstance<MissionDefinition>();
+            definition.Configure(
+                animalId,
+                animalId,
+                animalId,
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                Vector3.zero,
+                Vector3.zero,
+                Vector3.zero,
+                Vector3.one,
+                string.Empty,
+                Color.white,
+                null,
+                null,
+                profile,
+                mission);
+            createdObjects.Add(definition);
+            createdObjects.Add(mission);
+            return definition;
+        }
+
         private static ChatAnswer Answer(LocalKnowledgeChatService service, AnimalKnowledgeProfile profile, string message)
         {
             return service.Answer(profile, message);
+        }
+
+        private static bool HasUsableKnowledge(AnimalKnowledgeProfile profile)
+        {
+            if (profile == null)
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(profile.UnknownReply))
+            {
+                return true;
+            }
+
+            return Array.Exists(profile.Entries, entry => entry != null && !string.IsNullOrWhiteSpace(entry.Reply));
+        }
+
+        private static void SetDefaultProfile(LocalKnowledgeChatService service, AnimalKnowledgeProfile profile)
+        {
+            var serializedService = new SerializedObject(service);
+            serializedService.FindProperty("defaultProfile").objectReferenceValue = profile;
+            serializedService.ApplyModifiedPropertiesWithoutUndo();
         }
     }
 }

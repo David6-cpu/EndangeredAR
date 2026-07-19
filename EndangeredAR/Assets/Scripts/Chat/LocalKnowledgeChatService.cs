@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using EndangeredAR.Animals;
 using UnityEngine;
 
@@ -28,28 +29,98 @@ namespace EndangeredAR.Chat
 
         private AnimalKnowledgeProfile ResolveDefaultProfile()
         {
-            if (defaultProfile != null)
+            return SelectLegacyProfile(
+                defaultProfile,
+                Resources.LoadAll<AnimalDefinition>("Animals"),
+                Resources.LoadAll<AnimalKnowledgeProfile>("Animals"));
+        }
+
+        internal static AnimalKnowledgeProfile SelectLegacyProfile(
+            AnimalKnowledgeProfile serializedDefaultProfile,
+            IEnumerable<AnimalDefinition> definitions,
+            IEnumerable<AnimalKnowledgeProfile> profiles)
+        {
+            if (HasUsableAnswerContent(serializedDefaultProfile))
             {
-                return defaultProfile;
+                return serializedDefaultProfile;
             }
 
-            foreach (var definition in Resources.LoadAll<AnimalDefinition>("Animals"))
+            var validDefinitions = new List<AnimalDefinition>();
+            if (definitions != null)
             {
-                if (definition != null && definition.Knowledge != null)
+                foreach (var definition in definitions)
                 {
-                    return definition.Knowledge;
+                    if (definition != null && definition.IsConfigured && HasUsableAnswerContent(definition.Knowledge))
+                    {
+                        validDefinitions.Add(definition);
+                    }
                 }
             }
 
-            foreach (var profile in Resources.LoadAll<AnimalKnowledgeProfile>("Animals"))
+            validDefinitions.Sort(CompareDefinitionsByAnimalId);
+            if (validDefinitions.Count > 0)
             {
-                if (profile != null)
+                return validDefinitions[0].Knowledge;
+            }
+
+            var validProfiles = new List<AnimalKnowledgeProfile>();
+            if (profiles != null)
+            {
+                foreach (var profile in profiles)
                 {
-                    return profile;
+                    if (HasUsableAnswerContent(profile))
+                    {
+                        validProfiles.Add(profile);
+                    }
                 }
+            }
+
+            validProfiles.Sort(CompareProfilesByName);
+            if (validProfiles.Count > 0)
+            {
+                return validProfiles[0];
             }
 
             return null;
+        }
+
+        private static bool HasUsableAnswerContent(AnimalKnowledgeProfile profile)
+        {
+            if (profile == null)
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(profile.UnknownReply))
+            {
+                return true;
+            }
+
+            foreach (var entry in profile.Entries)
+            {
+                if (entry != null && !string.IsNullOrWhiteSpace(entry.Reply))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static int CompareDefinitionsByAnimalId(AnimalDefinition first, AnimalDefinition second)
+        {
+            var comparison = string.Compare(first.AnimalId, second.AnimalId, StringComparison.OrdinalIgnoreCase);
+            return comparison != 0
+                ? comparison
+                : string.Compare(first.AnimalId, second.AnimalId, StringComparison.Ordinal);
+        }
+
+        private static int CompareProfilesByName(AnimalKnowledgeProfile first, AnimalKnowledgeProfile second)
+        {
+            var comparison = string.Compare(first.name, second.name, StringComparison.OrdinalIgnoreCase);
+            return comparison != 0
+                ? comparison
+                : string.Compare(first.name, second.name, StringComparison.Ordinal);
         }
     }
 
