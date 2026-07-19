@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using System.Reflection;
 using EndangeredAR.Animals;
 using NUnit.Framework;
 using UnityEditor;
@@ -99,6 +101,68 @@ namespace EndangeredAR.Tests.EditMode
             }
         }
 
+        [Test]
+        public void LoadModel_NonexistentRelativePathRestoresDisabledFallbackRenderer()
+        {
+            const string missingRelativePath = "Models/Test/MissingAnimal.glb";
+            var host = new GameObject("Animal Host");
+            var fallback = host.AddComponent<MeshRenderer>();
+            fallback.enabled = false;
+
+            try
+            {
+                var loader = AddGenericLoader(host);
+                SetStreamingAssetPath(loader, missingRelativePath);
+
+                var loadModel = loader.GetType().GetMethod("LoadModel", BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(loadModel, Is.Not.Null, "AnimalModelLoader must retain its private load coroutine.");
+                var loadRoutine = (IEnumerator)loadModel.Invoke(loader, null);
+
+                Assert.That(loadRoutine.MoveNext(), Is.False);
+                Assert.That(fallback.enabled, Is.True);
+            }
+            finally
+            {
+                Destroy(host);
+            }
+        }
+
+        [Test]
+        public void Retry_ClearsOwnedRuntimeRootRetainsHostTransformAndKeepsFallbackEnabledForMissingPath()
+        {
+            const string missingRelativePath = "Models/Test/MissingAnimal.glb";
+            var host = new GameObject("Animal Host");
+            host.transform.SetPositionAndRotation(new Vector3(3f, 4f, 5f), Quaternion.Euler(20f, 30f, 40f));
+            host.transform.localScale = new Vector3(0.4f, 0.5f, 0.6f);
+            var expectedPosition = host.transform.position;
+            var expectedRotation = host.transform.rotation;
+            var expectedScale = host.transform.localScale;
+            var fallback = host.AddComponent<MeshRenderer>();
+            fallback.enabled = false;
+            var runtimeRoot = new GameObject("Animal GLB Runtime Root");
+            runtimeRoot.transform.SetParent(host.transform, false);
+
+            try
+            {
+                var loader = AddGenericLoader(host);
+                SetStreamingAssetPath(loader, missingRelativePath);
+                var retry = loader.GetType().GetMethod("Retry");
+                Assert.That(retry, Is.Not.Null, "AnimalModelLoader must expose Retry().");
+
+                retry.Invoke(loader, null);
+
+                Assert.That(host.transform.Find("Animal GLB Runtime Root"), Is.Null);
+                Assert.That(host.transform.position, Is.EqualTo(expectedPosition));
+                Assert.That(host.transform.rotation, Is.EqualTo(expectedRotation));
+                Assert.That(host.transform.localScale, Is.EqualTo(expectedScale));
+                Assert.That(fallback.enabled, Is.True);
+            }
+            finally
+            {
+                Destroy(host);
+            }
+        }
+
         private static Component AddGenericLoader(GameObject host)
         {
             var loaderType = Type.GetType(LoaderTypeName);
@@ -118,6 +182,13 @@ namespace EndangeredAR.Tests.EditMode
             var property = loader.GetType().GetProperty("LoadedAnimalId");
             Assert.That(property, Is.Not.Null, "AnimalModelLoader must expose LoadedAnimalId.");
             return (string)property.GetValue(loader);
+        }
+
+        private static void SetStreamingAssetPath(Component loader, string path)
+        {
+            var serializedLoader = new SerializedObject(loader);
+            serializedLoader.FindProperty("streamingAssetPath").stringValue = path;
+            serializedLoader.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static AnimalDefinition CreateDefinition(

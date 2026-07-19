@@ -93,9 +93,10 @@ namespace EndangeredAR.Models
 
         private void BeginLoad()
         {
+            ShowFallbackRenderers(true);
+
             if (!Application.isPlaying || string.IsNullOrWhiteSpace(streamingAssetPath))
             {
-                ShowFallbackRenderers(true);
                 return;
             }
 
@@ -110,6 +111,8 @@ namespace EndangeredAR.Models
 
         private IEnumerator LoadModel()
         {
+            ShowFallbackRenderers(true);
+
             if (GetComponent<AnimalGestureController>() == null)
             {
                 gameObject.AddComponent<AnimalGestureController>();
@@ -117,6 +120,7 @@ namespace EndangeredAR.Models
 
             if (!ModelFileExists(streamingAssetPath))
             {
+                ShowFallbackRenderers(true);
                 Debug.LogWarning($"AnimalModelLoader: Model for '{DisplayAnimalId()}' was not found at relative path '{DisplayRelativePath(streamingAssetPath)}'. Keeping the fallback model.");
                 modelLoadRoutine = null;
                 yield break;
