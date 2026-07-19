@@ -54,3 +54,10 @@
 - Commits: `552b1dc..98467e7b`
 - Verification: mission tests 7/7; legacy smoke 1/1; full EditMode 39/39.
 - Review: approved after preserving same-mission completion and adding a bounded generic Resources fallback reachable only through obsolete wrappers until Task 11.
+
+## Task 8 - Animal-Specific Local Fallback
+
+- Status: complete
+- Commits: `f7295b5d..5c0972ae`
+- Verification: focused fallback tests 10/10; full EditMode 49/49.
+- Review: approved after enforcing reachable profile content, deterministic duplicate-safe legacy selection, explicit/null profile isolation, and removing an accidentally committed task report.
