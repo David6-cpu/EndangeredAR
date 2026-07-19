@@ -562,11 +562,11 @@ public ChatAnswer Answer(AnimalKnowledgeProfile profile, string message)
         return new ChatAnswer(entry.Reply, entry.SuggestedQuestions, true);
     return profile == null
         ? ChatAnswer.GenericFallback
-        : new ChatAnswer(profile.UnknownQuestionReply, profile.DefaultSuggestedQuestions, false);
+        : new ChatAnswer(profile.UnknownReply, profile.DefaultSuggestions, false);
 }
 ```
 
-Remove embedded森森 entries. Keep an obsolete `Answer(string)` through a serialized default profile only until Task 11 if needed.
+Remove embedded森森 entries. Keep an obsolete `Answer(string)` until Task 11; if its serialized default profile is unset, it may resolve the first valid profile generically from `Resources/Animals` so the existing scene remains functional without embedding any animal-specific content.
 
 - [ ] **Step 3: Run and commit**
 
