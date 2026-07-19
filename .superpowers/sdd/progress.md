@@ -47,3 +47,10 @@
 - Commits: `e63e9b3..3df22227`
 - Verification: focused asset tests 3/3; full EditMode 32/32; two builder runs preserved all three asset GUIDs.
 - Review: approved. Minor residual: GUID stability is verified procedurally and by `LoadOrCreate`, but not yet an automated test.
+
+## Task 7 - Definition-Driven Mission Controller
+
+- Status: complete
+- Commits: `552b1dc..98467e7b`
+- Verification: mission tests 7/7; legacy smoke 1/1; full EditMode 39/39.
+- Review: approved after preserving same-mission completion and adding a bounded generic Resources fallback reachable only through obsolete wrappers until Task 11.
