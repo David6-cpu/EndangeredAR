@@ -1,0 +1,14 @@
+{
+  "name": "EndangeredAR.Runtime",
+  "rootNamespace": "EndangeredAR",
+  "references": ["glTFast", "UnityEngine.UI"],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
