@@ -6,8 +6,16 @@
 
 ## Automated
 
-- [ ] Batch-mode compilation completes without C# errors.
-- [ ] Project opens without missing package errors.
+- [x] Batch-mode compilation completes without C# errors.
+- [x] Project opens without missing package errors.
+
+Clean-worktree verification command:
+
+```text
+/Applications/Unity/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/MacOS/Unity -batchmode -nographics -quit -projectPath /Users/yuanweijie/Documents/animalsAR/EndangeredAR -logFile /private/tmp/endangered-ar-clean-baseline-retry.log
+```
+
+Result: exit code `0`; log contains `Exiting batchmode successfully now!` and no C# compiler or package-resolution errors.
 
 ## Manual Regression
 
