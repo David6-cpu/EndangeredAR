@@ -183,7 +183,7 @@ public void SensenFoodMission_AwardsPointsOnlyOnce()
         var controller = go.AddComponent<MissionController>();
         controller.StartFoodMission();
         Assert.That(controller.SelectFood("嫩叶").Success, Is.True);
-        Assert.That(controller.SelectFood("果实").Success, Is.True);
+        Assert.That(controller.SelectFood("花朵").Success, Is.True);
         Assert.That(controller.Points, Is.EqualTo(20));
     }
     finally { Object.DestroyImmediate(go); }
@@ -912,4 +912,3 @@ git commit -m "test: verify data-driven Sensen vertical slice"
 
 1. **Three-Animal Catalog and Unlock Flow:** 图鉴首页、锁定卡片、中央扫描、大熊猫/雪豹明确占位模型、重复扫描与图鉴直达统一互动页。
 2. **Three-Animal Content and Release Readiness:** 三份审核知识、三套角色 Prompt、三项专属任务、徽章与科普卡片、正式模型替换、真机性能和发布验收。
-
