@@ -61,3 +61,12 @@
 - Commits: `f7295b5d..5c0972ae`
 - Verification: focused fallback tests 10/10; full EditMode 49/49.
 - Review: approved after enforcing reachable profile content, deterministic duplicate-safe legacy selection, explicit/null profile isolation, and removing an accidentally committed task report.
+
+## Task 9 - Generic Bundled GLB Loading
+
+- Status: complete (automated gate); interactive scene verification carried to final Play Mode/device verification.
+- Commits: `923c7827`, `3d5cb7e9`.
+- Verification: required loader tests 5/5; full EditMode 54/54 from a source-identical temporary project after the original AssetDatabase/licensing IPC path was unavailable.
+- Review: approved after fixing the nonblank missing-file branch so it always restores fallback renderers and adding direct load-failure plus Retry/stale-root coverage.
+- Compatibility: the existing `SensenGlbLoader` GUID and serialized field names remain intact; the generic loader owns only `Animal GLB Runtime Root` and never writes the experience host Transform.
+- Carried verification: after scene integration, visually confirm Sensen texture/material repair, fallback-hide timing, rotation, pinch, final placement, and inherited private-field scene deserialization in Play Mode/device build.
