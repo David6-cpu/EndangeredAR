@@ -33,3 +33,10 @@
 - Verification: focused catalog tests 11/11; full EditMode 22/22.
 - Review: approved after adding direct coverage for incomplete content, whitespace lookup, idempotent initialization, one-time issue logging, default selection, fallback, and lazy lookup.
 - Maintenance: stale Addressables linker output removed in `a7457d64` after repeated deterministic Unity deletion.
+
+## Task 5 - Versioned Local Animal Progress
+
+- Status: complete
+- Commits: `b0275d7..ffdf2bf4`
+- Verification: focused progress tests 7/7 on two consecutive runs; full EditMode 29/29.
+- Review: approved after fixing explicit repository path precedence across `Awake` initialization and proving temp path A-to-B switching without real app data access.
