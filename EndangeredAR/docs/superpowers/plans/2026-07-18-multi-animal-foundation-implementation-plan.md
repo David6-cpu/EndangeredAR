@@ -17,6 +17,10 @@
 - 不提交 API Key、`.env`、用户存档、`Library/`、`UserSettings/`、`.vscode/`。
 - 每个任务先写失败测试，再实现最小代码，再运行对应测试。
 - 运行 Unity 批处理前先关闭编辑器，避免项目锁和 Library 并发写入。
+- Phase 1 保留现有四个任务按钮：嫩叶、花朵正确；人类零食、塑料错误。果实仅作为知识内容，不新增第五个按钮。
+- Phase 1 的扫描器只允许 `sensen_marker -> sensen` 进入体验；任何未知或尚未入目录的动物事件都必须停止导航。
+- 扫描成功后进入独立 3D 页并使用 `AnimalDefinition.ExperiencePosition` 固定展示；不使用 tracked marker Transform 做空间放置。
+- PlayMode 测试必须在场景 `Awake` 前注入临时存档路径，禁止先读取真实 `Application.persistentDataPath`。
 
 统一命令变量：
 
@@ -161,6 +165,7 @@ using System.Runtime.CompilerServices;
   "precompiledReferences": ["nunit.framework.dll"],
   "autoReferenced": false,
   "defineConstraints": ["UNITY_INCLUDE_TESTS"],
+  "optionalUnityReferences": ["TestAssemblies"],
   "versionDefines": [],
   "noEngineReferences": false
 }
@@ -447,7 +452,7 @@ Expected: both runs pass six tests.
 
 - [ ] **Step 1: Write failing asset integrity tests**
 
-Assert: ID `sensen`; marker `sensen_marker`; model path `Models/Sensen/sensen.glb`; non-null knowledge/mission; five options and three correct natural foods; configured definition.
+Assert: ID `sensen`; marker `sensen_marker`; model path `Models/Sensen/sensen.glb`; non-null knowledge/mission; four visible options with two correct natural foods; configured definition.
 
 - [ ] **Step 2: Implement idempotent editor generation**
 
@@ -469,7 +474,7 @@ modelEulerAngles (0, 180, 0)
 modelScale (1.45, 1.45, 1.45)
 ```
 
-Migrate only current reviewed knowledge. Mission options: leaf/嫩叶/correct, fruit/果实/correct, flower/花朵/correct, snack/人类零食/wrong, plastic/塑料/wrong. Reward 20; badge `eco-guardian-sensen`.
+Migrate only current reviewed knowledge. Mission options: leaf/嫩叶/correct, flower/花朵/correct, snack/人类零食/wrong, plastic/塑料/wrong. Keep fruit in the food knowledge text only. Reward 20; badge `eco-guardian-sensen`.
 
 - [ ] **Step 3: Generate, test, commit**
 
@@ -601,7 +606,9 @@ public class AnimalModelLoader : MonoBehaviour
 }
 ```
 
-Reuse material repair/fallback behavior. Use `Animal GLB Runtime Root`; read paths and local presentation from the definition; never modify host world position/scale; log animal ID and relative path only; do not load in EditMode.
+Reuse material repair/fallback behavior. Use `Animal GLB Runtime Root`; read paths and local presentation from the definition; never modify `experienceHostTransform` world position/scale; log animal ID and relative path only; do not load in EditMode.
+
+The base loader must retain legacy serialized field names or use `FormerlySerializedAs`, and it must permanently disable the old `fixLegacyDemoPlacement` host correction.
 
 - [ ] **Step 3: Keep the old script GUID as an adapter**
 
@@ -666,7 +673,7 @@ public sealed class AnimalExperienceController : MonoBehaviour
 }
 ```
 
-Successful selection configures mission/model, moves host to `ExperiencePosition`, and exposes selected knowledge/progress. `Prepare` never unlocks. Only scan creates unlock.
+Successful selection configures mission/model, moves `experienceHostTransform` to `ExperiencePosition`, and exposes selected knowledge/progress. `Prepare` never unlocks. Only scan creates unlock.
 
 - [ ] **Step 3: Run and commit**
 
@@ -722,8 +729,10 @@ private AnimalDefinition CurrentAnimal =>
 Migrate exactly:
 
 - simulated animals iterate catalog;
-- scan detected calls `Prepare`;
-- tracked/manual success calls `SelectFromScan` before model page;
+- `ARImageScanController` Phase 1 mapping contains only `sensen_marker -> sensen`;
+- scan detected calls `Prepare`; unknown IDs return immediately and cannot activate model navigation;
+- tracked/manual success calls `SelectFromScan` before model page and enters only when `IsSuccess` is true;
+- tracked marker Transform is intentionally ignored because placement is fixed on the independent 3D page;
 - future catalog entry calls `SelectFromCatalog` and cannot bypass lock;
 - model uses `AnimalModelLoader.Configure(CurrentAnimal)`;
 - mission uses `StartMission` and option IDs;
@@ -743,6 +752,8 @@ Delete `AnimalProfile[]`, `GetValidAnimalProfiles`, `FindAnimalProfile`, nested 
 - [ ] **Step 6: Migrate scene non-destructively**
 
 `AnimalArchitectureSceneMigrator.MigrateDemoScene()` opens the current scene, adds/finds catalog/progress/experience services, assigns `Sensen.asset`, reuses existing placeholder/mission/fallback/demo objects, wires by `SerializedObject`, and saves without calling `BuildDemoScene()` or rebuilding Canvas.
+
+Before migration, record the actual scene null/optional references and button names. After migration, reopen the scene and exercise manual scan, model back, four mission choices, fallback chat, and profile update. Any generated Canvas object addition or deletion is a test failure.
 
 ```bash
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" \
@@ -839,6 +850,7 @@ git commit -m "security: route all LLM traffic through backend"
   "precompiledReferences": ["nunit.framework.dll"],
   "autoReferenced": false,
   "defineConstraints": ["UNITY_INCLUDE_TESTS"],
+  "optionalUnityReferences": ["TestAssemblies"],
   "versionDefines": [],
   "noEngineReferences": false
 }
@@ -854,7 +866,7 @@ git commit -m "security: route all LLM traffic through backend"
 [UnityTest] public IEnumerator NetworkUnavailable_LocalFallbackStillReturnsAnswer()
 ```
 
-Load `DemoScene`, wait two frames, inject a unique temp progress path. Do not overwrite real app progress. Internal read-only hooks are allowed; no public test buttons.
+Set internal static `AnimalProgressService.RepositoryPathOverrideForTests` before `SceneManager.LoadScene`, then load `DemoScene` and assert the active repository path is temporary before any selection or save. Do not overwrite real app progress. Internal read-only hooks are allowed; no public test buttons.
 
 - [ ] **Step 3: Run both suites**
 
