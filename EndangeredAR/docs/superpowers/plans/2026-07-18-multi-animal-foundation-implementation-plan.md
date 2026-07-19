@@ -15,7 +15,7 @@
 - 不做 UI 视觉重构；场景迁移只增加组件和引用，不重建 Canvas 层级。
 - 不重新引入 `RoundedRectGraphic`，不改变按钮点击链路和 Safe Area 结构。
 - 不提交 API Key、`.env`、用户存档、`Library/`、`UserSettings/`、`.vscode/`。
-- 每个任务先写失败测试，再实现最小代码，再运行对应测试。
+- 行为变更任务先写失败测试，再实现最小代码，再运行对应测试。Task 2 仅建立测试脚手架并锁定既有行为，字符化测试在程序集可编译后允许首次即通过，禁止为制造 RED 改坏既有运行时代码。
 - 运行 Unity 批处理前先关闭编辑器，避免项目锁和 Library 并发写入。
 - Phase 1 保留现有四个任务按钮：嫩叶、花朵正确；人类零食、塑料错误。果实仅作为知识内容，不新增第五个按钮。
 - Phase 1 的扫描器只允许 `sensen_marker -> sensen` 进入体验；任何未知或尚未入目录的动物事件都必须停止导航。
@@ -157,7 +157,7 @@ using System.Runtime.CompilerServices;
 {
   "name": "EndangeredAR.Tests.EditMode",
   "rootNamespace": "EndangeredAR.Tests.EditMode",
-  "references": ["EndangeredAR.Runtime", "UnityEngine.TestRunner", "UnityEditor.TestRunner"],
+  "references": ["EndangeredAR.Runtime"],
   "includePlatforms": ["Editor"],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
@@ -172,6 +172,8 @@ using System.Runtime.CompilerServices;
 ```
 
 - [ ] **Step 3: Lock the existing one-time mission reward**
+
+This is a characterization test for stable existing behavior. Once the new test assembly compiles, the test is expected to pass immediately; do not mutate `MissionController` merely to manufacture a behavioral RED.
 
 ```csharp
 [Test]
@@ -196,7 +198,7 @@ public void SensenFoodMission_AwardsPointsOnlyOnce()
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" \
   -runTests -testPlatform EditMode \
   -testResults /private/tmp/editmode.xml \
-  -logFile /private/tmp/editmode.log -quit
+  -logFile /private/tmp/editmode.log
 ```
 
 Expected: one pass, zero failures.
@@ -274,7 +276,7 @@ Keep `Configure(...)` internal; runtime never mutates content.
   -runTests -testPlatform EditMode \
   -testFilter EndangeredAR.Tests.EditMode.AnimalContentContractTests \
   -testResults /private/tmp/content-contract.xml \
-  -logFile /private/tmp/content-contract.log -quit
+  -logFile /private/tmp/content-contract.log
 
 git add EndangeredAR/Assets/Scripts/Animals/AnimalDefinition.cs \
   EndangeredAR/Assets/Scripts/Animals/AnimalKnowledgeProfile.cs \
@@ -335,7 +337,7 @@ Bad content never throws. `Initialize()` is idempotent, logs issues once, and fa
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" \
   -runTests -testPlatform EditMode \
   -testFilter EndangeredAR.Tests.EditMode.AnimalCatalogTests \
-  -testResults /private/tmp/catalog.xml -logFile /private/tmp/catalog.log -quit
+  -testResults /private/tmp/catalog.xml -logFile /private/tmp/catalog.log
 
 git add EndangeredAR/Assets/Scripts/Animals/AnimalCatalog.cs \
   EndangeredAR/Assets/Scripts/Animals/AnimalCatalogService.cs \
@@ -427,10 +429,10 @@ Default file: `Application.persistentDataPath/animal-progress.json`. Unlock save
 ```bash
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" -runTests \
   -testPlatform EditMode -testFilter EndangeredAR.Tests.EditMode.AnimalProgressRepositoryTests \
-  -testResults /private/tmp/progress-1.xml -logFile /private/tmp/progress-1.log -quit
+  -testResults /private/tmp/progress-1.xml -logFile /private/tmp/progress-1.log
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" -runTests \
   -testPlatform EditMode -testFilter EndangeredAR.Tests.EditMode.AnimalProgressRepositoryTests \
-  -testResults /private/tmp/progress-2.xml -logFile /private/tmp/progress-2.log -quit
+  -testResults /private/tmp/progress-2.xml -logFile /private/tmp/progress-2.log
 
 git add EndangeredAR/Assets/Scripts/Progress \
   EndangeredAR/Assets/Tests/EditMode/AnimalProgressRepositoryTests.cs
@@ -484,7 +486,7 @@ Migrate only current reviewed knowledge. Mission options: leaf/嫩叶/correct, f
   -logFile /private/tmp/rebuild-sensen.log -quit
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" -runTests \
   -testPlatform EditMode -testFilter EndangeredAR.Tests.EditMode.SensenContentAssetTests \
-  -testResults /private/tmp/sensen-content.xml -logFile /private/tmp/sensen-content.log -quit
+  -testResults /private/tmp/sensen-content.xml -logFile /private/tmp/sensen-content.log
 
 git add EndangeredAR/Assets/Editor/AnimalContentAssetBuilder.cs \
   EndangeredAR/Assets/Resources/Animals \
@@ -525,7 +527,7 @@ public MissionResult SelectOption(string optionId);
 ```bash
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" -runTests \
   -testPlatform EditMode -testFilter EndangeredAR.Tests.EditMode.MissionControllerTests \
-  -testResults /private/tmp/mission.xml -logFile /private/tmp/mission.log -quit
+  -testResults /private/tmp/mission.xml -logFile /private/tmp/mission.log
 
 git add EndangeredAR/Assets/Scripts/Missions/MissionController.cs \
   EndangeredAR/Assets/Tests/EditMode/ExistingDemoSmokeTests.cs \
@@ -571,7 +573,7 @@ Remove embedded森森 entries. Keep an obsolete `Answer(string)` through a seria
 ```bash
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" -runTests \
   -testPlatform EditMode -testFilter EndangeredAR.Tests.EditMode.LocalKnowledgeChatServiceTests \
-  -testResults /private/tmp/fallback.xml -logFile /private/tmp/fallback.log -quit
+  -testResults /private/tmp/fallback.xml -logFile /private/tmp/fallback.log
 
 git add EndangeredAR/Assets/Scripts/Chat/LocalKnowledgeChatService.cs \
   EndangeredAR/Assets/Tests/EditMode/LocalKnowledgeChatServiceTests.cs
@@ -680,7 +682,7 @@ Successful selection configures mission/model, moves `experienceHostTransform` t
 ```bash
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" -runTests \
   -testPlatform EditMode -testFilter EndangeredAR.Tests.EditMode.AnimalExperienceControllerTests \
-  -testResults /private/tmp/experience.xml -logFile /private/tmp/experience.log -quit
+  -testResults /private/tmp/experience.xml -logFile /private/tmp/experience.log
 
 git add EndangeredAR/Assets/Scripts/Animals/AnimalExperienceController.cs \
   EndangeredAR/Assets/Tests/EditMode/AnimalExperienceControllerTests.cs
@@ -773,7 +775,7 @@ Future `BuildDemoScene()` creates new services, but do not invoke it on the revi
 ```bash
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" -runTests \
   -testPlatform EditMode -testResults /private/tmp/editmode-all.xml \
-  -logFile /private/tmp/editmode-all.log -quit
+  -logFile /private/tmp/editmode-all.log
 
 git add EndangeredAR/Assets/Scripts/UI/DemoAppController.cs \
   EndangeredAR/Assets/Editor/EndangeredARDemoSceneBuilder.cs \
@@ -818,7 +820,7 @@ Expected: no output.
 ```bash
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" -runTests \
   -testPlatform EditMode -testFilter EndangeredAR.Tests.EditMode.ApiSecurityTests \
-  -testResults /private/tmp/api-security.xml -logFile /private/tmp/api-security.log -quit
+  -testResults /private/tmp/api-security.xml -logFile /private/tmp/api-security.log
 
 git add EndangeredAR/Assets/Scripts/API \
   EndangeredAR/Assets/Editor/EndangeredARDemoSceneBuilder.cs \
@@ -842,7 +844,7 @@ git commit -m "security: route all LLM traffic through backend"
 {
   "name": "EndangeredAR.Tests.PlayMode",
   "rootNamespace": "EndangeredAR.Tests.PlayMode",
-  "references": ["EndangeredAR.Runtime", "UnityEngine.TestRunner"],
+  "references": ["EndangeredAR.Runtime"],
   "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
@@ -873,10 +875,10 @@ Set internal static `AnimalProgressService.RepositoryPathOverrideForTests` befor
 ```bash
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" -runTests \
   -testPlatform EditMode -testResults /private/tmp/editmode-final.xml \
-  -logFile /private/tmp/editmode-final.log -quit
+  -logFile /private/tmp/editmode-final.log
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" -runTests \
   -testPlatform PlayMode -testResults /private/tmp/playmode-final.xml \
-  -logFile /private/tmp/playmode-final.log -quit
+  -logFile /private/tmp/playmode-final.log
 ```
 
 Expected: zero failures; no null exception, missing script, or compile error.
