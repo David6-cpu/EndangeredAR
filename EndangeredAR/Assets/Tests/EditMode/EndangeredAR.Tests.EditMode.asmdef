@@ -1,7 +1,7 @@
 {
   "name": "EndangeredAR.Tests.EditMode",
   "rootNamespace": "EndangeredAR.Tests.EditMode",
-  "references": ["EndangeredAR.Runtime", "UnityEngine.TestRunner", "UnityEditor.TestRunner"],
+  "references": ["EndangeredAR.Runtime"],
   "includePlatforms": ["Editor"],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
