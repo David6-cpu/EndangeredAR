@@ -1066,56 +1066,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a75d018515d224a16bc854452e95493f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  entries:
-  - Keywords:
-    - "\u5403"
-    - "\u98DF\u7269"
-    - food
-    Reply: "\u6211\u6700\u559C\u6B22\u68EE\u6797\u91CC\u7684\u5AE9\u53F6\u5566\uFF0C\u4E5F\u4F1A\u5403\u679C\u5B9E\u548C\u82B1\u6735\u3002\u4EBA\u7C7B\u96F6\u98DF\u95FB\u8D77\u6765\u65B0\u5947\uFF0C\u4F46\u771F\u7684\u4E0D\u9002\u5408\u6211\u3002\u4F60\u613F\u610F\u5E2E\u6211\u627E\u4E00\u4EFD\u5929\u7136\u98DF\u7269\u5417\uFF1F"
-    SuggestedQuestions:
-    - "\u5E2E\u68EE\u68EE\u5BFB\u627E\u98DF\u7269"
-    - "\u4E3A\u4EC0\u4E48\u4E0D\u80FD\u6295\u5582\uFF1F"
-    - "\u4F60\u4F4F\u5728\u54EA\u91CC\uFF1F"
-  - Keywords:
-    - "\u4F4F"
-    - "\u6816\u606F"
-    - "\u5BB6"
-    - "\u54EA\u91CC"
-    Reply: "\u6211\u7684\u5BB6\u5728\u70ED\u5E26\u548C\u4E9A\u70ED\u5E26\u68EE\u6797\u3002\u6811\u51A0\u8FDE\u5728\u4E00\u8D77\u65F6\uFF0C\u6211\u5C31\u80FD\u8F7B\u8F7B\u8DF3\u8FC7\u53BB\u627E\u98DF\u7269\u3001\u627E\u540C\u4F34\u3002\u8981\u662F\u68EE\u6797\u88AB\u5207\u5F00\uFF0C\u6211\u4F1A\u6709\u70B9\u5BB3\u6015\u2026\u2026"
-    SuggestedQuestions:
-    - "\u68EE\u6797\u88AB\u7834\u574F\u4F1A\u600E\u6837\uFF1F"
-    - "\u6211\u80FD\u600E\u4E48\u5E2E\u4F60\uFF1F"
-    - "\u4F60\u5403\u4EC0\u4E48\uFF1F"
-  - Keywords:
-    - "\u6FD2\u5371"
-    - "\u5371\u9669"
-    - "\u4E3A\u4EC0\u4E48"
-    - "\u539F\u56E0"
-    Reply: "\u6211\u4F1A\u53D8\u5F97\u6FD2\u5371\uFF0C\u4E3B\u8981\u662F\u56E0\u4E3A\u68EE\u6797\u53D8\u5C11\u3001\u975E\u6CD5\u6355\u730E\u548C\u79CD\u7FA4\u9694\u79BB\u3002\u68EE\u6797\u88AB\u5207\u788E\u540E\uFF0C\u6211\u4EEC\u5F88\u96BE\u8FC1\u79FB\uFF0C\u4E5F\u4E0D\u5BB9\u6613\u9047\u5230\u65B0\u7684\u4F19\u4F34\u3002"
-    SuggestedQuestions:
-    - "\u4EC0\u4E48\u662F\u79CD\u7FA4\u9694\u79BB\uFF1F"
-    - "\u600E\u4E48\u4FDD\u62A4\u4F60\uFF1F"
-    - "\u4F60\u7684\u6816\u606F\u5730\u5728\u54EA\u91CC\uFF1F"
-  - Keywords:
-    - "\u4FDD\u62A4"
-    - "\u5E2E\u52A9"
-    - "\u600E\u4E48\u505A"
-    - "\u884C\u52A8"
-    Reply: "\u8C22\u8C22\u4F60\u613F\u610F\u5E2E\u6211\uFF01\u4F60\u53EF\u4EE5\u5C11\u6D6A\u8D39\u7EB8\u5F20\u3001\u62D2\u7EDD\u8D2D\u4E70\u91CE\u751F\u52A8\u7269\u5236\u54C1\u3001\u652F\u6301\u81EA\u7136\u4FDD\u62A4\uFF0C\u4E5F\u628A\u6B63\u786E\u77E5\u8BC6\u544A\u8BC9\u670B\u53CB\u3002\u5C0F\u5C0F\u884C\u52A8\u4E5F\u4F1A\u8BA9\u68EE\u6797\u66F4\u5B89\u5168\u3002"
-    SuggestedQuestions:
-    - "\u6211\u53EF\u4EE5\u53C2\u52A0\u4EC0\u4E48\u4EFB\u52A1\uFF1F"
-    - "\u4F60\u5403\u4EC0\u4E48\uFF1F"
-    - "\u4E3A\u4EC0\u4E48\u8981\u4FDD\u62A4\u68EE\u6797\uFF1F"
-  - Keywords:
-    - "\u4EFB\u52A1"
-    - "\u6E38\u620F"
-    - "\u6311\u6218"
-    - "\u5FBD\u7AE0"
-    Reply: "\u6211\u4EEC\u6765\u73A9\u4E00\u4E2A\u5C0F\u4EFB\u52A1\u5427\uFF1A\u5E2E\u6211\u5728\u68EE\u6797\u9910\u684C\u91CC\u627E\u5230\u80FD\u5403\u7684\u5929\u7136\u98DF\u7269\u3002\u5B8C\u6210\u540E\uFF0C\u6211\u4F1A\u9001\u4F60\u201C\u751F\u6001\u5B88\u62A4\u8005\u201D\u5FBD\u7AE0\uFF01"
-    SuggestedQuestions:
-    - "\u5F00\u59CB\u5BFB\u627E\u98DF\u7269"
-    - "\u4F60\u559C\u6B22\u5403\u4EC0\u4E48\uFF1F"
-    - "\u5B8C\u6210\u540E\u6709\u4EC0\u4E48\u5956\u52B1\uFF1F"
+  defaultProfile: {fileID: 11400000, guid: 2e28ef70248c047f294d84826fc1e9f6, type: 2}
 --- !u!4 &405879258
 Transform:
   m_ObjectHideFlags: 0
@@ -1182,6 +1133,53 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Padding: {x: 0, y: 0, z: 0, w: 0}
   m_Softness: {x: 0, y: 0}
+--- !u!1 &453843360
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 453843362}
+  - component: {fileID: 453843361}
+  m_Layer: 0
+  m_Name: Animal Catalog Service
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &453843361
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 453843360}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 40ca243e539a43e1a42cfca97d1a3191, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  definitions:
+  - {fileID: 11400000, guid: cb7ac05ccd8f847a8ae5b141ae5b6176, type: 2}
+  defaultAnimalId: sensen
+--- !u!4 &453843362
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 453843360}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &498816236
 GameObject:
   m_ObjectHideFlags: 0
@@ -1215,6 +1213,9 @@ MonoBehaviour:
   chatApiClient: {fileID: 719218288}
   localChatService: {fileID: 405879257}
   missionController: {fileID: 1062457585}
+  animalCatalog: {fileID: 453843361}
+  animalProgress: {fileID: 674462894}
+  animalExperience: {fileID: 1788227480}
   animalPlaceholder: {fileID: 1488156630}
   arSession: {fileID: 0}
   arCameraManager: {fileID: 0}
@@ -1247,6 +1248,7 @@ MonoBehaviour:
   askFoodButton: {fileID: 0}
   askProtectButton: {fileID: 0}
   uiFont: {fileID: 12800000, guid: b32bf723d4f3840e0884c6baad295dfe, type: 3}
+  scanFallbackHintSeconds: 8
 --- !u!4 &498816238
 Transform:
   m_ObjectHideFlags: 0
@@ -1603,6 +1605,50 @@ Canvas:
   m_SortingLayerID: 0
   m_SortingOrder: 0
   m_TargetDisplay: 0
+--- !u!1 &674462893
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 674462895}
+  - component: {fileID: 674462894}
+  m_Layer: 0
+  m_Name: Animal Progress Service
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &674462894
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 674462893}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e08f0a9a24a14c55bc0bc78788a5380a, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+--- !u!4 &674462895
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 674462893}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &719218287
 GameObject:
   m_ObjectHideFlags: 0
@@ -2393,7 +2439,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 77bded726c25341068b2122109e8b2cc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  currentMissionId: sensen_food
+  definition: {fileID: 0}
   points: 0
   state: 0
 --- !u!4 &1062457586
@@ -3915,6 +3961,55 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1780652174}
   m_CullTransparentMesh: 1
+--- !u!1 &1788227479
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1788227481}
+  - component: {fileID: 1788227480}
+  m_Layer: 0
+  m_Name: Animal Experience Controller
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1788227480
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1788227479}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8f721accf6494bf2a9247a7c08916833, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  animalCatalogService: {fileID: 453843361}
+  animalProgressService: {fileID: 674462894}
+  missionController: {fileID: 1062457585}
+  modelLoader: {fileID: 1488156631}
+  experienceHostTransform: {fileID: 1488156635}
+--- !u!4 &1788227481
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1788227479}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1882212638
 GameObject:
   m_ObjectHideFlags: 0
@@ -4350,6 +4445,9 @@ MonoBehaviour:
   requestedCameraHeight: 720
   scanIntervalSeconds: 0.22
   requiredStableDetections: 3
+  markerAnimals:
+  - markerName: sensen_marker
+    animalId: sensen
 --- !u!4 &2043079760
 Transform:
   m_ObjectHideFlags: 0
@@ -4500,3 +4598,6 @@ SceneRoots:
   - {fileID: 644785327}
   - {fileID: 498816238}
   - {fileID: 1160636635}
+  - {fileID: 453843362}
+  - {fileID: 674462895}
+  - {fileID: 1788227481}

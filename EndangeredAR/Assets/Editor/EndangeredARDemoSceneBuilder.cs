@@ -1,8 +1,10 @@
 using EndangeredAR.API;
 using EndangeredAR.AR;
+using EndangeredAR.Animals;
 using EndangeredAR.Chat;
 using EndangeredAR.Models;
 using EndangeredAR.Missions;
+using EndangeredAR.Progress;
 using EndangeredAR.UI;
 using System.IO;
 using System.Net;
@@ -77,6 +79,7 @@ public static class EndangeredARDemoSceneBuilder
 
         var scanObject = new GameObject("AR Image Scan Controller");
         var scanController = scanObject.AddComponent<ARImageScanController>();
+        ConfigureScanner(scanController);
 
         var apiConfig = CreateApiConfig();
         var apiObject = new GameObject("Chat API Client");
@@ -90,6 +93,29 @@ public static class EndangeredARDemoSceneBuilder
 
         var missionObject = new GameObject("Mission Controller");
         var missionController = missionObject.AddComponent<MissionController>();
+
+        var sensenDefinition = AssetDatabase.LoadAssetAtPath<AnimalDefinition>("Assets/Resources/Animals/Sensen.asset");
+        var catalogObject = new GameObject("Animal Catalog Service");
+        var animalCatalog = catalogObject.AddComponent<AnimalCatalogService>();
+        var catalogSerialized = new SerializedObject(animalCatalog);
+        var definitions = catalogSerialized.FindProperty("definitions");
+        definitions.arraySize = 1;
+        definitions.GetArrayElementAtIndex(0).objectReferenceValue = sensenDefinition;
+        catalogSerialized.FindProperty("defaultAnimalId").stringValue = "sensen";
+        catalogSerialized.ApplyModifiedPropertiesWithoutUndo();
+
+        var progressObject = new GameObject("Animal Progress Service");
+        var animalProgress = progressObject.AddComponent<AnimalProgressService>();
+
+        var experienceObject = new GameObject("Animal Experience Controller");
+        var animalExperience = experienceObject.AddComponent<AnimalExperienceController>();
+        var experienceSerialized = new SerializedObject(animalExperience);
+        experienceSerialized.FindProperty("animalCatalogService").objectReferenceValue = animalCatalog;
+        experienceSerialized.FindProperty("animalProgressService").objectReferenceValue = animalProgress;
+        experienceSerialized.FindProperty("missionController").objectReferenceValue = missionController;
+        experienceSerialized.FindProperty("modelLoader").objectReferenceValue = animal.GetComponent<AnimalModelLoader>();
+        experienceSerialized.FindProperty("experienceHostTransform").objectReferenceValue = animal.transform;
+        experienceSerialized.ApplyModifiedPropertiesWithoutUndo();
 
         var canvas = CreateCanvas();
         var homePanel = CreateHomePanel(canvas.transform);
@@ -149,6 +175,9 @@ public static class EndangeredARDemoSceneBuilder
         demoSerialized.FindProperty("chatApiClient").objectReferenceValue = chatApiClient;
         demoSerialized.FindProperty("localChatService").objectReferenceValue = localChatService;
         demoSerialized.FindProperty("missionController").objectReferenceValue = missionController;
+        demoSerialized.FindProperty("animalCatalog").objectReferenceValue = animalCatalog;
+        demoSerialized.FindProperty("animalProgress").objectReferenceValue = animalProgress;
+        demoSerialized.FindProperty("animalExperience").objectReferenceValue = animalExperience;
         demoSerialized.FindProperty("animalPlaceholder").objectReferenceValue = animal;
         demoSerialized.FindProperty("displayCamera").objectReferenceValue = cameraComponent;
         demoSerialized.FindProperty("homePanel").objectReferenceValue = homePanel.gameObject;
@@ -183,6 +212,17 @@ public static class EndangeredARDemoSceneBuilder
 
         EditorSceneManager.SaveScene(scene, "Assets/Scenes/DemoScene.unity");
         EditorUtility.DisplayDialog("Endangered AR", "DemoScene 已生成：Assets/Scenes/DemoScene.unity", "OK");
+    }
+
+    private static void ConfigureScanner(ARImageScanController scanController)
+    {
+        var scannerSerialized = new SerializedObject(scanController);
+        scannerSerialized.FindProperty("defaultAnimalId").stringValue = "sensen";
+        var mappings = scannerSerialized.FindProperty("markerAnimals");
+        mappings.arraySize = 1;
+        mappings.GetArrayElementAtIndex(0).FindPropertyRelative("markerName").stringValue = "sensen_marker";
+        mappings.GetArrayElementAtIndex(0).FindPropertyRelative("animalId").stringValue = "sensen";
+        scannerSerialized.ApplyModifiedPropertiesWithoutUndo();
     }
 
     private static ApiConfig CreateApiConfig()

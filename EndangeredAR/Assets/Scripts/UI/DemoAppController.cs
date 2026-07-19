@@ -8,6 +8,7 @@ using EndangeredAR.Animals;
 using EndangeredAR.Chat;
 using EndangeredAR.Missions;
 using EndangeredAR.Models;
+using EndangeredAR.Progress;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -20,6 +21,9 @@ namespace EndangeredAR.UI
         [SerializeField] private ChatApiClient chatApiClient;
         [SerializeField] private LocalKnowledgeChatService localChatService;
         [SerializeField] private MissionController missionController;
+        [SerializeField] private AnimalCatalogService animalCatalog;
+        [SerializeField] private AnimalProgressService animalProgress;
+        [SerializeField] private AnimalExperienceController animalExperience;
         [SerializeField] private GameObject animalPlaceholder;
         [SerializeField] private Behaviour arSession;
         [SerializeField] private Behaviour arCameraManager;
@@ -53,54 +57,12 @@ namespace EndangeredAR.UI
         [SerializeField] private Button askProtectButton;
         [SerializeField] private Font uiFont;
         [SerializeField] private float scanFallbackHintSeconds = 8f;
-        [SerializeField] private AnimalProfile[] animalProfiles =
-        {
-            new AnimalProfile(
-                "sensen",
-                "缨冠灰叶猴 森森",
-                "Models/Sensen/sensen.glb",
-                "sensen_marker",
-                "你好呀！我是缨冠灰叶猴森森。谢谢你愿意来到我的森林，今天我们一起认识我的食物、家和保护方法吧。",
-                "帮森森寻找食物",
-                new[]
-                {
-                    "缨冠灰叶猴主要吃嫩叶、果实和花朵。",
-                    "完整森林能给缨冠灰叶猴提供食物、庇护和迁徙通道。",
-                    "栖息地破碎、非法捕猎和种群隔离会让它们更加濒危。"
-                }),
-            new AnimalProfile(
-                "animal_02",
-                "濒危动物伙伴二号",
-                "Models/Animal02/animal_02.glb",
-                "animal_02_marker",
-                "你好，我是新加入的濒危动物伙伴。先观察我的体态，再一起了解我的栖息地和保护行动吧。",
-                "帮伙伴二号寻找安全栖息地",
-                new[]
-                {
-                    "不同濒危动物需要不同的食物、栖息地和迁徙空间。",
-                    "保护栖息地比单纯认识动物更重要。",
-                    "每一次正确传播科普知识，都会让更多人关注生物多样性。"
-                }),
-            new AnimalProfile(
-                "animal_03",
-                "待解锁动物伙伴",
-                "Models/Animal03/animal_03.glb",
-                "animal_03_marker",
-                "这位动物伙伴的模型还在准备中。你可以先体验占位展示，之后替换 GLB 就能正式登场。",
-                "为待解锁伙伴准备保护计划",
-                new[]
-                {
-                    "占位动物用于演示多动物扫描流程。",
-                    "提供新 GLB 后，只需要替换模型路径即可接入。",
-                    "多动物科普可以覆盖更多栖息地、食物链和保护主题。"
-                })
-        };
 
         private const string DefaultAnimalId = "sensen";
         private const string ThinkingLine = "正在想一想...";
         private const string UserAvatarFileName = "user_avatar.png";
         private const float CloudAnswerTimeoutSeconds = 40f;
-        private const int MaxHistoryMessages = 10;
+        private const int MaxHistoryMessages = 20;
 
         private static readonly Color ForestDark = SensenDesignTokens.WithAlpha(SensenDesignTokens.Forest950, 0.96f);
         private static readonly Color Leaf = SensenDesignTokens.Leaf500;
@@ -110,14 +72,9 @@ namespace EndangeredAR.UI
         private readonly List<ChatMessage> chatHistory = new List<ChatMessage>();
         private readonly Dictionary<string, Sprite> spriteCache = new Dictionary<string, Sprite>();
         private bool isModelView;
-        private bool isAnimalUnlocked;
         private bool isChatThinking;
-        private bool missionCompleted;
-        private bool earnedBadge;
         private int simulatedAnimalIndex;
-        private string currentAnimalId = DefaultAnimalId;
         private string chatTranscript;
-        private string lastLearnedFact = "完整森林能给缨冠灰叶猴提供食物、庇护和迁徙通道。";
         private Vector3 modelRestPosition;
         private Coroutine modelMotionRoutine;
         private Coroutine feedbackRoutine;
@@ -172,13 +129,36 @@ namespace EndangeredAR.UI
         private const float BottomNavHeight = 170f;
         private const float PageTitleHeight = 178f;
 
-        private static string InitialChatTranscript =>
-            "森森：你好呀！我是缨冠灰叶猴森森。谢谢你愿意来到我的森林，今天我们一起认识我的食物、家和保护方法吧。";
+        private AnimalDefinition CurrentAnimal =>
+            animalExperience != null && animalExperience.CurrentAnimal != null
+                ? animalExperience.CurrentAnimal
+                : animalCatalog?.DefaultAnimal;
 
-        private AnimalProfile CurrentAnimal => FindAnimalProfile(currentAnimalId);
+        private AnimalProgressRecord CurrentProgress => CurrentAnimal == null || animalProgress == null
+            ? null
+            : animalProgress.GetOrCreate(CurrentAnimal.AnimalId);
+
+        private string CurrentAnimalId => CurrentAnimal?.AnimalId ?? string.Empty;
+        private string CurrentShortName => string.IsNullOrWhiteSpace(CurrentAnimal?.ShortName)
+            ? "动物伙伴"
+            : CurrentAnimal.ShortName;
+        private string CurrentDisplayName => string.IsNullOrWhiteSpace(CurrentAnimal?.DisplayName)
+            ? CurrentShortName
+            : CurrentAnimal.DisplayName;
+        private string CurrentWelcomeText => string.IsNullOrWhiteSpace(CurrentAnimal?.WelcomeText)
+            ? "你好，很高兴见到你。我们一起认识濒危动物和保护行动吧。"
+            : CurrentAnimal.WelcomeText;
+        private string CurrentMissionTitle => string.IsNullOrWhiteSpace(CurrentAnimal?.Mission?.Title)
+            ? "完成保护任务"
+            : CurrentAnimal.Mission.Title;
+        private bool IsCurrentAnimalUnlocked => CurrentProgress != null && CurrentProgress.unlocked;
+        private bool IsCurrentMissionCompleted => CurrentProgress != null && CurrentProgress.missionCompleted;
+        private bool HasCurrentBadge => CurrentProgress != null && CurrentProgress.earnedBadgeIds.Count > 0;
 
         private void Awake()
         {
+            InitializeAnimalArchitecture();
+
             if (displayCamera == null)
             {
                 displayCamera = Camera.main;
@@ -194,18 +174,12 @@ namespace EndangeredAR.UI
                 missionController = FindObjectOfType<MissionController>();
             }
 
-            if (missionController == null)
-            {
-                missionController = new GameObject("Mission Controller").AddComponent<MissionController>();
-            }
-
             rootCanvas = FindObjectOfType<Canvas>();
             ConfigureCanvasScaler();
             EnsureEventSystem();
             EnsureCanvasRaycaster();
             EnsureSafeAreaLayout();
             ApplyChineseFont();
-            SetCurrentAnimal(DefaultAnimalId, false);
             ResetSceneToStartupState();
             BuildRuntimeEnhancements();
             StyleExistingUi();
@@ -253,13 +227,49 @@ namespace EndangeredAR.UI
 
         private void OnDestroy()
         {
-            if (scanController == null)
+            if (scanController != null)
             {
+                scanController.AnimalMarkerDetected -= ShowAnimal;
+                scanController.AnimalMarkerTracked -= PlaceAnimalOnMarker;
+            }
+
+            if (animalExperience != null)
+            {
+                animalExperience.CurrentAnimalChanged -= HandleCurrentAnimalChanged;
+            }
+        }
+
+        private void InitializeAnimalArchitecture()
+        {
+            animalCatalog = animalCatalog != null ? animalCatalog : FindObjectOfType<AnimalCatalogService>();
+            animalProgress = animalProgress != null ? animalProgress : FindObjectOfType<AnimalProgressService>();
+            animalExperience = animalExperience != null ? animalExperience : FindObjectOfType<AnimalExperienceController>();
+
+            if (animalCatalog == null || animalProgress == null || animalExperience == null)
+            {
+                Debug.LogError(
+                    "DemoAppController requires Animal Catalog Service, Animal Progress Service, and Animal Experience Controller. " +
+                    "Run Endangered AR/Migrate Demo Scene Animal Architecture and verify the three serialized references.",
+                    this);
+                chatTranscript = "动物伙伴：欢迎来到濒危动物科普体验。";
                 return;
             }
 
-            scanController.AnimalMarkerDetected -= ShowAnimal;
-            scanController.AnimalMarkerTracked -= PlaceAnimalOnMarker;
+            animalCatalog.Initialize();
+            animalProgress.Initialize();
+            animalExperience.Initialize();
+            animalExperience.CurrentAnimalChanged += HandleCurrentAnimalChanged;
+
+            var defaultAnimalId = animalCatalog.DefaultAnimal?.AnimalId;
+            animalExperience.Prepare(string.IsNullOrWhiteSpace(defaultAnimalId) ? DefaultAnimalId : defaultAnimalId);
+        }
+
+        private void HandleCurrentAnimalChanged(AnimalDefinition animal)
+        {
+            RestoreConversation(animal);
+            UpdateLearnContent();
+            UpdateCardContent();
+            UpdateProfileContent();
         }
 
         private void ApplyChineseFont()
@@ -588,10 +598,10 @@ namespace EndangeredAR.UI
             AddClick(modelBackButton, "Back clicked", EnterHomeView);
             AddClick(missionButton, "Food Mission clicked", EnterMissionView);
             AddClick(cardButton, "Card clicked", ShowCardPanel);
-            AddClick(leafyFoodButton, "Food Mission clicked", () => SelectFood("嫩叶"));
-            AddClick(snackFoodButton, "Food Mission clicked", () => SelectFood("薯片"));
-            AddClick(flowerFoodButton, "Food Mission clicked", () => SelectFood("花朵"));
-            AddClick(plasticFoodButton, "Food Mission clicked", () => SelectFood("塑料袋"));
+            AddClick(leafyFoodButton, "Food Mission clicked", () => SelectMissionOption("leaf"));
+            AddClick(snackFoodButton, "Food Mission clicked", () => SelectMissionOption("snack"));
+            AddClick(flowerFoodButton, "Food Mission clicked", () => SelectMissionOption("flower"));
+            AddClick(plasticFoodButton, "Food Mission clicked", () => SelectMissionOption("plastic"));
         }
 
         private void AddClick(Button button, string debugLabel, UnityEngine.Events.UnityAction action)
@@ -684,7 +694,7 @@ namespace EndangeredAR.UI
             var contentParent = contentRoot == null ? rootCanvas.transform : contentRoot;
             var scanParent = scanPanel == null ? safeParent : scanPanel.transform;
 
-            missionButton = CreateButton(safeParent, "Food Mission Button", CurrentAnimal.FoodMissionText, new Vector2(-200, -585), new Vector2(320, 62), Leaf);
+            missionButton = CreateButton(safeParent, "Food Mission Button", CurrentMissionTitle, new Vector2(-200, -585), new Vector2(320, 62), Leaf);
             cardButton = CreateButton(safeParent, "Knowledge Card Button", "生成科普卡片", new Vector2(200, -585), new Vector2(320, 62), Moss);
             appGuideText = CreateText(safeParent, "App Guide Text", "", new Vector2(0, 825), new Vector2(920, 70), 26, Cream, TextAnchor.MiddleCenter);
 
@@ -819,9 +829,9 @@ namespace EndangeredAR.UI
         {
             missionPanel = CreatePanel(parent, "Mission Panel", new Vector2(0.06f, 0.12f), new Vector2(0.94f, 0.88f), ForestDark);
             ApplyRoundedPanel(missionPanel, ForestDark, 34f);
-            missionTitleText = CreateText(missionPanel.transform, "Mission Title", CurrentAnimal.FoodMissionText, new Vector2(0, 575), new Vector2(820, 72), 46, Color.white, TextAnchor.MiddleCenter);
+            missionTitleText = CreateText(missionPanel.transform, "Mission Title", CurrentMissionTitle, new Vector2(0, 575), new Vector2(820, 72), 46, Color.white, TextAnchor.MiddleCenter);
             missionTitleText.fontStyle = FontStyle.Bold;
-            missionStatusText = CreateText(missionPanel.transform, "Mission Status", $"森林餐桌打开啦。请选择适合{CurrentAnimal.ShortName}的食物。", new Vector2(0, 450), new Vector2(820, 120), 30, Cream, TextAnchor.MiddleCenter);
+            missionStatusText = CreateText(missionPanel.transform, "Mission Status", CurrentMissionPrompt(), new Vector2(0, 450), new Vector2(820, 120), 30, Cream, TextAnchor.MiddleCenter);
             leafyFoodButton = CreateButton(missionPanel.transform, "Leaf Food Button", "嫩叶", new Vector2(-220, 260), new Vector2(330, 92), Leaf);
             snackFoodButton = CreateButton(missionPanel.transform, "Snack Food Button", "薯片", new Vector2(220, 260), new Vector2(330, 92), Moss);
             flowerFoodButton = CreateButton(missionPanel.transform, "Flower Food Button", "花朵", new Vector2(-220, 120), new Vector2(330, 92), Leaf);
@@ -842,11 +852,11 @@ namespace EndangeredAR.UI
             var cardHeroSurface = CreatePanel(cardPanel.transform, "Card Hero Surface", new Vector2(0.08f, 0.71f), new Vector2(0.92f, 0.96f), new Color(0.06f, 0.17f, 0.12f, 0.94f));
             ApplyRoundedPanel(cardHeroSurface, new Color(0.06f, 0.17f, 0.12f, 0.94f), 24f);
             CreateImage(cardPanel.transform, "Card Sensen Avatar", "Characters/character-sensen-avatar", new Vector2(-245, 470), new Vector2(176, 176), Color.white, true);
-            cardHeaderText = CreateText(cardPanel.transform, "Card Header", $"今日认识了{CurrentAnimal.ShortName}", new Vector2(105, 520), new Vector2(500, 64), 40, Color.white, TextAnchor.MiddleLeft);
+            cardHeaderText = CreateText(cardPanel.transform, "Card Header", $"今日认识了{CurrentShortName}", new Vector2(105, 520), new Vector2(500, 64), 40, Color.white, TextAnchor.MiddleLeft);
             cardHeaderText.fontStyle = FontStyle.Bold;
             CreateText(cardPanel.transform, "Card Subtitle", "一张属于你的生态守护记录", new Vector2(105, 464), new Vector2(500, 40), 22, new Color(0.82f, 0.93f, 0.82f), TextAnchor.MiddleLeft);
             CreateImage(cardPanel.transform, "Card Badge Icon", "Badges/badge-eco-guardian", new Vector2(290, 380), new Vector2(110, 110), Color.white, true);
-            cardModelHintText = CreateText(cardPanel.transform, "Card Model Hint", $"{CurrentAnimal.ShortName}：谢谢你愿意了解我的森林", new Vector2(-30, 360), new Vector2(610, 42), 21, new Color(0.9f, 0.96f, 0.86f), TextAnchor.MiddleLeft);
+            cardModelHintText = CreateText(cardPanel.transform, "Card Model Hint", $"{CurrentShortName}：谢谢你愿意了解我的森林", new Vector2(-30, 360), new Vector2(610, 42), 21, new Color(0.9f, 0.96f, 0.86f), TextAnchor.MiddleLeft);
 
             var cardContentSurface = CreatePanel(cardPanel.transform, "Card Content Surface", new Vector2(0.08f, 0.28f), new Vector2(0.92f, 0.66f), new Color(0.97f, 0.99f, 0.92f, 0.98f));
             ApplyRoundedPanel(cardContentSurface, new Color(0.97f, 0.99f, 0.92f, 0.98f), 24f);
@@ -1326,13 +1336,13 @@ namespace EndangeredAR.UI
             SetButtonVisible(askProtectButton, false);
             SetButtonVisible(backHomeButton, false);
             DisableArCamera();
-            SetText(chatPageText, isAnimalUnlocked ? chatTranscript : "先去发现页识别动物伙伴，再来和它聊天吧。");
+            SetText(chatPageText, IsCurrentAnimalUnlocked ? chatTranscript : "先去发现页识别动物伙伴，再来和它聊天吧。");
             if (chatInput != null)
             {
                 chatInput.text = "";
             }
 
-            SetChatInputEnabled(isAnimalUnlocked && !isChatThinking);
+            SetChatInputEnabled(IsCurrentAnimalUnlocked && !isChatThinking);
             SetGuide("");
             ScrollChatToBottom();
             RefreshUiInteractionState();
@@ -1379,10 +1389,10 @@ namespace EndangeredAR.UI
             SetPanelActive(animalPlaceholder, true);
             SetButtonVisible(askFoodButton, false);
             SetButtonVisible(askProtectButton, false);
-            missionController.StartFoodMission();
-            SetText(missionTitleText, CurrentAnimal.FoodMissionText);
-            SetText(missionStatusText, $"{CurrentAnimal.FoodMissionText}开始啦。请选择最适合的选项。");
-            SetText(badgeText, missionCompleted ? "已获得：生态守护者徽章 +20" : "奖励：生态守护者徽章待解锁");
+            missionController?.StartMission();
+            SetText(missionTitleText, CurrentMissionTitle);
+            SetText(missionStatusText, CurrentMissionPrompt());
+            SetText(badgeText, IsCurrentMissionCompleted ? "已获得：生态守护者徽章 +20" : "奖励：生态守护者徽章待解锁");
             SetGuide("");
             PulseModel();
             RefreshUiInteractionState();
@@ -1409,72 +1419,30 @@ namespace EndangeredAR.UI
             RefreshUiInteractionState();
         }
 
-        private AnimalProfile GetNextSimulatedAnimal()
+        private AnimalDefinition GetNextSimulatedAnimal()
         {
-            var profiles = GetValidAnimalProfiles();
-            if (profiles.Length == 0)
+            animalCatalog?.Initialize();
+            var animals = animalCatalog?.Catalog?.Animals;
+            if (animals == null || animals.Count == 0)
             {
-                return AnimalProfile.DefaultSensen;
+                return null;
             }
 
-            var profile = profiles[simulatedAnimalIndex % profiles.Length];
-            simulatedAnimalIndex = (simulatedAnimalIndex + 1) % profiles.Length;
-            return profile;
-        }
-
-        private AnimalProfile[] GetValidAnimalProfiles()
-        {
-            if (animalProfiles == null || animalProfiles.Length == 0)
-            {
-                return new[] { AnimalProfile.DefaultSensen };
-            }
-
-            return animalProfiles;
-        }
-
-        private AnimalProfile FindAnimalProfile(string animalId)
-        {
-            var profiles = GetValidAnimalProfiles();
-            foreach (var profile in profiles)
-            {
-                if (profile != null && string.Equals(profile.AnimalId, animalId, StringComparison.OrdinalIgnoreCase))
-                {
-                    return profile;
-                }
-            }
-
-            foreach (var profile in profiles)
-            {
-                if (profile != null && string.Equals(profile.AnimalId, DefaultAnimalId, StringComparison.OrdinalIgnoreCase))
-                {
-                    return profile;
-                }
-            }
-
-            return AnimalProfile.DefaultSensen;
-        }
-
-        private void SetCurrentAnimal(string animalId, bool resetProgress)
-        {
-            var profile = FindAnimalProfile(animalId);
-            var animalChanged = !string.Equals(currentAnimalId, profile.AnimalId, StringComparison.OrdinalIgnoreCase);
-            currentAnimalId = profile.AnimalId;
-            chatTranscript = $"{profile.ShortName}：{profile.IntroText}";
-            lastLearnedFact = profile.PrimaryFact;
-
-            if (resetProgress || animalChanged)
-            {
-                isAnimalUnlocked = false;
-                missionCompleted = false;
-                earnedBadge = false;
-                chatHistory.Clear();
-            }
+            var animal = animals[simulatedAnimalIndex % animals.Count];
+            simulatedAnimalIndex = (simulatedAnimalIndex + 1) % animals.Count;
+            return animal;
         }
 
         private void SimulateScan()
         {
             StopScanFallbackHintTimer();
             var animal = GetNextSimulatedAnimal();
+            if (animal == null)
+            {
+                SetText(statusText, "动物目录未配置，请返回首页后重试。");
+                return;
+            }
+
             SetText(statusText, $"已识别{animal.DisplayName}卡片");
             SetText(cameraScanHintText, $"识别成功，{animal.ShortName}正在出现...");
             if (scanController != null)
@@ -1483,8 +1451,13 @@ namespace EndangeredAR.UI
                 return;
             }
 
-            SetCurrentAnimal(animal.AnimalId, false);
-            EnterModelView();
+            var result = animalExperience == null
+                ? default
+                : animalExperience.SelectFromScan(animal.AnimalId);
+            if (result.IsSuccess)
+            {
+                EnterModelView();
+            }
         }
 
         private void ShowAnimal(string animalId)
@@ -1494,22 +1467,54 @@ namespace EndangeredAR.UI
                 return;
             }
 
-            SetCurrentAnimal(animalId, false);
+            var result = animalExperience == null
+                ? default
+                : animalExperience.Prepare(animalId);
+            if (!result.IsSuccess)
+            {
+                return;
+            }
+
             SetPanelActive(animalPlaceholder, true);
-            SetText(statusText, $"{CurrentAnimal.ShortName}出现了！");
+            SetText(statusText, $"{CurrentShortName}出现了！");
         }
 
         private void PlaceAnimalOnMarker(string animalId, Transform markerTransform)
         {
-            SetCurrentAnimal(animalId, false);
+            _ = markerTransform;
+            var result = animalExperience == null
+                ? default
+                : animalExperience.SelectFromScan(animalId);
+            if (result.IsSuccess)
+            {
+                EnterModelView();
+            }
+        }
+
+        public bool OpenAnimalFromCatalog(string animalId)
+        {
+            var result = animalExperience == null
+                ? default
+                : animalExperience.SelectFromCatalog(animalId);
+            if (!result.IsSuccess)
+            {
+                return false;
+            }
+
             EnterModelView();
+            return true;
         }
 
         private void EnterModelView()
         {
+            if (CurrentAnimal == null)
+            {
+                EnterHomeView();
+                return;
+            }
+
             isModelView = true;
             StopScanFallbackHintTimer();
-            UnlockAnimalChat();
             SetPanelActive(homePanel, false);
             SetPanelActive(scanPanel, false);
             SetPanelActive(scanRoot == null ? null : scanRoot.gameObject, false);
@@ -1540,27 +1545,19 @@ namespace EndangeredAR.UI
 
             if (animalPlaceholder != null)
             {
-                animalPlaceholder.transform.SetPositionAndRotation(new Vector3(-1.02f, -0.13f, 0f), Quaternion.identity);
-                if (animalPlaceholder.transform.localScale.x < 0.95f || animalPlaceholder.transform.localScale.x > 1.25f)
-                {
-                    animalPlaceholder.transform.localScale = Vector3.one;
-                }
-
                 animalPlaceholder.SetActive(true);
-                var loader = animalPlaceholder.GetComponent<SensenGlbLoader>();
-                loader?.ConfigureModel(CurrentAnimal.ModelPath);
                 var gesture = animalPlaceholder.GetComponent<AnimalGestureController>();
                 gesture?.RefreshBaseScale();
                 modelRestPosition = animalPlaceholder.transform.position;
                 StartModelMotion();
             }
 
-            SetButtonLabel(missionButton, CurrentAnimal.FoodMissionText);
-            SetText(missionTitleText, CurrentAnimal.FoodMissionText);
-            SetText(missionStatusText, $"森林餐桌打开啦。请选择适合{CurrentAnimal.ShortName}的食物。");
-            SetText(statusText, $"{CurrentAnimal.ShortName}：谢谢你找到我！我们一起守护森林吧。");
+            SetButtonLabel(missionButton, CurrentMissionTitle);
+            SetText(missionTitleText, CurrentMissionTitle);
+            SetText(missionStatusText, CurrentMissionPrompt());
+            SetText(statusText, $"{CurrentShortName}：谢谢你找到我！我们一起守护森林吧。");
             SetText(chatText, "");
-            SetModelChatText($"{CurrentAnimal.IntroText}\n\n你可以用手指旋转、缩放观察我，也可以直接问我问题。");
+            SetModelChatText($"{CurrentWelcomeText}\n\n你可以用手指旋转、缩放观察我，也可以直接问我问题。");
             SetGuide("");
             StartCoroutine(WelcomeAfterReveal());
             RefreshUiInteractionState();
@@ -1569,25 +1566,12 @@ namespace EndangeredAR.UI
         private IEnumerator WelcomeAfterReveal()
         {
             yield return new WaitForSeconds(0.4f);
-            AddAssistantMessage($"你找到我啦！我是{CurrentAnimal.ShortName}。你可以直接在下面输入问题。", false);
-        }
-
-        private void UnlockAnimalChat()
-        {
-            if (isAnimalUnlocked)
-            {
-                return;
-            }
-
-            isAnimalUnlocked = true;
-            chatTranscript = $"{CurrentAnimal.ShortName}：{CurrentAnimal.IntroText}";
-            chatHistory.Clear();
-            AddHistory("assistant", CurrentAnimal.IntroText);
+            AddAssistantMessage($"你找到我啦！我是{CurrentShortName}。你可以直接在下面输入问题。", false);
         }
 
         private void AskLocal(string message)
         {
-            if (!isAnimalUnlocked)
+            if (!IsCurrentAnimalUnlocked)
             {
                 SetText(chatPageText, "先去发现页识别动物伙伴，再来和它聊天吧。");
                 SetModelChatText("先扫描识别卡，就可以和我聊天啦。");
@@ -1601,7 +1585,7 @@ namespace EndangeredAR.UI
 
             if (string.IsNullOrWhiteSpace(message))
             {
-                AppendChatLine("提示", $"请输入一个想问{CurrentAnimal.ShortName}的问题。");
+                AppendChatLine("提示", $"请输入一个想问{CurrentShortName}的问题。");
                 return;
             }
 
@@ -1613,29 +1597,29 @@ namespace EndangeredAR.UI
             isChatThinking = true;
             SetChatInputEnabled(false);
             AppendChatLine("你", message);
-            AppendChatLine(CurrentAnimal.ShortName, ThinkingLine);
+            AppendChatLine(CurrentShortName, ThinkingLine);
             SetModelChatText(ThinkingLine);
             ScrollChatToBottom();
             StartCloudAnswerTimeout(message);
 
             if (chatApiClient == null)
             {
-                FinishCloudAnswer(message, BuildFallbackReply(message), $"云端还没配置好，{CurrentAnimal.ShortName}先用本地知识陪你继续。");
+                FinishCloudAnswer(message, BuildFallbackReply(message), $"云端还没配置好，{CurrentShortName}先用本地知识陪你继续。");
                 return;
             }
 
             StartCoroutine(chatApiClient.SendMessage(
-                currentAnimalId,
+                CurrentAnimalId,
                 message,
                 chatHistory.ToArray(),
                 response => StartCoroutine(FinishCloudAnswerAfterDelay(message, response.reply, response.missionHint)),
-                error => StartCoroutine(FinishCloudAnswerAfterDelay(message, BuildFallbackReply(message), $"云端暂时不稳定，{CurrentAnimal.ShortName}先用本地知识陪你继续。"))
+                error => StartCoroutine(FinishCloudAnswerAfterDelay(message, BuildFallbackReply(message), $"云端暂时不稳定，{CurrentShortName}先用本地知识陪你继续。"))
             ));
         }
 
         private void AskModelPanel(string message)
         {
-            SetText(chatText, $"你：{message}\n{CurrentAnimal.ShortName}：{ThinkingLine}");
+            SetText(chatText, $"你：{message}\n{CurrentShortName}：{ThinkingLine}");
             AskLocal(message);
             PulseModel();
         }
@@ -1650,7 +1634,7 @@ namespace EndangeredAR.UI
                 yield break;
             }
 
-            FinishCloudAnswer(userMessage, BuildFallbackReply(userMessage), $"网络有点慢，{CurrentAnimal.ShortName}先用本地知识回答你。");
+            FinishCloudAnswer(userMessage, BuildFallbackReply(userMessage), $"网络有点慢，{CurrentShortName}先用本地知识回答你。");
         }
 
         private void StartCloudAnswerTimeout(string userMessage)
@@ -1696,18 +1680,18 @@ namespace EndangeredAR.UI
 
             reply = SanitizeUserFacingReply(reply, userMessage);
 
-            if (!string.IsNullOrWhiteSpace(missionHint))
+            if (!string.IsNullOrWhiteSpace(missionHint) && !LooksTechnical(missionHint))
             {
                 reply = $"{reply}\n{missionHint}";
             }
 
-            ReplaceLastThinkingLine($"{CurrentAnimal.ShortName}：{reply}");
+            ReplaceLastThinkingLine($"{CurrentShortName}：{reply}");
             SetText(chatPageText, chatTranscript);
             SetText(chatText, "");
             SetModelChatText(reply);
             AddHistory("user", userMessage);
             AddHistory("assistant", reply);
-            lastLearnedFact = ExtractLearnedFact(userMessage, reply);
+            PersistConversation();
             isChatThinking = false;
             SetChatInputEnabled(true);
             ScrollChatToBottom();
@@ -1741,36 +1725,33 @@ namespace EndangeredAR.UI
 
         private string BuildFallbackReply(string message)
         {
-            if (!string.Equals(currentAnimalId, DefaultAnimalId, StringComparison.OrdinalIgnoreCase))
-            {
-                return $"我先用本地知识告诉你：{CurrentAnimal.PrimaryFact}\n你愿意继续帮我完成“{CurrentAnimal.FoodMissionText}”任务吗？";
-            }
-
             var answer = localChatService == null
                 ? new ChatAnswer("我还在整理这个问题，不过保护森林、拒绝投喂野生动物，就是帮我的好办法。", Array.Empty<string>(), false)
-                : localChatService.Answer(message);
+                : localChatService.Answer(CurrentAnimal?.Knowledge, message);
 
             var reply = answer.Reply;
-            if (!reply.Contains("森森") && !reply.Contains("我"))
+            if (string.IsNullOrWhiteSpace(reply))
+            {
+                reply = "我暂时无法回答这个问题，不过我们可以继续了解栖息地和保护行动。";
+            }
+            else if (!reply.Contains(CurrentShortName) && !reply.Contains("我"))
             {
                 reply = $"我悄悄告诉你：{reply}";
             }
 
-            return $"{reply}\n你愿意继续帮我完成“{CurrentAnimal.FoodMissionText}”任务吗？";
+            return $"{reply}\n你愿意继续帮我完成“{CurrentMissionTitle}”任务吗？";
         }
 
-        private void SelectFood(string option)
+        private void SelectMissionOption(string optionId)
         {
-            var result = missionController.SelectFood(option);
+            var result = missionController == null ? default : missionController.SelectOption(optionId);
             SetText(missionStatusText, result.Feedback);
-            lastLearnedFact = result.LearnedFact;
 
             if (result.Success)
             {
-                missionCompleted = true;
-                earnedBadge = true;
+                animalProgress?.MarkMissionCompleted(CurrentAnimalId, result.BadgeId, result.LearnedKnowledgeId);
                 SetText(badgeText, "已获得：生态守护者徽章 +20");
-                AddAssistantMessage($"太棒啦！你帮{CurrentAnimal.ShortName}完成了任务。现在你已经是小小生态守护者了，可以生成一张科普卡片带走这段记录。", true);
+                AddAssistantMessage($"太棒啦！你帮{CurrentShortName}完成了任务。现在你已经是小小生态守护者了，可以生成一张科普卡片带走这段记录。", true);
                 UpdateCardContent();
                 UpdateProfileContent();
                 PulseModel();
@@ -1803,7 +1784,7 @@ namespace EndangeredAR.UI
             cardTexture.SetPixels(screenTexture.GetPixels(x, y, width, height));
             cardTexture.Apply();
 
-            var fileName = $"{currentAnimalId}_card_{DateTime.Now:yyyyMMdd_HHmmss}.png";
+            var fileName = $"{CurrentAnimalId}_card_{DateTime.Now:yyyyMMdd_HHmmss}.png";
             var path = Path.Combine(Application.persistentDataPath, fileName);
             File.WriteAllBytes(path, cardTexture.EncodeToPNG());
             Destroy(screenTexture);
@@ -1847,25 +1828,6 @@ namespace EndangeredAR.UI
             }
         }
 
-        private void PositionModelForCard()
-        {
-            if (animalPlaceholder == null)
-            {
-                return;
-            }
-
-            animalPlaceholder.transform.SetPositionAndRotation(new Vector3(-1.02f, -0.13f, 0f), Quaternion.identity);
-            if (animalPlaceholder.transform.localScale.x < 0.75f)
-            {
-                animalPlaceholder.transform.localScale = Vector3.one * 0.9f;
-            }
-
-            var gesture = animalPlaceholder.GetComponent<AnimalGestureController>();
-            gesture?.RefreshBaseScale();
-            modelRestPosition = animalPlaceholder.transform.position;
-            StartModelMotion();
-        }
-
         private void PulseModel()
         {
             if (animalPlaceholder == null)
@@ -1898,11 +1860,12 @@ namespace EndangeredAR.UI
 
         private void AddAssistantMessage(string reply, bool addToHistory)
         {
-            AppendChatLine(CurrentAnimal.ShortName, reply);
+            AppendChatLine(CurrentShortName, reply);
             SetModelChatText(reply);
             if (addToHistory)
             {
                 AddHistory("assistant", reply);
+                PersistConversation();
             }
         }
 
@@ -1914,7 +1877,7 @@ namespace EndangeredAR.UI
 
         private void ReplaceLastThinkingLine(string replacement)
         {
-            var thinkingLine = $"{CurrentAnimal.ShortName}：{ThinkingLine}";
+            var thinkingLine = $"{CurrentShortName}：{ThinkingLine}";
             var index = chatTranscript.LastIndexOf(thinkingLine, StringComparison.Ordinal);
             if (index >= 0)
             {
@@ -1934,29 +1897,178 @@ namespace EndangeredAR.UI
             }
         }
 
-        private string ExtractLearnedFact(string userMessage, string reply)
+        private void RestoreConversation(AnimalDefinition animal)
         {
-            userMessage = userMessage ?? string.Empty;
-            reply = reply ?? string.Empty;
-
-            if (!string.Equals(currentAnimalId, DefaultAnimalId, StringComparison.OrdinalIgnoreCase))
+            chatHistory.Clear();
+            if (animal == null)
             {
-                return CurrentAnimal.PrimaryFact;
+                chatTranscript = "动物伙伴：欢迎来到濒危动物科普体验。";
+                return;
             }
 
-            if (userMessage.Contains("吃") || reply.Contains("嫩叶"))
+            var records = animalProgress?.GetConversation(animal.AnimalId);
+            if (records != null)
             {
-                return "缨冠灰叶猴主要吃嫩叶、果实和花朵，不能随意投喂人类零食。";
+                foreach (var record in records)
+                {
+                    if (record == null || !IsSupportedConversationRole(record.role) ||
+                        !IsPersistableConversationContent(record.content))
+                    {
+                        continue;
+                    }
+
+                    AddHistory(record.role, record.content.Trim());
+                }
             }
 
-            if (userMessage.Contains("森林") || userMessage.Contains("家") || reply.Contains("栖息"))
+            chatTranscript = BuildConversationTranscript(animal.ShortName, animal.WelcomeText, chatHistory);
+        }
+
+        private void PersistConversation()
+        {
+            if (animalProgress == null || string.IsNullOrWhiteSpace(CurrentAnimalId))
             {
-                return "连续完整的森林能帮助森森找到食物、躲避危险并遇到同伴。";
+                return;
             }
 
-            if (userMessage.Contains("保护") || reply.Contains("保护"))
+            animalProgress.ReplaceConversation(CurrentAnimalId, BuildConversationSnapshot(chatHistory));
+        }
+
+        internal static IReadOnlyList<ConversationRecord> BuildConversationSnapshot(IEnumerable<ChatMessage> history)
+        {
+            var snapshot = new List<ConversationRecord>();
+            if (history != null)
             {
-                return "减少浪费、支持自然保护、传播正确知识，都是保护濒危动物的行动。";
+                foreach (var message in history)
+                {
+                    if (message == null || !IsSupportedConversationRole(message.role) ||
+                        !IsPersistableConversationContent(message.content))
+                    {
+                        continue;
+                    }
+
+                    snapshot.Add(new ConversationRecord
+                    {
+                        role = message.role.Trim().ToLowerInvariant(),
+                        content = message.content.Trim()
+                    });
+                }
+            }
+
+            if (snapshot.Count > MaxHistoryMessages)
+            {
+                snapshot.RemoveRange(0, snapshot.Count - MaxHistoryMessages);
+            }
+
+            return snapshot;
+        }
+
+        private static string BuildConversationTranscript(
+            string animalName,
+            string welcomeText,
+            IEnumerable<ChatMessage> history)
+        {
+            var safeAnimalName = string.IsNullOrWhiteSpace(animalName) ? "动物伙伴" : animalName;
+            var lines = new List<string>();
+            if (history != null)
+            {
+                foreach (var message in history)
+                {
+                    if (message == null || !IsSupportedConversationRole(message.role) ||
+                        string.IsNullOrWhiteSpace(message.content))
+                    {
+                        continue;
+                    }
+
+                    var speaker = string.Equals(message.role, "user", StringComparison.OrdinalIgnoreCase)
+                        ? "你"
+                        : safeAnimalName;
+                    lines.Add($"{speaker}：{message.content.Trim()}");
+                }
+            }
+
+            if (lines.Count == 0)
+            {
+                var safeWelcome = string.IsNullOrWhiteSpace(welcomeText)
+                    ? "你好，很高兴见到你。"
+                    : welcomeText.Trim();
+                lines.Add($"{safeAnimalName}：{safeWelcome}");
+            }
+
+            return string.Join("\n\n", lines);
+        }
+
+        private static bool IsSupportedConversationRole(string role)
+        {
+            return string.Equals(role, "user", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(role, "assistant", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsPersistableConversationContent(string content)
+        {
+            if (string.IsNullOrWhiteSpace(content) ||
+                content.IndexOf(ThinkingLine, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                content.IndexOf("http://", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                content.IndexOf("https://", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                content.IndexOf("www.", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return false;
+            }
+
+            return !LooksTechnical(content);
+        }
+
+        private string CurrentMissionPrompt()
+        {
+            return string.IsNullOrWhiteSpace(CurrentAnimal?.Mission?.Prompt)
+                ? $"{CurrentMissionTitle}开始啦。请选择最适合的选项。"
+                : CurrentAnimal.Mission.Prompt;
+        }
+
+        private string CurrentKnowledgeFact(int index)
+        {
+            var knowledge = CurrentAnimal?.Knowledge;
+            if (knowledge == null)
+            {
+                return "认识濒危动物，是参与生态保护的第一步。";
+            }
+
+            if (index == 0)
+            {
+                return string.IsNullOrWhiteSpace(knowledge.EndangeredLevel)
+                    ? knowledge.Habitat
+                    : $"濒危等级：{knowledge.EndangeredLevel}；栖息地：{knowledge.Habitat}";
+            }
+
+            if (index == 1)
+            {
+                return string.IsNullOrWhiteSpace(knowledge.Habitat)
+                    ? knowledge.Food
+                    : knowledge.Habitat;
+            }
+
+            var threats = knowledge.Threats;
+            return threats.Length > 0 && !string.IsNullOrWhiteSpace(threats[0])
+                ? threats[0]
+                : CurrentLearnedFact();
+        }
+
+        private string CurrentLearnedFact()
+        {
+            var mission = CurrentAnimal?.Mission;
+            var progress = CurrentProgress;
+            if (mission != null && progress != null &&
+                !string.IsNullOrWhiteSpace(mission.LearnedKnowledgeId) &&
+                progress.learnedKnowledgeIds.Contains(mission.LearnedKnowledgeId) &&
+                !string.IsNullOrWhiteSpace(mission.LearnedFact))
+            {
+                return mission.LearnedFact;
+            }
+
+            var dailyFacts = CurrentAnimal?.Knowledge?.DailyFacts;
+            if (dailyFacts != null && dailyFacts.Length > 0 && !string.IsNullOrWhiteSpace(dailyFacts[0]))
+            {
+                return dailyFacts[0];
             }
 
             return "认识濒危动物，是参与生态保护的第一步。";
@@ -1969,23 +2081,23 @@ namespace EndangeredAR.UI
             {
                 if (text.name.Contains("Learn Progress"))
                 {
-                    text.text = earnedBadge ? "生态守护者 Lv.2    已完成今日任务" : "生态守护者 Lv.1    今日学习进度 60%";
+                    text.text = HasCurrentBadge ? "生态守护者 Lv.2    已完成今日任务" : "生态守护者 Lv.1    今日学习进度 60%";
                 }
                 else if (text.name.Contains("Species Card"))
                 {
-                    text.text = $"濒危档案\n{CurrentAnimal.DisplayName}\n{CurrentAnimal.GetFact(0)}";
+                    text.text = $"濒危档案\n{CurrentDisplayName}\n{CurrentKnowledgeFact(0)}";
                 }
                 else if (text.name.Contains("Mission Card"))
                 {
-                    text.text = $"任务与栖息地\n{CurrentAnimal.FoodMissionText}\n{CurrentAnimal.GetFact(1)}";
+                    text.text = $"任务与栖息地\n{CurrentMissionTitle}\n{CurrentKnowledgeFact(1)}";
                 }
                 else if (text.name.Contains("Crisis Card"))
                 {
-                    text.text = $"生存威胁与今日知识\n{CurrentAnimal.GetFact(2)}\n今日知识：{lastLearnedFact}";
+                    text.text = $"生存威胁与今日知识\n{CurrentKnowledgeFact(2)}\n今日知识：{CurrentLearnedFact()}";
                 }
                 else if (text.name.Contains("Fun Card"))
                 {
-                    text.text = $"趣味知识\n观察 3D 模型时，可以单指旋转、双指缩放。\n当前伙伴：{CurrentAnimal.ShortName}";
+                    text.text = $"趣味知识\n观察 3D 模型时，可以单指旋转、双指缩放。\n当前伙伴：{CurrentShortName}";
                 }
             }
         }
@@ -1997,19 +2109,19 @@ namespace EndangeredAR.UI
                 return;
             }
 
-            var missionLine = missionCompleted
-                ? $"已完成：{CurrentAnimal.FoodMissionText}"
-                : isAnimalUnlocked
-                    ? $"进行中：{CurrentAnimal.FoodMissionText}"
-                    : $"待开始：先扫描{CurrentAnimal.ShortName}识别卡";
-            var badgeLine = earnedBadge ? "生态守护者徽章已解锁" : "完成食物任务后解锁";
+            var missionLine = IsCurrentMissionCompleted
+                ? $"已完成：{CurrentMissionTitle}"
+                : IsCurrentAnimalUnlocked
+                    ? $"进行中：{CurrentMissionTitle}"
+                    : $"待开始：先扫描{CurrentShortName}识别卡";
+            var badgeLine = HasCurrentBadge ? "生态守护者徽章已解锁" : "完成任务后解锁";
 
-            SetText(cardHeaderText, $"今日认识了{CurrentAnimal.ShortName}");
-            SetText(cardModelHintText, $"{CurrentAnimal.ShortName}：谢谢你愿意了解我的森林");
+            SetText(cardHeaderText, $"今日认识了{CurrentShortName}");
+            SetText(cardModelHintText, $"{CurrentShortName}：谢谢你愿意了解我的森林");
             cardContentText.text =
-                $"今日认识了{CurrentAnimal.ShortName}\n\n"
-                + $"体验：扫描识别卡，观察{CurrentAnimal.DisplayName}的 3D 形态。\n"
-                + $"学习：{lastLearnedFact}\n"
+                $"今日认识了{CurrentShortName}\n\n"
+                + $"体验：扫描识别卡，观察{CurrentDisplayName}的 3D 形态。\n"
+                + $"学习：{CurrentLearnedFact()}\n"
                 + $"任务：{missionLine}\n"
                 + $"徽章：{badgeLine}\n\n"
                 + "分享行动：不投喂野生动物，把森林保护知识告诉更多人。";
@@ -2017,25 +2129,26 @@ namespace EndangeredAR.UI
 
         private void UpdateProfileContent()
         {
-            var unlockedCount = isAnimalUnlocked ? 1 : 0;
-            var missionPoints = missionController == null ? 0 : missionController.Points;
-            var totalPoints = missionPoints + (isAnimalUnlocked ? 10 : 0);
-            var level = earnedBadge ? 2 : 1;
-            var nextAction = earnedBadge
+            var unlockedCount = animalProgress == null ? 0 : animalProgress.UnlockedCount;
+            var catalogCount = animalCatalog?.Catalog?.Animals.Count ?? 0;
+            var missionPoints = IsCurrentMissionCompleted ? CurrentAnimal?.Mission?.Points ?? 0 : 0;
+            var totalPoints = missionPoints + (IsCurrentAnimalUnlocked ? 10 : 0);
+            var level = HasCurrentBadge ? 2 : 1;
+            var nextAction = HasCurrentBadge
                 ? "今日行动：把一条森林保护知识告诉朋友，继续解锁新的动物伙伴。"
-                : isAnimalUnlocked
-                    ? $"今日行动：完成“{CurrentAnimal.FoodMissionText}”任务，领取生态守护者徽章。"
-                    : $"今日行动：先去发现页识别{CurrentAnimal.ShortName}卡片，开启你的第一段 AR 科普记录。";
+                : IsCurrentAnimalUnlocked
+                    ? $"今日行动：完成“{CurrentMissionTitle}”任务，领取生态守护者徽章。"
+                    : $"今日行动：先去发现页识别{CurrentShortName}卡片，开启你的第一段 AR 科普记录。";
 
             SetText(profileNameText, $"生态守护者 Lv.{level}");
-            SetText(profileStatsText, $"积分 {totalPoints}    已解锁动物 {unlockedCount}/{GetValidAnimalProfiles().Length}\n学习进度 {(earnedBadge ? "100%" : isAnimalUnlocked ? "60%" : "20%")}");
-            SetText(profileBadgeText, earnedBadge
-                ? $"徽章卡片\n已获得：生态守护者\n完成{CurrentAnimal.ShortName}的互动挑战。"
+            SetText(profileStatsText, $"积分 {totalPoints}    已解锁动物 {unlockedCount}/{catalogCount}\n学习进度 {(HasCurrentBadge ? "100%" : IsCurrentAnimalUnlocked ? "60%" : "20%")}");
+            SetText(profileBadgeText, HasCurrentBadge
+                ? $"徽章卡片\n已获得：生态守护者\n完成{CurrentShortName}的互动挑战。"
                 : "徽章卡片\n待解锁：生态守护者\n完成今日任务后可获得。");
-            SetText(profileCollectionText, isAnimalUnlocked
-                ? $"动物图鉴卡片\n已解锁：{CurrentAnimal.DisplayName}\n可继续聊天、做任务、生成科普卡片。"
-                : $"动物图鉴卡片\n未解锁：{CurrentAnimal.DisplayName}\n扫描识别卡后加入收藏。");
-            SetText(profileActionText, $"{nextAction}\n今日知识：{lastLearnedFact}");
+            SetText(profileCollectionText, IsCurrentAnimalUnlocked
+                ? $"动物图鉴卡片\n已解锁：{CurrentDisplayName}\n可继续聊天、做任务、生成科普卡片。"
+                : $"动物图鉴卡片\n未解锁：{CurrentDisplayName}\n扫描识别卡后加入收藏。");
+            SetText(profileActionText, $"{nextAction}\n今日知识：{CurrentLearnedFact()}");
         }
 
         private void UseAvatarFromInputPath()
@@ -2911,63 +3024,4 @@ namespace EndangeredAR.UI
         }
     }
 
-    [Serializable]
-    public class AnimalProfile
-    {
-        public AnimalProfile()
-        {
-        }
-
-        public AnimalProfile(string animalId, string displayName, string modelPath, string markerName, string introText, string foodMissionText, string[] knowledgeFacts)
-        {
-            this.animalId = animalId;
-            this.displayName = displayName;
-            this.modelPath = modelPath;
-            this.markerName = markerName;
-            this.introText = introText;
-            this.foodMissionText = foodMissionText;
-            this.knowledgeFacts = knowledgeFacts;
-        }
-
-        [SerializeField] private string animalId;
-        [SerializeField] private string displayName;
-        [SerializeField] private string modelPath;
-        [SerializeField] private string markerName;
-        [SerializeField] private string introText;
-        [SerializeField] private string foodMissionText;
-        [SerializeField] private string[] knowledgeFacts;
-
-        public static AnimalProfile DefaultSensen => new AnimalProfile(
-            "sensen",
-            "缨冠灰叶猴 森森",
-            "Models/Sensen/sensen.glb",
-            "sensen_marker",
-            "你好呀！我是缨冠灰叶猴森森。谢谢你愿意来到我的森林，今天我们一起认识我的食物、家和保护方法吧。",
-            "帮森森寻找食物",
-            new[]
-            {
-                "缨冠灰叶猴主要吃嫩叶、果实和花朵。",
-                "完整森林能给缨冠灰叶猴提供食物、庇护和迁徙通道。",
-                "栖息地破碎、非法捕猎和种群隔离会让它们更加濒危。"
-            });
-
-        public string AnimalId => string.IsNullOrWhiteSpace(animalId) ? "sensen" : animalId;
-        public string DisplayName => string.IsNullOrWhiteSpace(displayName) ? AnimalId : displayName;
-        public string ShortName => DisplayName.Contains(" ") ? DisplayName.Substring(DisplayName.LastIndexOf(" ", StringComparison.Ordinal) + 1) : DisplayName;
-        public string ModelPath => string.IsNullOrWhiteSpace(modelPath) ? string.Empty : modelPath;
-        public string MarkerName => string.IsNullOrWhiteSpace(markerName) ? AnimalId : markerName;
-        public string IntroText => string.IsNullOrWhiteSpace(introText) ? "你好，很高兴见到你。我们一起认识濒危动物和保护行动吧。" : introText;
-        public string FoodMissionText => string.IsNullOrWhiteSpace(foodMissionText) ? "完成保护任务" : foodMissionText;
-        public string PrimaryFact => GetFact(0);
-
-        public string GetFact(int index)
-        {
-            if (knowledgeFacts == null || knowledgeFacts.Length == 0)
-            {
-                return "认识濒危动物，是参与生态保护的第一步。";
-            }
-
-            return knowledgeFacts[Mathf.Clamp(index, 0, knowledgeFacts.Length - 1)];
-        }
-    }
 }

@@ -14,9 +14,7 @@ namespace EndangeredAR.AR
         [SerializeField] private int requiredStableDetections = 3;
         [SerializeField] private MarkerAnimalMapping[] markerAnimals =
         {
-            new MarkerAnimalMapping("sensen_marker", "sensen"),
-            new MarkerAnimalMapping("animal_02_marker", "animal_02"),
-            new MarkerAnimalMapping("animal_03_marker", "animal_03")
+            new MarkerAnimalMapping("sensen_marker", "sensen")
         };
 
         public event Action<string> AnimalMarkerDetected;
@@ -98,8 +96,13 @@ namespace EndangeredAR.AR
 
         public void SimulateMarkerDetected(string animalIdOrMarkerName)
         {
-            markerFired = true;
             var resolvedAnimalId = ResolveAnimalId(animalIdOrMarkerName);
+            if (string.IsNullOrEmpty(resolvedAnimalId))
+            {
+                return;
+            }
+
+            markerFired = true;
             AnimalMarkerDetected?.Invoke(resolvedAnimalId);
             AnimalMarkerTracked?.Invoke(resolvedAnimalId, transform);
         }
@@ -251,37 +254,24 @@ namespace EndangeredAR.AR
         {
             if (string.IsNullOrWhiteSpace(referenceImageName))
             {
-                return defaultAnimalId;
+                return string.Empty;
             }
 
-            var normalized = referenceImageName.ToLowerInvariant();
+            var normalized = referenceImageName.Trim().ToLowerInvariant();
             if (markerAnimals != null)
             {
                 foreach (var mapping in markerAnimals)
                 {
-                    if (mapping != null && mapping.Matches(normalized))
+                    if (mapping != null &&
+                        (mapping.Matches(normalized) ||
+                         string.Equals(mapping.AnimalId, normalized, StringComparison.OrdinalIgnoreCase)))
                     {
                         return mapping.AnimalId;
                     }
                 }
             }
 
-            if (normalized.Contains("sensen"))
-            {
-                return "sensen";
-            }
-
-            if (normalized.Contains("animal_02") || normalized.Contains("animal02"))
-            {
-                return "animal_02";
-            }
-
-            if (normalized.Contains("animal_03") || normalized.Contains("animal03"))
-            {
-                return "animal_03";
-            }
-
-            return defaultAnimalId;
+            return string.Empty;
         }
     }
 
@@ -301,7 +291,7 @@ namespace EndangeredAR.AR
         [SerializeField] private string markerName;
         [SerializeField] private string animalId;
 
-        public string AnimalId => string.IsNullOrWhiteSpace(animalId) ? "sensen" : animalId;
+        public string AnimalId => string.IsNullOrWhiteSpace(animalId) ? string.Empty : animalId.Trim();
 
         public bool Matches(string normalizedReferenceName)
         {
