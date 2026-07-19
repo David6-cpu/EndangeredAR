@@ -56,7 +56,8 @@ namespace EndangeredAR.Tests.EditMode
 
             Assert.That(Status(result), Is.EqualTo("UnknownAnimal"));
             Assert.That(CurrentAnimal(setup.controller), Is.SameAs(currentAnimal));
-            Assert.That(CurrentProgress(setup.controller), Is.SameAs(currentProgress));
+            Assert.That(CurrentProgress(setup.controller), Is.Not.SameAs(currentProgress));
+            Assert.That(CurrentProgress(setup.controller).animalId, Is.EqualTo(currentProgress.animalId));
             Assert.That(setup.host.position, Is.EqualTo(hostPosition));
             Assert.That(setup.progress.IsUnlocked("pangolin"), Is.False);
 
@@ -122,6 +123,34 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
+        public void CurrentProgress_ReflectsSavedChangesAndDoesNotExposeRepositoryRecord()
+        {
+            var pangolin = CreateDefinition("pangolin", "pangolin-mission", Vector3.zero);
+            var setup = CreateSetup(pangolin);
+            Select(setup.controller, "SelectFromScan", "pangolin");
+
+            setup.progress.MarkMissionCompleted("pangolin", "pangolin-badge", "pangolin-knowledge");
+            setup.progress.ReplaceConversation("pangolin", new[]
+            {
+                new ConversationRecord { role = "user", content = "saved conversation" }
+            });
+
+            var exposedProgress = CurrentProgress(setup.controller);
+
+            Assert.That(exposedProgress.missionCompleted, Is.True);
+            Assert.That(exposedProgress.recentConversation[0].content, Is.EqualTo("saved conversation"));
+
+            exposedProgress.missionCompleted = false;
+            exposedProgress.recentConversation[0].content = "mutated caller copy";
+
+            var rereadProgress = CurrentProgress(setup.controller);
+
+            Assert.That(rereadProgress, Is.Not.SameAs(exposedProgress));
+            Assert.That(rereadProgress.missionCompleted, Is.True);
+            Assert.That(rereadProgress.recentConversation[0].content, Is.EqualTo("saved conversation"));
+        }
+
+        [Test]
         public void SelectFromCatalog_LockedAnimalIsRejected()
         {
             var pangolin = CreateDefinition("pangolin", "pangolin-mission", new Vector3(1f, 0f, 0f));
@@ -138,7 +167,8 @@ namespace EndangeredAR.Tests.EditMode
 
             Assert.That(Status(result), Is.EqualTo("Locked"));
             Assert.That(CurrentAnimal(setup.controller), Is.SameAs(currentAnimal));
-            Assert.That(CurrentProgress(setup.controller), Is.SameAs(currentProgress));
+            Assert.That(CurrentProgress(setup.controller), Is.Not.SameAs(currentProgress));
+            Assert.That(CurrentProgress(setup.controller).animalId, Is.EqualTo(currentProgress.animalId));
             Assert.That(setup.host.position, Is.EqualTo(hostPosition));
             Assert.That(setup.mission.CurrentMissionId, Is.EqualTo(missionId));
             Assert.That(setup.loader.LoadedAnimalId, Is.EqualTo(loadedAnimalId));
@@ -187,6 +217,25 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(CurrentProgress(setup.controller).recentConversation[0].content, Is.EqualTo("leopard conversation"));
             Assert.That(setup.mission.CurrentMissionId, Is.EqualTo("leopard-mission"));
             Assert.That(setup.mission.IsCompleted, Is.False);
+        }
+
+        [Test]
+        public void SwitchingAnimalsWithSameMissionId_ResetsMissionCompletionAndPoints()
+        {
+            var pangolin = CreateDefinition("pangolin", "shared-mission", new Vector3(1f, 0f, 0f));
+            var leopard = CreateDefinition("leopard", "shared-mission", new Vector3(2f, 0f, 0f));
+            var setup = CreateSetup(pangolin, leopard);
+            Select(setup.controller, "SelectFromScan", "pangolin");
+            setup.mission.CompleteCurrentMission();
+
+            var result = Select(setup.controller, "SelectFromScan", "leopard");
+
+            Assert.That(Status(result), Is.EqualTo("NewlyUnlocked"));
+            Assert.That(CurrentAnimal(setup.controller), Is.SameAs(leopard));
+            Assert.That(CurrentProgress(setup.controller).missionCompleted, Is.False);
+            Assert.That(setup.mission.CurrentMissionId, Is.EqualTo("shared-mission"));
+            Assert.That(setup.mission.IsCompleted, Is.False);
+            Assert.That(setup.mission.Points, Is.Zero);
         }
 
         private Setup CreateSetup(params AnimalDefinition[] definitions)

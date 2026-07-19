@@ -37,12 +37,13 @@ namespace EndangeredAR.Animals
         [SerializeField] private Transform experienceHostTransform;
 
         private bool initialized;
-        private AnimalProgressRecord currentProgress;
 
         public event Action<AnimalDefinition> CurrentAnimalChanged;
 
         public AnimalDefinition CurrentAnimal { get; private set; }
-        public AnimalProgressRecord CurrentProgress => currentProgress;
+        public AnimalProgressRecord CurrentProgress => CurrentAnimal == null || animalProgressService == null
+            ? null
+            : animalProgressService.GetOrCreate(CurrentAnimal.AnimalId);
 
         public void Initialize()
         {
@@ -119,8 +120,14 @@ namespace EndangeredAR.Animals
                 return Unknown();
             }
 
+            var animalChanged = CurrentAnimal == null ||
+                                !string.Equals(CurrentAnimal.AnimalId, definition.AnimalId, StringComparison.OrdinalIgnoreCase);
+            if (animalChanged)
+            {
+                missionController.Configure(null);
+            }
+
             CurrentAnimal = definition;
-            currentProgress = selectedProgress;
             missionController.Configure(definition.Mission, selectedProgress.missionCompleted);
             modelLoader.Configure(definition);
             experienceHostTransform.position = definition.ExperiencePosition;
