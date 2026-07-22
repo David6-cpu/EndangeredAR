@@ -83,6 +83,8 @@ namespace EndangeredAR.Tests.EditMode
 
                 Assert.That(resolve, Is.Not.Null);
                 Assert.That(resolve.Invoke(scanner, new object[] { "unknown_marker" }), Is.EqualTo(string.Empty));
+                Assert.That(resolve.Invoke(scanner, new object[] { "not_sensen_marker" }), Is.EqualTo(string.Empty));
+                Assert.That(resolve.Invoke(scanner, new object[] { "sensen_marker_copy" }), Is.EqualTo(string.Empty));
                 Assert.That(resolve.Invoke(scanner, new object[] { "  " }), Is.EqualTo(string.Empty));
             }
             finally
@@ -109,6 +111,39 @@ namespace EndangeredAR.Tests.EditMode
             {
                 UnityEngine.Object.DestroyImmediate(host);
             }
+        }
+
+        [Test]
+        public void DemoController_AnimalChangeInvalidatesPendingChatAndRejectsDelayedCompletion()
+        {
+            var requestStateType = typeof(DemoAppController).Assembly.GetType("EndangeredAR.UI.ChatRequestState");
+            Assert.That(requestStateType, Is.Not.Null,
+                "DemoAppController needs a request state that binds a pending chat completion to its originating animal.");
+
+            var requestState = Activator.CreateInstance(requestStateType, true);
+            var begin = requestStateType.GetMethod("Begin", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            var invalidateForAnimalChange = requestStateType.GetMethod(
+                "InvalidateForAnimalChange",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            var canComplete = requestStateType.GetMethod("CanComplete", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            var isThinking = requestStateType.GetProperty("IsThinking", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+            Assert.That(begin, Is.Not.Null);
+            Assert.That(invalidateForAnimalChange, Is.Not.Null);
+            Assert.That(canComplete, Is.Not.Null);
+            Assert.That(isThinking, Is.Not.Null);
+
+            var ticket = begin.Invoke(requestState, new object[] { "sensen" });
+            Assert.That(isThinking.GetValue(requestState), Is.EqualTo(true));
+
+            Assert.That(invalidateForAnimalChange.Invoke(requestState, new object[] { "pangolin" }), Is.EqualTo(true));
+
+            Assert.That(isThinking.GetValue(requestState), Is.EqualTo(false),
+                "Changing animals must clear the old pending thinking state.");
+            Assert.That(canComplete.Invoke(requestState, new[] { ticket, "pangolin" }), Is.EqualTo(false),
+                "A delayed Sensen completion must not be applied to Pangolin's conversation.");
+            Assert.That(canComplete.Invoke(requestState, new[] { ticket, "sensen" }), Is.EqualTo(false),
+                "Invalidated requests must remain rejected even when the user switches back.");
         }
 
         [Test]

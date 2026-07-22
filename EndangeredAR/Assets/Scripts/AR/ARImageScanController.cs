@@ -300,7 +300,10 @@ namespace EndangeredAR.AR
                 return false;
             }
 
-            return normalizedReferenceName.Contains(markerName.ToLowerInvariant());
+            return string.Equals(
+                normalizedReferenceName.Trim(),
+                markerName.Trim(),
+                StringComparison.OrdinalIgnoreCase);
         }
     }
 }

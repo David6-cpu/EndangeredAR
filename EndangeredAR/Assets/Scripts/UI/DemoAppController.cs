@@ -72,7 +72,7 @@ namespace EndangeredAR.UI
         private readonly List<ChatMessage> chatHistory = new List<ChatMessage>();
         private readonly Dictionary<string, Sprite> spriteCache = new Dictionary<string, Sprite>();
         private bool isModelView;
-        private bool isChatThinking;
+        private readonly ChatRequestState chatRequestState = new ChatRequestState();
         private int simulatedAnimalIndex;
         private string chatTranscript;
         private Vector3 modelRestPosition;
@@ -154,6 +154,7 @@ namespace EndangeredAR.UI
         private bool IsCurrentAnimalUnlocked => CurrentProgress != null && CurrentProgress.unlocked;
         private bool IsCurrentMissionCompleted => CurrentProgress != null && CurrentProgress.missionCompleted;
         private bool HasCurrentBadge => CurrentProgress != null && CurrentProgress.earnedBadgeIds.Count > 0;
+        private bool IsChatThinking => chatRequestState.IsThinking;
 
         private void Awake()
         {
@@ -266,6 +267,12 @@ namespace EndangeredAR.UI
 
         private void HandleCurrentAnimalChanged(AnimalDefinition animal)
         {
+            if (chatRequestState.InvalidateForAnimalChange(animal?.AnimalId))
+            {
+                StopCloudAnswerTimeout();
+                SetChatInputEnabled(IsCurrentAnimalUnlocked);
+            }
+
             RestoreConversation(animal);
             UpdateLearnContent();
             UpdateCardContent();
@@ -1342,7 +1349,7 @@ namespace EndangeredAR.UI
                 chatInput.text = "";
             }
 
-            SetChatInputEnabled(IsCurrentAnimalUnlocked && !isChatThinking);
+            SetChatInputEnabled(IsCurrentAnimalUnlocked && !IsChatThinking);
             SetGuide("");
             ScrollChatToBottom();
             RefreshUiInteractionState();
@@ -1532,7 +1539,7 @@ namespace EndangeredAR.UI
             SetButtonVisible(cardButton, true);
             SetButtonVisible(askFoodButton, false);
             SetButtonVisible(askProtectButton, false);
-            SetChatInputEnabled(!isChatThinking);
+            SetChatInputEnabled(!IsChatThinking);
             DisableArCamera();
 
             if (displayCamera != null)
@@ -1578,7 +1585,7 @@ namespace EndangeredAR.UI
                 return;
             }
 
-            if (isChatThinking)
+            if (IsChatThinking)
             {
                 return;
             }
@@ -1594,17 +1601,17 @@ namespace EndangeredAR.UI
                 chatInput.text = "";
             }
 
-            isChatThinking = true;
+            var request = chatRequestState.Begin(CurrentAnimalId);
             SetChatInputEnabled(false);
             AppendChatLine("你", message);
             AppendChatLine(CurrentShortName, ThinkingLine);
             SetModelChatText(ThinkingLine);
             ScrollChatToBottom();
-            StartCloudAnswerTimeout(message);
+            StartCloudAnswerTimeout(request, message);
 
             if (chatApiClient == null)
             {
-                FinishCloudAnswer(message, BuildFallbackReply(message), $"云端还没配置好，{CurrentShortName}先用本地知识陪你继续。");
+                FinishCloudAnswer(request, message, BuildFallbackReply(message), $"云端还没配置好，{CurrentShortName}先用本地知识陪你继续。");
                 return;
             }
 
@@ -1612,8 +1619,8 @@ namespace EndangeredAR.UI
                 CurrentAnimalId,
                 message,
                 chatHistory.ToArray(),
-                response => StartCoroutine(FinishCloudAnswerAfterDelay(message, response.reply, response.missionHint)),
-                error => StartCoroutine(FinishCloudAnswerAfterDelay(message, BuildFallbackReply(message), $"云端暂时不稳定，{CurrentShortName}先用本地知识陪你继续。"))
+                response => StartCoroutine(FinishCloudAnswerAfterDelay(request, message, response.reply, response.missionHint)),
+                error => StartCoroutine(FinishCloudAnswerAfterDelay(request, message, BuildFallbackReply(message), $"云端暂时不稳定，{CurrentShortName}先用本地知识陪你继续。"))
             ));
         }
 
@@ -1624,27 +1631,27 @@ namespace EndangeredAR.UI
             PulseModel();
         }
 
-        private IEnumerator CloudAnswerTimeout(string userMessage)
+        private IEnumerator CloudAnswerTimeout(ChatRequestTicket request, string userMessage)
         {
             yield return new WaitForSeconds(CloudAnswerTimeoutSeconds);
             cloudAnswerTimeoutRoutine = null;
 
-            if (!isChatThinking)
+            if (!chatRequestState.CanComplete(request, CurrentAnimalId))
             {
                 yield break;
             }
 
-            FinishCloudAnswer(userMessage, BuildFallbackReply(userMessage), $"网络有点慢，{CurrentShortName}先用本地知识回答你。");
+            FinishCloudAnswer(request, userMessage, BuildFallbackReply(userMessage), $"网络有点慢，{CurrentShortName}先用本地知识回答你。");
         }
 
-        private void StartCloudAnswerTimeout(string userMessage)
+        private void StartCloudAnswerTimeout(ChatRequestTicket request, string userMessage)
         {
             if (cloudAnswerTimeoutRoutine != null)
             {
                 StopCoroutine(cloudAnswerTimeoutRoutine);
             }
 
-            cloudAnswerTimeoutRoutine = StartCoroutine(CloudAnswerTimeout(userMessage));
+            cloudAnswerTimeoutRoutine = StartCoroutine(CloudAnswerTimeout(request, userMessage));
         }
 
         private void StopCloudAnswerTimeout()
@@ -1658,15 +1665,15 @@ namespace EndangeredAR.UI
             cloudAnswerTimeoutRoutine = null;
         }
 
-        private IEnumerator FinishCloudAnswerAfterDelay(string userMessage, string reply, string missionHint = "")
+        private IEnumerator FinishCloudAnswerAfterDelay(ChatRequestTicket request, string userMessage, string reply, string missionHint = "")
         {
             yield return new WaitForSeconds(0.45f);
-            FinishCloudAnswer(userMessage, reply, missionHint);
+            FinishCloudAnswer(request, userMessage, reply, missionHint);
         }
 
-        private void FinishCloudAnswer(string userMessage, string reply, string missionHint = "")
+        private void FinishCloudAnswer(ChatRequestTicket request, string userMessage, string reply, string missionHint = "")
         {
-            if (!isChatThinking && chatTranscript.LastIndexOf(ThinkingLine, StringComparison.Ordinal) < 0)
+            if (!chatRequestState.TryComplete(request, CurrentAnimalId))
             {
                 return;
             }
@@ -1692,7 +1699,6 @@ namespace EndangeredAR.UI
             AddHistory("user", userMessage);
             AddHistory("assistant", reply);
             PersistConversation();
-            isChatThinking = false;
             SetChatInputEnabled(true);
             ScrollChatToBottom();
             PulseModel();
