@@ -22,6 +22,7 @@ namespace EndangeredAR.Models
         private Coroutine modelLoadRoutine;
         private string loadedModelPath;
         private string loadedAnimalId;
+        private bool loadPending;
 
         public string LoadedAnimalId => loadedAnimalId;
 
@@ -29,6 +30,14 @@ namespace EndangeredAR.Models
         {
             DisableLegacyDemoPlacement();
             BeginLoad();
+        }
+
+        private void OnEnable()
+        {
+            if (loadPending)
+            {
+                BeginLoad();
+            }
         }
 
         public void Configure(AnimalDefinition definition)
@@ -97,14 +106,23 @@ namespace EndangeredAR.Models
 
             if (!Application.isPlaying || string.IsNullOrWhiteSpace(streamingAssetPath))
             {
+                loadPending = false;
                 return;
             }
 
             if (string.Equals(loadedModelPath, streamingAssetPath, StringComparison.OrdinalIgnoreCase))
             {
+                loadPending = false;
                 return;
             }
 
+            if (!isActiveAndEnabled)
+            {
+                loadPending = true;
+                return;
+            }
+
+            loadPending = false;
             loadedModelPath = streamingAssetPath;
             modelLoadRoutine = StartCoroutine(LoadModel());
         }

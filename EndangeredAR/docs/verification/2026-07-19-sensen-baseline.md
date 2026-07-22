@@ -8,6 +8,11 @@
 
 - [x] Batch-mode compilation completes without C# errors.
 - [x] Project opens without missing package errors.
+- [x] 2026-07-22 EditMode suite: 75 passed, 0 failed.
+- [x] 2026-07-22 PlayMode suite: 5 passed, 0 failed.
+- [x] PlayMode vertical slice verifies startup services, isolated progress storage,
+  first/repeat manual Sensen scan, gesture-controller retention, and unavailable-network local fallback.
+- [x] Hidden model hosts defer GLB loading until activation, avoiding startup coroutine errors.
 
 Clean-worktree verification command:
 
@@ -29,6 +34,13 @@ Result: exit code `0`; log contains `Exiting batchmode successfully now!` and no
 
 ## Post-Migration
 
-- [ ] First scan unlocks Sensen and a relaunch preserves the unlock.
+- [x] First scan unlocks Sensen and repeat scan does not increase the unlocked count in PlayMode.
+- [ ] Relaunch persistence needs a human/device verification pass.
 - [ ] Recent Sensen conversation restores without transient thinking or error text.
-- [ ] EditMode and PlayMode test reports have zero failures.
+- [x] EditMode and PlayMode test reports have zero failures.
+
+## Headless Test Boundary
+
+- [x] PlayMode tests set `AnimalProgressService.RepositoryPathOverrideForTests` before loading `DemoScene` and assert the active path before selection. No real app progress file is used.
+- [x] The PlayMode suite temporarily substitutes a missing in-memory GLB path because the bundled glTFast decoder crashed Unity 2022.3.62f3c1 in `-nographics` mode while decoding the imported GLB. This still exercises loader fallback and automatic gesture-controller setup without changing the asset or scene on disk.
+- [ ] Real GLB texture loading, pinch/rotation, placement, camera orientation/aspect, Safe Area, PNG output, and clean Console logs remain device/Game View checks.
