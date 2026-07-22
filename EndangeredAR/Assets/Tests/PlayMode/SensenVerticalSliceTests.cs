@@ -12,6 +12,7 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 namespace EndangeredAR.Tests.PlayMode
 {
@@ -151,7 +152,13 @@ namespace EndangeredAR.Tests.PlayMode
             yield return null;
 
             SetPrivateField(chatApiClient, "config", null);
-            InvokePrivate(controller, "AskLocal", "你吃什么？");
+            var chatInput = (InputField)GetPrivateField(controller, "chatInput");
+            var sendButton = (Button)GetPrivateField(controller, "sendLocalChatButton");
+            Assert.That(chatInput, Is.Not.Null);
+            Assert.That(sendButton, Is.Not.Null);
+
+            chatInput.text = "你吃什么？";
+            sendButton.onClick.Invoke();
             yield return new WaitForSeconds(0.7f);
 
             var transcript = (string)GetPrivateField(controller, "chatTranscript");
@@ -179,13 +186,6 @@ namespace EndangeredAR.Tests.PlayMode
             var matches = UnityEngine.Object.FindObjectsOfType<T>(true);
             Assert.That(matches, Has.Length.EqualTo(1), $"Expected exactly one {typeof(T).Name} in DemoScene.");
             return matches[0];
-        }
-
-        private static void InvokePrivate(object target, string methodName, params object[] arguments)
-        {
-            var method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.That(method, Is.Not.Null, $"Missing private test hook: {methodName}.");
-            method.Invoke(target, arguments);
         }
 
         private static object GetPrivateField(object target, string fieldName)
