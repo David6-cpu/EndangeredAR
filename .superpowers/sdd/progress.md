@@ -78,3 +78,13 @@
 - Verification: reconstructed missing-type RED 0/6; initial focused 6/6 and full 60/60; review regression RED 6/8; final focused 8/8 and full EditMode 62/62.
 - Review: approved after making `CurrentProgress` a fresh defensive per-animal read and resetting mission ownership when different animals share the same mission ID.
 - Behavior: `Prepare` never unlocks; only `SelectFromScan` unlocks; catalog selection rejects locked animals; successful selection restores the selected animal's mission/conversation state and moves only the experience host position.
+
+## Task 11 - Migrate the Stable Sensen Demo to Animal Services
+
+- Status: complete (automated gate); interactive Game View/device verification carried to Task 13.
+- Commits: `5fec5ca2`, `284034eb`.
+- Migration: `DemoScene` gained exactly three non-UI service roots; RectTransforms remain `41` and Canvas count remains `1`. A second migration run was byte-for-byte idempotent.
+- Verification: initial migration fixture `10/10`, review-fix fixture `11/11`, final full EditMode `73/73` with no compiler or runtime errors in the batch logs.
+- Review: approved after binding pending chat completions to animal ID/generation and changing marker resolution from substring matching to exact normalized matching.
+- Behavior: startup prepares without unlocking; successful scan is the only unlock path; locked catalog selection is rejected; per-animal mission, progress, knowledge, model, and conversation state now flow through shared services.
+- Carried verification: manually exercise scan, model back, all four mission choices, fallback chat, profile update, GLB texture/material, pinch/rotation, and final model placement in Game View/device testing.
