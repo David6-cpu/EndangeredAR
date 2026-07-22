@@ -97,3 +97,14 @@
 - Review: approved. Remaining Minor test gaps are behavioral wire-contract coverage and automating the repository-wide provider scan.
 - Security boundary: the Unity client now contains only the configured backend base URL and POST `/chat` request; direct Kimi/Moonshot paths, provider DTOs, Bearer headers, client key/model fields, serialized provider settings, and editor `.env.local` import were removed.
 - Compatibility: both `SendMessage` overloads and `{animalId,message,history}` plus response DTOs remain intact; transport/configuration errors still flow into the selected animal's local knowledge fallback.
+
+## Task 13 - PlayMode Vertical Slice Verification
+
+- Status: automated gate complete; device/Game View checklist remains open.
+- Commits: `2bb17d7a`, `90a399e1`.
+- Verification: final full EditMode `75/75`; final PlayMode `5/5`; logs contain no C# compilation, missing-script, null-reference, or failed-test errors.
+- Review: approved after the unavailable-network test was changed to drive the real scene input field and send-button binding through `ChatApiClient` failure into the local knowledge fallback.
+- Isolation: every PlayMode test injects a unique temporary progress path before `DemoScene` loads and asserts that active path before any unlock or save.
+- Runtime fix: `AnimalModelLoader` now defers a configured load while its host is inactive and resumes on `OnEnable`, preventing startup coroutine errors without changing scene hierarchy.
+- Headless boundary: the tests substitute a missing in-memory GLB path so loader fallback and gesture setup are exercised without invoking glTFast on `NullGfxDevice`; the asset and scene are restored/unchanged on disk.
+- Manual gate: iPhone 17 Pro Max Safe Area, camera orientation/aspect, real GLB texture/placement, pinch/rotation, mission UI, PNG output, relaunch persistence, conversation restoration, and clean device Console still require human verification.
