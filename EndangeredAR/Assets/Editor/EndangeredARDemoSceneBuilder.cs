@@ -6,7 +6,6 @@ using EndangeredAR.Models;
 using EndangeredAR.Missions;
 using EndangeredAR.Progress;
 using EndangeredAR.UI;
-using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using UnityEditor;
@@ -21,31 +20,10 @@ public static class EndangeredARDemoSceneBuilder
     public static void SetLocalApiToLanIp()
     {
         var config = CreateApiConfig();
-        config.useDirectLlm = false;
         config.baseUrl = $"http://{GetLanIpAddress()}:8000";
         EditorUtility.SetDirty(config);
         AssetDatabase.SaveAssets();
         EditorUtility.DisplayDialog("Endangered AR", $"LocalApiConfig 已设置为：\n{config.baseUrl}", "OK");
-    }
-
-    [MenuItem("Endangered AR/Set Direct Kimi API From .env.local")]
-    public static void SetDirectKimiApiFromEnv()
-    {
-        var key = ReadRootEnvValue("MOONSHOT_API_KEY");
-        if (string.IsNullOrWhiteSpace(key))
-        {
-            EditorUtility.DisplayDialog("Endangered AR", "没有在项目根目录 .env.local 找到 MOONSHOT_API_KEY。", "OK");
-            return;
-        }
-
-        var config = CreateApiConfig();
-        config.useDirectLlm = true;
-        config.moonshotApiKey = key;
-        config.moonshotBaseUrl = ReadRootEnvValue("MOONSHOT_BASE_URL", "https://api.moonshot.cn/v1");
-        config.moonshotModel = ReadRootEnvValue("MOONSHOT_MODEL", "moonshot-v1-8k");
-        EditorUtility.SetDirty(config);
-        AssetDatabase.SaveAssets();
-        EditorUtility.DisplayDialog("Endangered AR", "已启用手机端直连 Kimi API。注意：这个模式只适合演示，不适合正式发布。", "OK");
     }
 
     [MenuItem("Endangered AR/Build Demo Scene")]
@@ -231,44 +209,13 @@ public static class EndangeredARDemoSceneBuilder
         var config = AssetDatabase.LoadAssetAtPath<ApiConfig>(path);
         if (config != null)
         {
-            if (string.IsNullOrWhiteSpace(config.directLlmSystemPrompt) ||
-                !config.directLlmSystemPrompt.Contains("孩子气"))
-            {
-                config.directLlmSystemPrompt = ApiConfig.SensenSystemPrompt;
-                EditorUtility.SetDirty(config);
-                AssetDatabase.SaveAssets();
-            }
-
             return config;
         }
 
         config = ScriptableObject.CreateInstance<ApiConfig>();
-        config.directLlmSystemPrompt = ApiConfig.SensenSystemPrompt;
         AssetDatabase.CreateAsset(config, path);
         AssetDatabase.SaveAssets();
         return config;
-    }
-
-    private static string ReadRootEnvValue(string key, string fallback = "")
-    {
-        var envPath = Path.GetFullPath(Path.Combine(Application.dataPath, "../../../.env.local"));
-        if (!File.Exists(envPath))
-        {
-            return fallback;
-        }
-
-        foreach (var line in File.ReadAllLines(envPath))
-        {
-            var trimmed = line.Trim();
-            if (trimmed.StartsWith("#") || !trimmed.StartsWith($"{key}="))
-            {
-                continue;
-            }
-
-            return trimmed.Substring(key.Length + 1).Trim().Trim('"').Trim('\'');
-        }
-
-        return fallback;
     }
 
     private static string GetLanIpAddress()
