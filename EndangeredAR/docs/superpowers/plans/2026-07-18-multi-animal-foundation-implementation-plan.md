@@ -37,7 +37,7 @@ REPO="/Users/yuanweijie/Documents/Larian Studios/animalsAR"
 **Files:**
 - Create: `$REPO/.gitignore`
 - Modify: `$PROJECT/Assets/Config/LocalApiConfig.asset`
-- Create: `$PROJECT/docs/verification/2026-07-18-sensen-baseline.md`
+- Create: `$PROJECT/docs/verification/2026-07-19-sensen-baseline.md`
 
 - [ ] **Step 1: Add a Unity-safe root `.gitignore`**
 
@@ -839,7 +839,7 @@ git commit -m "security: route all LLM traffic through backend"
 **Files:**
 - Create: `EndangeredAR/Assets/Tests/PlayMode/EndangeredAR.Tests.PlayMode.asmdef`
 - Create: `EndangeredAR/Assets/Tests/PlayMode/SensenVerticalSliceTests.cs`
-- Modify: `EndangeredAR/docs/verification/2026-07-18-sensen-baseline.md`
+- Modify: `EndangeredAR/docs/verification/2026-07-19-sensen-baseline.md`
 
 - [ ] **Step 1: Add PlayMode assembly**
 
@@ -894,7 +894,7 @@ Check 1290x2796 Game View and iOS device: Safe Area, three nav buttons, camera o
 
 ```bash
 git add EndangeredAR/Assets/Tests/PlayMode \
-  EndangeredAR/docs/verification/2026-07-18-sensen-baseline.md
+  EndangeredAR/docs/verification/2026-07-19-sensen-baseline.md
 git commit -m "test: verify data-driven Sensen vertical slice"
 ```
 

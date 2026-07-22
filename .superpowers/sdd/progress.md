@@ -88,3 +88,12 @@
 - Review: approved after binding pending chat completions to animal ID/generation and changing marker resolution from substring matching to exact normalized matching.
 - Behavior: startup prepares without unlocking; successful scan is the only unlock path; locked catalog selection is rejected; per-animal mission, progress, knowledge, model, and conversation state now flow through shared services.
 - Carried verification: manually exercise scan, model back, all four mission choices, fallback chat, profile update, GLB texture/material, pinch/rotation, and final model placement in Game View/device testing.
+
+## Task 12 - Backend-Only LLM Access
+
+- Status: complete.
+- Commit: `5105f578`.
+- Verification: security fixture RED `0/2`, GREEN `2/2`; final full EditMode `75/75`; required repository credential/provider scan returned no matches.
+- Review: approved. Remaining Minor test gaps are behavioral wire-contract coverage and automating the repository-wide provider scan.
+- Security boundary: the Unity client now contains only the configured backend base URL and POST `/chat` request; direct Kimi/Moonshot paths, provider DTOs, Bearer headers, client key/model fields, serialized provider settings, and editor `.env.local` import were removed.
+- Compatibility: both `SendMessage` overloads and `{animalId,message,history}` plus response DTOs remain intact; transport/configuration errors still flow into the selected animal's local knowledge fallback.
