@@ -9,7 +9,7 @@
 ## Automated Baseline
 
 - [x] EditMode: 76 passed, 0 failed.
-- [x] PlayMode: 7 passed, 0 failed.
+- [x] PlayMode: 8 passed, 0 failed.
 - [x] Unity generated the iOS Xcode project successfully.
 - [x] The Unity post-build step added the legacy `UIScene` lifecycle backport automatically.
 - [x] Xcode compiled and signed the generated device project successfully.
@@ -52,10 +52,10 @@
 
 ## Defects Found On Device
 
-- [x] **Implementation fixed, device visual pending:** the rejected `bg-home-forest.png` asset is no longer applied to the home panel. A PlayMode regression test enforces this.
-- [x] **Implementation fixed, device visual pending:** rounded sprite radii are clamped to the 128px source texture, preventing overlapping slice borders. A PlayMode regression test enforces this.
+- [x] **Device verified:** the rejected `bg-home-forest.png` asset is no longer applied to the home panel, and the oversized bars and circles are absent on the iPhone home screen.
+- [x] **Device verified:** runtime rounded textures now calculate their right and bottom corners from the correct mirrored centers. All three bottom navigation buttons render as complete, symmetric pills on iPhone.
 - [ ] Complete touch interaction checks for navigation, recognition, model gestures, chat, mission, card saving, and persistence.
 
 ## Result
 
-Status: **In progress - signed launch, recognition, and model appearance passed; final device visual and touch workflow acceptance remain pending.**
+Status: **In progress - signed launch, recognition, model appearance, and the two reported home-screen visual defects passed; remaining touch workflow acceptance is pending.**

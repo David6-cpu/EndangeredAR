@@ -106,6 +106,26 @@ namespace EndangeredAR.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator BottomNavigationRoundedSprite_HasSymmetricTransparentCorners()
+        {
+            yield return LoadDemoScene();
+
+            var controller = FindSingle<DemoAppController>();
+            var scanNavigationButton = (Button)GetPrivateField(controller, "discoverButton");
+            var texture = scanNavigationButton.GetComponent<Image>().sprite.texture;
+            var lastPixel = texture.width - 1;
+            var topLeft = texture.GetPixel(0, lastPixel).a;
+            var topRight = texture.GetPixel(lastPixel, lastPixel).a;
+            var bottomLeft = texture.GetPixel(0, 0).a;
+            var bottomRight = texture.GetPixel(lastPixel, 0).a;
+
+            Assert.That(topLeft, Is.LessThan(0.05f), "A rounded corner must start transparent.");
+            Assert.That(topRight, Is.EqualTo(topLeft).Within(0.001f), "Top corners must be symmetric.");
+            Assert.That(bottomLeft, Is.EqualTo(topLeft).Within(0.001f), "Left corners must be symmetric.");
+            Assert.That(bottomRight, Is.EqualTo(topLeft).Within(0.001f), "All rounded corners must be symmetric.");
+        }
+
+        [UnityTest]
         public IEnumerator ManualScan_SelectsAndUnlocksSensen()
         {
             yield return LoadDemoScene();

@@ -2687,8 +2687,8 @@ namespace EndangeredAR.UI
             {
                 for (var x = 0; x < size; x++)
                 {
-                    var dx = x < radius ? center - x : x >= size - radius ? x - (size - radius) - center : 0f;
-                    var dy = y < radius ? center - y : y >= size - radius ? y - (size - radius) - center : 0f;
+                    var dx = x < radius ? center - x : x >= size - radius ? x - (size - radius - 0.5f) : 0f;
+                    var dy = y < radius ? center - y : y >= size - radius ? y - (size - radius - 0.5f) : 0f;
                     var alpha = dx > 0f || dy > 0f
                         ? Mathf.Clamp01(radius + 0.5f - Mathf.Sqrt(dx * dx + dy * dy))
                         : 1f;
