@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.IO;
 using System.Reflection;
 using EndangeredAR.Animals;
 using NUnit.Framework;
@@ -161,6 +162,30 @@ namespace EndangeredAR.Tests.EditMode
             {
                 Destroy(host);
             }
+        }
+
+        [Test]
+        public void HasVisibleRenderer_DestroyedRootReturnsFalseWithoutThrowing()
+        {
+            var host = new GameObject("Destroyed Runtime Root");
+            var destroyedRoot = host.transform;
+            var loaderType = Type.GetType(LoaderTypeName);
+            var method = loaderType?.GetMethod("HasVisibleRenderer", BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            UnityEngine.Object.DestroyImmediate(host);
+
+            object result = null;
+            Assert.DoesNotThrow(() => result = method.Invoke(null, new object[] { destroyedRoot }));
+            Assert.That(result, Is.EqualTo(false));
+        }
+
+        [Test]
+        public void GraphicsSettings_AlwaysIncludesGltfPbrShader()
+        {
+            const string gltfPbrShaderGuid = "99fa998bbbed3408aafa652b466d261d";
+            var graphicsSettings = File.ReadAllText(Path.GetFullPath("ProjectSettings/GraphicsSettings.asset"));
+
+            StringAssert.Contains(gltfPbrShaderGuid, graphicsSettings);
         }
 
         private static Component AddGenericLoader(GameObject host)

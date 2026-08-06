@@ -172,6 +172,11 @@ namespace EndangeredAR.Models
 
             while (Time.realtimeSinceStartup - startTime < timeoutSeconds)
             {
+                if (modelRoot == null)
+                {
+                    yield break;
+                }
+
                 if (HasVisibleRenderer(modelRoot))
                 {
                     RepairMagentaMaterials(modelRoot);
@@ -246,9 +251,14 @@ namespace EndangeredAR.Models
 
         private static bool HasVisibleRenderer(Transform root)
         {
+            if (root == null)
+            {
+                return false;
+            }
+
             foreach (var rendererComponent in root.GetComponentsInChildren<Renderer>(true))
             {
-                if (rendererComponent.enabled && rendererComponent.gameObject.activeInHierarchy)
+                if (rendererComponent != null && rendererComponent.enabled && rendererComponent.gameObject.activeInHierarchy)
                 {
                     return true;
                 }
