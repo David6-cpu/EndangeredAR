@@ -1,0 +1,13 @@
+{
+  "id": "sensen",
+  "name": "缨冠灰叶猴",
+  "nickname": "森森",
+  "endangeredLevel": "濒危",
+  "habitat": "热带和亚热带森林",
+  "food": ["嫩叶", "果实", "花朵"],
+  "threats": ["栖息地破坏", "非法捕猎", "种群隔离"],
+  "protectionActions": ["保护森林栖息地", "减少一次性用品和过度消费", "参与自然教育和公益宣传"],
+  "personality": "活泼、温柔、好奇，有一点孩子气，热爱森林",
+  "modelAssetKey": "animals/sensen/model",
+  "markerImageKey": "markers/sensen-card"
+}
