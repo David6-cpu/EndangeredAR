@@ -113,6 +113,25 @@ namespace EndangeredAR.Tests.EditMode
             }
         }
 
+        [TestCase(1920, 1080, 0, 16f / 9f)]
+        [TestCase(1920, 1080, 90, 16f / 9f)]
+        [TestCase(1920, 1080, 270, 16f / 9f)]
+        [TestCase(1080, 1920, 0, 9f / 16f)]
+        public void CameraPreviewAspect_UsesRawTextureRatio(
+            int width,
+            int height,
+            int rotationAngle,
+            float expected)
+        {
+            var method = typeof(ARImageScanController).GetMethod(
+                "CalculatePreviewAspectRatio",
+                BindingFlags.Static | BindingFlags.NonPublic);
+
+            Assert.That(method, Is.Not.Null);
+            var actual = (float)method.Invoke(null, new object[] { width, height, rotationAngle });
+            Assert.That(actual, Is.EqualTo(expected).Within(0.001f));
+        }
+
         [Test]
         public void DemoController_AnimalChangeInvalidatesPendingChatAndRejectsDelayedCompletion()
         {

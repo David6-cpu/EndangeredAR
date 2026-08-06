@@ -148,15 +148,21 @@ namespace EndangeredAR.AR
             var aspect = cameraPreview.GetComponent<AspectRatioFitter>();
             if (aspect != null && cameraTexture.width > 16 && cameraTexture.height > 16)
             {
-                var rotated = Mathf.Abs(cameraTexture.videoRotationAngle) == 90 || Mathf.Abs(cameraTexture.videoRotationAngle) == 270;
-                aspect.aspectRatio = rotated
-                    ? cameraTexture.height / (float)cameraTexture.width
-                    : cameraTexture.width / (float)cameraTexture.height;
+                aspect.aspectRatio = CalculatePreviewAspectRatio(
+                    cameraTexture.width,
+                    cameraTexture.height,
+                    cameraTexture.videoRotationAngle);
             }
 
             cameraPreview.uvRect = cameraTexture.videoVerticallyMirrored
                 ? new Rect(0f, 1f, 1f, -1f)
                 : new Rect(0f, 0f, 1f, 1f);
+        }
+
+        private static float CalculatePreviewAspectRatio(int width, int height, int rotationAngle)
+        {
+            _ = rotationAngle;
+            return width > 16 && height > 16 ? width / (float)height : 9f / 16f;
         }
 
         private bool DetectSensenMarker()
