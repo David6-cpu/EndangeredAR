@@ -22,7 +22,7 @@ namespace EndangeredAR.Missions
         public string CurrentMissionId => definition == null ? string.Empty : definition.MissionId;
         public int Points => points;
         public MissionState State => state;
-        public bool IsCompleted => state == MissionState.Completed;
+        public bool IsCompleted => rewardAlreadyClaimed || state == MissionState.Completed;
 
         public void Configure(MissionDefinition configuredDefinition, bool alreadyCompleted = false)
         {

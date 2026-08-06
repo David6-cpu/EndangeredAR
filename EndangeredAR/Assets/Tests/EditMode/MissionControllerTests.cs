@@ -59,7 +59,7 @@ namespace EndangeredAR.Tests.EditMode
 
             Assert.That(controller.CurrentMissionId, Is.EqualTo("FOOD"));
             Assert.That(controller.State, Is.EqualTo(MissionController.MissionState.NotStarted));
-            Assert.That(controller.IsCompleted, Is.False);
+            Assert.That(controller.IsCompleted, Is.True);
             Assert.That(controller.Points, Is.Zero);
             controller.StartMission();
             Assert.That(controller.State, Is.EqualTo(MissionController.MissionState.Choosing));
