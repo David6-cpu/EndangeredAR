@@ -28,3 +28,5 @@
 *.ipa
 *.xcarchive
 sysinfo.txt
+/EndangeredAR/Assets/AddressableAssetsData/link.xml
+/EndangeredAR/Assets/AddressableAssetsData/link.xml.meta
