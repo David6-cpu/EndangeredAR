@@ -73,6 +73,39 @@ namespace EndangeredAR.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator HomeVisuals_DoNotUseTheRejectedGeneratedBackground()
+        {
+            yield return LoadDemoScene();
+
+            var controller = FindSingle<DemoAppController>();
+            var homePanel = (GameObject)GetPrivateField(controller, "homePanel");
+            var homeImage = homePanel.GetComponent<Image>();
+
+            Assert.That(homeImage, Is.Not.Null);
+            Assert.That(homeImage.sprite, Is.Null,
+                "The rejected bg-home-forest artwork must not cover the product home screen.");
+        }
+
+        [UnityTest]
+        public IEnumerator BottomScanButton_RoundedBorderFitsItsSourceTexture()
+        {
+            yield return LoadDemoScene();
+
+            var controller = FindSingle<DemoAppController>();
+            var scanNavigationButton = (Button)GetPrivateField(controller, "discoverButton");
+            var image = scanNavigationButton.GetComponent<Image>();
+
+            Assert.That(image, Is.Not.Null);
+            Assert.That(image.sprite, Is.Not.Null);
+            Assert.That(image.sprite.border.x + image.sprite.border.z,
+                Is.LessThanOrEqualTo(image.sprite.texture.width),
+                "Horizontal sliced borders must not overlap inside the rounded source texture.");
+            Assert.That(image.sprite.border.y + image.sprite.border.w,
+                Is.LessThanOrEqualTo(image.sprite.texture.height),
+                "Vertical sliced borders must not overlap inside the rounded source texture.");
+        }
+
+        [UnityTest]
         public IEnumerator ManualScan_SelectsAndUnlocksSensen()
         {
             yield return LoadDemoScene();

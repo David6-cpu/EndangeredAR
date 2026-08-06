@@ -1168,7 +1168,6 @@ namespace EndangeredAR.UI
 
         private void ApplyGeneratedArtAssets()
         {
-            SetPanelBackground(homePanel, "Backgrounds/bg-home-forest", new Color(1f, 1f, 1f, 0.72f));
             SetPanelBackground(scanPanel, "Backgrounds/bg-discover-camera", new Color(1f, 1f, 1f, 0.78f));
             SetPanelBackground(chatPanel, "Backgrounds/bg-chat-forest", new Color(1f, 1f, 1f, 0.9f));
             SetPanelBackground(learnPanel, "Backgrounds/bg-learn-panel", new Color(1f, 1f, 1f, 0.86f));
@@ -2672,6 +2671,7 @@ namespace EndangeredAR.UI
 
         private Sprite GetRoundedSprite(string key, int size, int radius)
         {
+            radius = Mathf.Clamp(radius, 0, Mathf.Max(0, size / 2 - 1));
             var cacheKey = $"rounded-{key}-{size}-{radius}";
             if (spriteCache.TryGetValue(cacheKey, out var cached))
             {

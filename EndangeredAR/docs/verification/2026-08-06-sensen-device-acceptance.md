@@ -9,7 +9,7 @@
 ## Automated Baseline
 
 - [x] EditMode: 76 passed, 0 failed.
-- [x] PlayMode: 5 passed, 0 failed.
+- [x] PlayMode: 7 passed, 0 failed.
 - [x] Unity generated the iOS Xcode project successfully.
 - [x] The Unity post-build step added the legacy `UIScene` lifecycle backport automatically.
 - [x] Xcode compiled and signed the generated device project successfully.
@@ -40,7 +40,8 @@
 - [ ] Learning, Scan, and Profile navigation remains visible and clickable.
 - [ ] Camera permission appears once and the preview fills its content area without stretching.
 - [ ] Camera preview and scan instructions remain upright in portrait.
-- [ ] Manual recognition enters the Sensen interaction page.
+- [x] Manual recognition enters the Sensen interaction page.
+- [x] The Sensen model appears after recognition.
 - [ ] Sensen loads with the expected material and placement.
 - [ ] One-finger rotation and two-finger pinch zoom both work.
 - [ ] The model remains above the chat input and does not cover primary actions.
@@ -51,10 +52,10 @@
 
 ## Defects Found On Device
 
-- [ ] **Visual blocker:** the current `bg-home-forest.png` source asset itself contains oversized bars and circles, so the home screen is not presentation-ready even though it is rendered at the correct portrait aspect ratio.
-- [ ] **Visual blocker:** runtime sliced rounded sprites accept radii larger than their 128px source texture, causing clipped and malformed corners on the center Scan button.
+- [x] **Implementation fixed, device visual pending:** the rejected `bg-home-forest.png` asset is no longer applied to the home panel. A PlayMode regression test enforces this.
+- [x] **Implementation fixed, device visual pending:** rounded sprite radii are clamped to the 128px source texture, preventing overlapping slice borders. A PlayMode regression test enforces this.
 - [ ] Complete touch interaction checks for navigation, recognition, model gestures, chat, mission, card saving, and persistence.
 
 ## Result
 
-Status: **In progress - signed launch gate passed; touch workflow and visual acceptance remain pending.**
+Status: **In progress - signed launch, recognition, and model appearance passed; final device visual and touch workflow acceptance remain pending.**
