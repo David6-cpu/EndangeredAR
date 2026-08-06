@@ -1,0 +1,127 @@
+#import "UnityScene.h"
+#import "UnityViewControllerBase.h"
+#include "UnityAppController.h"
+#include "Unity/UnityInterface.h"
+#import "PluginBase/AppDelegateListener.h"
+
+@implementation UnityScene
+{
+    UIOpenURLContext* _pendingURLContext;
+    NSUserActivity* _pendingUserActivity;
+}
+
+- (void)sceneDidBecomeActive:(UIScene*)scene
+{
+    ::printf("-> sceneDidBecomeActive()\n");
+    UnityAppController* appController = GetAppController();
+    if ([appController respondsToSelector: @selector(applicationDidBecomeActive:)])
+        [appController applicationDidBecomeActive: UIApplication.sharedApplication];
+}
+
+- (void)sceneWillResignActive:(UIScene*)scene
+{
+    ::printf("-> sceneWillResignActive()\n");
+    UnityAppController* appController = GetAppController();
+    if ([appController respondsToSelector: @selector(applicationWillResignActive:)])
+        [appController applicationWillResignActive: UIApplication.sharedApplication];
+}
+
+- (void)sceneWillEnterForeground:(UIScene*)scene
+{
+    ::printf("-> sceneWillEnterForeground()\n");
+    UnityAppController* appController = GetAppController();
+    [appController initUnityWithScene: (UIWindowScene*)scene];
+
+    if (_pendingURLContext != nil)
+        [self applyURL: _pendingURLContext.URL sourceApplication: _pendingURLContext.options.sourceApplication annotation: _pendingURLContext.options.annotation];
+    else if (_pendingUserActivity != nil)
+        [self applyURL: _pendingUserActivity.webpageURL sourceApplication: nil annotation: nil];
+
+    _pendingURLContext = nil;
+    _pendingUserActivity = nil;
+
+    if ([appController respondsToSelector: @selector(applicationWillEnterForeground:)])
+        [appController applicationWillEnterForeground: UIApplication.sharedApplication];
+}
+
+- (void)sceneDidEnterBackground:(UIScene*)scene
+{
+    ::printf("-> sceneDidEnterBackground()\n");
+    UnityAppController* appController = GetAppController();
+    if ([appController respondsToSelector: @selector(applicationDidEnterBackground:)])
+        [appController applicationDidEnterBackground: UIApplication.sharedApplication];
+}
+
+- (void)scene:(UIScene*)scene openURLContexts:(NSSet<UIOpenURLContext*>*)URLContexts
+{
+    UIOpenURLContext* context = [self firstValidContextFromContexts: URLContexts];
+    if (context != nil)
+        [self applyURL: context.URL sourceApplication: context.options.sourceApplication annotation: context.options.annotation];
+}
+
+- (void)scene:(UIScene*)scene willConnectToSession:(UISceneSession*)session options:(UISceneConnectionOptions*)connectionOptions
+{
+    _pendingURLContext = [self firstValidContextFromContexts: connectionOptions.URLContexts];
+    _pendingUserActivity = [self firstBrowsingActivityFromActivities: connectionOptions.userActivities];
+
+    NSURL* url = [self pendingURL];
+    if (url != nil)
+    {
+        [GetAppController() initUnityApplicationNoGraphics];
+        UnitySetAbsoluteURL(url.absoluteString.UTF8String);
+    }
+}
+
+- (void)scene:(UIScene*)scene continueUserActivity:(NSUserActivity*)userActivity
+{
+    if (userActivity != nil)
+        [self applyURL: userActivity.webpageURL sourceApplication: nil annotation: nil];
+}
+
+- (UIOpenURLContext*)firstValidContextFromContexts:(NSSet<UIOpenURLContext*>*)contexts
+{
+    for (UIOpenURLContext* context in contexts)
+    {
+        if (context.URL != nil && context.URL.absoluteString != nil)
+            return context;
+    }
+    return nil;
+}
+
+- (NSURL*)pendingURL
+{
+    if (_pendingURLContext != nil)
+        return _pendingURLContext.URL;
+    if (_pendingUserActivity != nil)
+        return _pendingUserActivity.webpageURL;
+    return nil;
+}
+
+- (NSUserActivity*)firstBrowsingActivityFromActivities:(NSSet<NSUserActivity*>*)activities
+{
+    for (NSUserActivity* activity in activities)
+    {
+        if ([activity.activityType isEqualToString: NSUserActivityTypeBrowsingWeb] && activity.webpageURL != nil && activity.webpageURL.absoluteString != nil)
+            return activity;
+    }
+    return nil;
+}
+
+- (void)applyURL:(NSURL*)url sourceApplication:(NSString*)sourceApplication annotation:(id)annotation
+{
+    if (url == nil || url.absoluteString == nil)
+        return;
+
+    UnitySetAbsoluteURL(url.absoluteString.UTF8String);
+
+    NSMutableDictionary<NSString*, id>* notificationData = [NSMutableDictionary dictionaryWithCapacity: 3];
+    notificationData[@"url"] = url;
+    if (sourceApplication != nil)
+        notificationData[@"sourceApplication"] = sourceApplication;
+    if (annotation != nil)
+        notificationData[@"annotation"] = annotation;
+
+    AppController_SendNotificationWithArg(kUnityOnOpenURL, notificationData);
+}
+
+@end
