@@ -39,9 +39,12 @@ namespace EndangeredAR.Tests.EditMode
 
             controller.Configure(secondMission, alreadyCompleted: true);
 
-            Assert.That(controller.State, Is.EqualTo(MissionController.MissionState.Completed));
+            Assert.That(controller.State, Is.EqualTo(MissionController.MissionState.NotStarted));
             Assert.That(controller.Points, Is.Zero);
+            controller.StartMission();
+            Assert.That(controller.State, Is.EqualTo(MissionController.MissionState.Choosing));
             Assert.That(controller.SelectOption("leaf").PointsAwarded, Is.Zero);
+            Assert.That(controller.State, Is.EqualTo(MissionController.MissionState.Completed));
         }
 
         [Test]
@@ -55,10 +58,29 @@ namespace EndangeredAR.Tests.EditMode
             controller.Configure(reloadedMission);
 
             Assert.That(controller.CurrentMissionId, Is.EqualTo("FOOD"));
-            Assert.That(controller.State, Is.EqualTo(MissionController.MissionState.Completed));
-            Assert.That(controller.IsCompleted, Is.True);
+            Assert.That(controller.State, Is.EqualTo(MissionController.MissionState.NotStarted));
+            Assert.That(controller.IsCompleted, Is.False);
             Assert.That(controller.Points, Is.Zero);
+            controller.StartMission();
+            Assert.That(controller.State, Is.EqualTo(MissionController.MissionState.Choosing));
             Assert.That(controller.SelectOption("leaf").PointsAwarded, Is.Zero);
+            Assert.That(controller.State, Is.EqualTo(MissionController.MissionState.Completed));
+            Assert.That(controller.Points, Is.Zero);
+        }
+
+        [Test]
+        public void RestoredReward_AllowsReplayButDoesNotAwardAgain()
+        {
+            var controller = CreateController();
+            controller.Configure(CreateMission("food", 20), alreadyCompleted: true);
+
+            controller.StartMission();
+            var wrongResult = controller.SelectOption("plastic");
+            var correctResult = controller.SelectOption("leaf");
+
+            Assert.That(wrongResult.Success, Is.False);
+            Assert.That(correctResult.Success, Is.True);
+            Assert.That(correctResult.PointsAwarded, Is.Zero);
             Assert.That(controller.State, Is.EqualTo(MissionController.MissionState.Completed));
             Assert.That(controller.Points, Is.Zero);
         }

@@ -221,6 +221,30 @@ namespace EndangeredAR.Tests.PlayMode
             StringAssert.DoesNotContain("API 地址", transcript);
         }
 
+        [UnityTest]
+        public IEnumerator CompletedMission_EntersAsReplayWithoutFreshRewardCopy()
+        {
+            var document = new AnimalProgressDocument();
+            document.animals.Add(new AnimalProgressRecord
+            {
+                animalId = "sensen",
+                unlocked = true,
+                missionCompleted = true,
+                earnedBadgeIds = { "eco-guardian" }
+            });
+            new JsonAnimalProgressRepository(repositoryPath).Save(document);
+
+            yield return LoadDemoScene();
+
+            var controller = FindSingle<DemoAppController>();
+            InvokePrivate(controller, "EnterMissionView");
+            yield return null;
+
+            var badgeText = (Text)GetPrivateField(controller, "badgeText");
+            StringAssert.Contains("已收藏", badgeText.text);
+            StringAssert.DoesNotStartWith("已获得：", badgeText.text);
+        }
+
         private IEnumerator LoadDemoScene()
         {
             var operation = SceneManager.LoadSceneAsync("DemoScene", LoadSceneMode.Single);
@@ -253,6 +277,13 @@ namespace EndangeredAR.Tests.PlayMode
             var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"Missing private field: {fieldName}.");
             field.SetValue(target, value);
+        }
+
+        private static void InvokePrivate(object target, string methodName)
+        {
+            var method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null, $"Missing private method: {methodName}.");
+            method.Invoke(target, null);
         }
     }
 }

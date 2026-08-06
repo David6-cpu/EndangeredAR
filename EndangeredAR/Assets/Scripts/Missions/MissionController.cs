@@ -17,6 +17,7 @@ namespace EndangeredAR.Missions
         [SerializeField] private MissionDefinition definition;
         [SerializeField] private int points;
         [SerializeField] private MissionState state = MissionState.NotStarted;
+        private bool rewardAlreadyClaimed;
 
         public string CurrentMissionId => definition == null ? string.Empty : definition.MissionId;
         public int Points => points;
@@ -31,21 +32,20 @@ namespace EndangeredAR.Missions
             if (missionChanged)
             {
                 points = 0;
-                state = definition != null && alreadyCompleted
-                    ? MissionState.Completed
-                    : MissionState.NotStarted;
+                rewardAlreadyClaimed = definition != null && alreadyCompleted;
+                state = MissionState.NotStarted;
                 return;
             }
 
             if (definition != null && alreadyCompleted)
             {
-                state = MissionState.Completed;
+                rewardAlreadyClaimed = true;
             }
         }
 
         public void StartMission()
         {
-            if (definition == null || state == MissionState.Completed)
+            if (definition == null)
             {
                 return;
             }
@@ -90,8 +90,10 @@ namespace EndangeredAR.Missions
             }
 
             state = MissionState.Completed;
-            points += definition.Points;
-            return CreateResult(true, definition.CorrectFeedback, definition.Points);
+            var pointsAwarded = rewardAlreadyClaimed ? 0 : definition.Points;
+            rewardAlreadyClaimed = true;
+            points += pointsAwarded;
+            return CreateResult(true, definition.CorrectFeedback, pointsAwarded);
         }
 
         public MissionResult SelectFood(string option)

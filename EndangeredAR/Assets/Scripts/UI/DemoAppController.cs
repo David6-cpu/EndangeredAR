@@ -1398,7 +1398,9 @@ namespace EndangeredAR.UI
             missionController?.StartMission();
             SetText(missionTitleText, CurrentMissionTitle);
             SetText(missionStatusText, CurrentMissionPrompt());
-            SetText(badgeText, IsCurrentMissionCompleted ? "已获得：生态守护者徽章 +20" : "奖励：生态守护者徽章待解锁");
+            SetText(badgeText, IsCurrentMissionCompleted
+                ? "徽章已收藏 · 本轮可再次挑战"
+                : "答对后解锁：生态守护者徽章");
             SetGuide("");
             PulseModel();
             RefreshUiInteractionState();
@@ -1749,14 +1751,23 @@ namespace EndangeredAR.UI
 
         private void SelectMissionOption(string optionId)
         {
+            var rewardWasAlreadyClaimed = IsCurrentMissionCompleted;
             var result = missionController == null ? default : missionController.SelectOption(optionId);
             SetText(missionStatusText, result.Feedback);
 
             if (result.Success)
             {
-                animalProgress?.MarkMissionCompleted(CurrentAnimalId, result.BadgeId, result.LearnedKnowledgeId);
-                SetText(badgeText, "已获得：生态守护者徽章 +20");
-                AddAssistantMessage($"太棒啦！你帮{CurrentShortName}完成了任务。现在你已经是小小生态守护者了，可以生成一张科普卡片带走这段记录。", true);
+                if (!rewardWasAlreadyClaimed)
+                {
+                    animalProgress?.MarkMissionCompleted(CurrentAnimalId, result.BadgeId, result.LearnedKnowledgeId);
+                    SetText(badgeText, $"已获得：生态守护者徽章 +{result.PointsAwarded}");
+                    AddAssistantMessage($"太棒啦！你帮{CurrentShortName}完成了任务。现在你已经是小小生态守护者了，可以生成一张科普卡片带走这段记录。", true);
+                }
+                else
+                {
+                    SetText(badgeText, "回答正确 · 徽章已收藏");
+                    AddAssistantMessage($"又答对啦！你已经把保护{CurrentShortName}的知识记得很牢，徽章会一直为你保留。", true);
+                }
                 UpdateCardContent();
                 UpdateProfileContent();
                 PulseModel();
