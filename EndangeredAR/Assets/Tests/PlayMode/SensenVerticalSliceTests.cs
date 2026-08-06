@@ -245,6 +245,34 @@ namespace EndangeredAR.Tests.PlayMode
             StringAssert.DoesNotStartWith("已获得：", badgeText.text);
         }
 
+        [UnityTest]
+        public IEnumerator KnowledgeCard_CapturesOnlyTheShareSurface()
+        {
+            yield return LoadDemoScene();
+
+            var controller = FindSingle<DemoAppController>();
+            InvokePrivate(controller, "ShowCardPanel");
+            yield return null;
+
+            var cardPanel = (GameObject)GetPrivateField(controller, "cardPanel");
+            var captureRect = (RectTransform)GetPrivateField(controller, "cardCaptureRect");
+            var saveButton = (Button)GetPrivateField(controller, "cardSaveButton");
+            var backButton = (Button)GetPrivateField(controller, "cardBackButton");
+
+            Assert.That(captureRect.name, Is.EqualTo("Share Card Surface"));
+            Assert.That(saveButton.transform.IsChildOf(captureRect), Is.False,
+                "The saved PNG must not include the save control.");
+            Assert.That(backButton.transform.IsChildOf(captureRect), Is.False,
+                "The saved PNG must not include the back control.");
+            Assert.That(captureRect.Find("Card Sensen Avatar"), Is.Not.Null);
+            Assert.That(captureRect.Find("Card Header"), Is.Not.Null);
+            Assert.That(captureRect.Find("Card Content"), Is.Not.Null);
+            Assert.That(captureRect.Find("Card Badge Status"), Is.Not.Null);
+            Assert.That(captureRect.Find("Card Action"), Is.Not.Null);
+            Assert.That(saveButton.transform.parent, Is.EqualTo(cardPanel.transform));
+            Assert.That(backButton.transform.parent, Is.EqualTo(cardPanel.transform));
+        }
+
         private IEnumerator LoadDemoScene()
         {
             var operation = SceneManager.LoadSceneAsync("DemoScene", LoadSceneMode.Single);

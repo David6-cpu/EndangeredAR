@@ -97,6 +97,8 @@ namespace EndangeredAR.UI
         private Text cardHeaderText;
         private Text cardModelHintText;
         private Text cardContentText;
+        private Text cardBadgeStatusText;
+        private Text cardActionText;
         private Text cardSaveStatusText;
         private RectTransform cardCaptureRect;
         private GameObject missionPanel;
@@ -851,26 +853,39 @@ namespace EndangeredAR.UI
 
         private void BuildCardPanel(Transform parent)
         {
-            cardPanel = CreatePanel(parent, "Knowledge Card Panel", new Vector2(0.075f, 0.055f), new Vector2(0.925f, 0.93f), new Color(0.92f, 0.95f, 0.86f, 0.96f));
-            ApplyRoundedPanel(cardPanel, new Color(0.92f, 0.95f, 0.86f, 0.96f), 34f);
-            cardCaptureRect = cardPanel.GetComponent<RectTransform>();
-            CreateImage(cardPanel.transform, "Card Soft Glow", "Cards/card-soft-glow", new Vector2(0, 510), new Vector2(330, 330), new Color(1f, 1f, 1f, 0.62f), true);
-            CreateImage(cardPanel.transform, "Card Leaf Corner", "Cards/card-leaf-corner", new Vector2(-315, -500), new Vector2(165, 165), new Color(1f, 1f, 1f, 0.68f), true);
-            var cardHeroSurface = CreatePanel(cardPanel.transform, "Card Hero Surface", new Vector2(0.08f, 0.71f), new Vector2(0.92f, 0.96f), new Color(0.06f, 0.17f, 0.12f, 0.94f));
-            ApplyRoundedPanel(cardHeroSurface, new Color(0.06f, 0.17f, 0.12f, 0.94f), 24f);
-            CreateImage(cardPanel.transform, "Card Sensen Avatar", "Characters/character-sensen-avatar", new Vector2(-245, 470), new Vector2(176, 176), Color.white, true);
-            cardHeaderText = CreateText(cardPanel.transform, "Card Header", $"今日认识了{CurrentShortName}", new Vector2(105, 520), new Vector2(500, 64), 40, Color.white, TextAnchor.MiddleLeft);
-            cardHeaderText.fontStyle = FontStyle.Bold;
-            CreateText(cardPanel.transform, "Card Subtitle", "一张属于你的生态守护记录", new Vector2(105, 464), new Vector2(500, 40), 22, new Color(0.82f, 0.93f, 0.82f), TextAnchor.MiddleLeft);
-            CreateImage(cardPanel.transform, "Card Badge Icon", "Badges/badge-eco-guardian", new Vector2(290, 380), new Vector2(110, 110), Color.white, true);
-            cardModelHintText = CreateText(cardPanel.transform, "Card Model Hint", $"{CurrentShortName}：谢谢你愿意了解我的森林", new Vector2(-30, 360), new Vector2(610, 42), 21, new Color(0.9f, 0.96f, 0.86f), TextAnchor.MiddleLeft);
+            var panelColor = new Color(0.82f, 0.9f, 0.76f, 1f);
+            var surfaceColor = new Color(0.965f, 0.975f, 0.91f, 1f);
+            var primaryText = new Color(0.055f, 0.16f, 0.1f, 1f);
+            var secondaryText = new Color(0.2f, 0.36f, 0.25f, 1f);
 
-            var cardContentSurface = CreatePanel(cardPanel.transform, "Card Content Surface", new Vector2(0.08f, 0.28f), new Vector2(0.92f, 0.66f), new Color(0.97f, 0.99f, 0.92f, 0.98f));
-            ApplyRoundedPanel(cardContentSurface, new Color(0.97f, 0.99f, 0.92f, 0.98f), 24f);
-            cardContentText = CreateText(cardPanel.transform, "Card Content", "", new Vector2(0, 30), new Vector2(710, 360), 22, new Color(0.03f, 0.1f, 0.07f), TextAnchor.MiddleLeft);
-            cardSaveStatusText = CreateText(cardPanel.transform, "Card Save Status", "", new Vector2(0, -330), new Vector2(780, 72), 19, new Color(0.12f, 0.25f, 0.17f), TextAnchor.MiddleCenter);
-            cardSaveButton = CreateButton(cardPanel.transform, "Save Card Button", "保存 PNG", new Vector2(-205, -455), new Vector2(350, 76), Leaf);
-            cardBackButton = CreateButton(cardPanel.transform, "Card Back Button", "返回展示", new Vector2(205, -455), new Vector2(350, 76), Moss);
+            cardPanel = CreatePanel(parent, "Knowledge Card Panel", Vector2.zero, Vector2.one, panelColor);
+            var shareSurface = CreatePanel(cardPanel.transform, "Share Card Surface", new Vector2(0.065f, 0.17f), new Vector2(0.935f, 0.955f), surfaceColor);
+            ApplyRoundedPanel(shareSurface, surfaceColor, 34f);
+            cardCaptureRect = shareSurface.GetComponent<RectTransform>();
+
+            CreateImage(shareSurface.transform, "Card Soft Glow", "Cards/card-soft-glow", new Vector2(320, 790), new Vector2(300, 300), new Color(1f, 1f, 1f, 0.32f), true);
+            CreateImage(shareSurface.transform, "Card Leaf Corner", "Cards/card-leaf-corner", new Vector2(-365, -835), new Vector2(150, 150), new Color(1f, 1f, 1f, 0.48f), true);
+            CreateImage(shareSurface.transform, "Card Sensen Avatar", "Characters/character-sensen-avatar", new Vector2(-330, 800), new Vector2(190, 190), Color.white, true);
+            cardHeaderText = CreateText(shareSurface.transform, "Card Header", $"今日认识了{CurrentShortName}", new Vector2(30, 855), new Vector2(620, 72), 42, primaryText, TextAnchor.MiddleLeft);
+            cardHeaderText.fontStyle = FontStyle.Bold;
+            CreateText(shareSurface.transform, "Card Subtitle", CurrentDisplayName, new Vector2(30, 795), new Vector2(620, 42), 24, secondaryText, TextAnchor.MiddleLeft);
+            cardModelHintText = CreateText(shareSurface.transform, "Card Model Hint", $"{CurrentShortName}：谢谢你愿意认识我的森林。", new Vector2(0, 670), new Vector2(850, 70), 25, secondaryText, TextAnchor.MiddleCenter);
+
+            CreateSolidImage(shareSurface.transform, "Card Top Divider", new Vector2(0, 610), new Vector2(850, 2), new Color(0.32f, 0.5f, 0.34f, 0.28f));
+            cardContentText = CreateText(shareSurface.transform, "Card Content", "", new Vector2(0, 160), new Vector2(820, 760), 27, primaryText, TextAnchor.UpperLeft);
+            CreateSolidImage(shareSurface.transform, "Card Bottom Divider", new Vector2(0, -255), new Vector2(850, 2), new Color(0.32f, 0.5f, 0.34f, 0.28f));
+
+            CreateImage(shareSurface.transform, "Card Badge Icon", "Badges/badge-eco-guardian", new Vector2(-335, -430), new Vector2(150, 150), Color.white, true);
+            cardBadgeStatusText = CreateText(shareSurface.transform, "Card Badge Status", "", new Vector2(70, -405), new Vector2(650, 120), 27, primaryText, TextAnchor.MiddleLeft);
+            cardActionText = CreateText(shareSurface.transform, "Card Action", "", new Vector2(0, -650), new Vector2(820, 210), 25, secondaryText, TextAnchor.UpperLeft);
+            CreateText(shareSurface.transform, "Card Footer", "濒危动物 AR 科普 · 为森林多做一件小事", new Vector2(0, -860), new Vector2(820, 52), 20, new Color(0.28f, 0.43f, 0.3f, 1f), TextAnchor.MiddleCenter);
+
+            cardSaveStatusText = CreateText(cardPanel.transform, "Card Save Status", "", Vector2.zero, new Vector2(780f, 72f), 19, secondaryText, TextAnchor.MiddleCenter);
+            SetAnchoredRect(cardSaveStatusText.GetComponent<RectTransform>(), new Vector2(0.08f, 0.12f), new Vector2(0.92f, 0.17f));
+            cardSaveButton = CreateButton(cardPanel.transform, "Save Card Button", "保存 PNG", Vector2.zero, new Vector2(350f, 76f), Leaf);
+            cardBackButton = CreateButton(cardPanel.transform, "Card Back Button", "返回展示", Vector2.zero, new Vector2(350f, 76f), Moss);
+            SetAnchoredRect(cardSaveButton.GetComponent<RectTransform>(), new Vector2(0.065f, 0.035f), new Vector2(0.49f, 0.115f));
+            SetAnchoredRect(cardBackButton.GetComponent<RectTransform>(), new Vector2(0.51f, 0.035f), new Vector2(0.935f, 0.115f));
             AddClick(cardSaveButton, "Card clicked", SaveKnowledgeCard);
             AddClick(cardBackButton, "Back clicked", EnterModelView);
             cardPanel.SetActive(false);
@@ -1172,8 +1187,6 @@ namespace EndangeredAR.UI
             SetPanelBackground(chatPanel, "Backgrounds/bg-chat-forest", new Color(1f, 1f, 1f, 0.9f));
             SetPanelBackground(learnPanel, "Backgrounds/bg-learn-panel", new Color(1f, 1f, 1f, 0.86f));
             SetPanelBackground(profilePanel, "Backgrounds/bg-learn-panel", new Color(1f, 1f, 1f, 0.86f));
-            SetPanelBackground(cardPanel, "Backgrounds/bg-card-share", new Color(1f, 1f, 1f, 0.92f));
-
             AddButtonIcon(discoverButton, "Icons/tab-discover", 34f);
             AddButtonIcon(learnButton, "Icons/tab-learn", 34f);
             AddButtonIcon(profileButton, "Icons/tab-profile", 34f);
@@ -1789,23 +1802,48 @@ namespace EndangeredAR.UI
             SetText(cardSaveStatusText, "正在生成 PNG...");
             yield return new WaitForEndOfFrame();
 
-            var screenTexture = ScreenCapture.CaptureScreenshotAsTexture();
-            var rect = GetScreenRect(cardCaptureRect);
-            var width = Mathf.Clamp(Mathf.RoundToInt(rect.width), 1, screenTexture.width);
-            var height = Mathf.Clamp(Mathf.RoundToInt(rect.height), 1, screenTexture.height);
-            var x = Mathf.Clamp(Mathf.RoundToInt(rect.x), 0, screenTexture.width - width);
-            var y = Mathf.Clamp(Mathf.RoundToInt(rect.y), 0, screenTexture.height - height);
+            Texture2D screenTexture = null;
+            Texture2D cardTexture = null;
+            try
+            {
+                screenTexture = ScreenCapture.CaptureScreenshotAsTexture();
+                if (screenTexture == null)
+                {
+                    throw new InvalidOperationException("Screenshot capture returned no texture.");
+                }
 
-            var cardTexture = new Texture2D(width, height, TextureFormat.RGB24, false);
-            cardTexture.SetPixels(screenTexture.GetPixels(x, y, width, height));
-            cardTexture.Apply();
+                var rect = GetScreenRect(cardCaptureRect);
+                var width = Mathf.Clamp(Mathf.RoundToInt(rect.width), 1, screenTexture.width);
+                var height = Mathf.Clamp(Mathf.RoundToInt(rect.height), 1, screenTexture.height);
+                var x = Mathf.Clamp(Mathf.RoundToInt(rect.x), 0, screenTexture.width - width);
+                var y = Mathf.Clamp(Mathf.RoundToInt(rect.y), 0, screenTexture.height - height);
 
-            var fileName = $"{CurrentAnimalId}_card_{DateTime.Now:yyyyMMdd_HHmmss}.png";
-            var path = Path.Combine(Application.persistentDataPath, fileName);
-            File.WriteAllBytes(path, cardTexture.EncodeToPNG());
-            Destroy(screenTexture);
-            Destroy(cardTexture);
-            SetText(cardSaveStatusText, $"已保存 PNG：{fileName}\n位置：应用数据目录");
+                cardTexture = new Texture2D(width, height, TextureFormat.RGB24, false);
+                cardTexture.SetPixels(screenTexture.GetPixels(x, y, width, height));
+                cardTexture.Apply();
+
+                var fileName = $"{CurrentAnimalId}_card_{DateTime.Now:yyyyMMdd_HHmmss}.png";
+                var path = Path.Combine(Application.persistentDataPath, fileName);
+                File.WriteAllBytes(path, cardTexture.EncodeToPNG());
+                SetText(cardSaveStatusText, $"已保存：{fileName}");
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning($"Knowledge card save failed: {exception.GetType().Name}");
+                SetText(cardSaveStatusText, "保存失败，请稍后再试。");
+            }
+            finally
+            {
+                if (screenTexture != null)
+                {
+                    Destroy(screenTexture);
+                }
+
+                if (cardTexture != null)
+                {
+                    Destroy(cardTexture);
+                }
+            }
         }
 
         private static Rect GetScreenRect(RectTransform rectTransform)
@@ -2133,14 +2171,28 @@ namespace EndangeredAR.UI
             var badgeLine = HasCurrentBadge ? "生态守护者徽章已解锁" : "完成任务后解锁";
 
             SetText(cardHeaderText, $"今日认识了{CurrentShortName}");
-            SetText(cardModelHintText, $"{CurrentShortName}：谢谢你愿意了解我的森林");
+            SetText(cardModelHintText, $"{CurrentShortName}：谢谢你愿意认识我的森林。");
             cardContentText.text =
-                $"今日认识了{CurrentShortName}\n\n"
-                + $"体验：扫描识别卡，观察{CurrentDisplayName}的 3D 形态。\n"
-                + $"学习：{CurrentLearnedFact()}\n"
-                + $"任务：{missionLine}\n"
-                + $"徽章：{badgeLine}\n\n"
-                + "分享行动：不投喂野生动物，把森林保护知识告诉更多人。";
+                $"栖息地与食物\n{CurrentKnowledgeFact(1)}\n\n"
+                + $"今日知识\n{CurrentLearnedFact()}\n\n"
+                + $"互动任务\n{missionLine}";
+            SetText(cardBadgeStatusText, $"生态守护者徽章\n{badgeLine}");
+            SetText(cardActionText, "今天的守护行动\n不投喂野生动物，把森林保护知识告诉更多人。");
+        }
+
+        private static void SetAnchoredRect(RectTransform rect, Vector2 anchorMin, Vector2 anchorMax)
+        {
+            if (rect == null)
+            {
+                return;
+            }
+
+            rect.anchorMin = anchorMin;
+            rect.anchorMax = anchorMax;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = Vector2.zero;
         }
 
         private void UpdateProfileContent()
