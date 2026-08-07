@@ -246,6 +246,70 @@ namespace EndangeredAR.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator OverlayViews_HideModelActionButtons()
+        {
+            yield return LoadDemoScene();
+
+            var controller = FindSingle<DemoAppController>();
+            var missionButton = (Button)GetPrivateField(controller, "missionButton");
+            var cardButton = (Button)GetPrivateField(controller, "cardButton");
+
+            InvokePrivate(controller, "EnterModelView");
+            yield return null;
+            Assert.That(missionButton.gameObject.activeSelf, Is.True);
+            Assert.That(cardButton.gameObject.activeSelf, Is.True);
+
+            InvokePrivate(controller, "EnterMissionView");
+            yield return null;
+
+            Assert.That(missionButton.gameObject.activeSelf, Is.False,
+                "The model mission shortcut must not bleed through the mission overlay.");
+            Assert.That(cardButton.gameObject.activeSelf, Is.False,
+                "The model card shortcut must not bleed through the mission overlay.");
+
+            InvokePrivate(controller, "ShowCardPanel");
+            yield return null;
+
+            Assert.That(missionButton.gameObject.activeSelf, Is.False,
+                "The model mission shortcut must not be rendered into the knowledge card.");
+            Assert.That(cardButton.gameObject.activeSelf, Is.False,
+                "The model card shortcut must not be rendered into the knowledge card.");
+        }
+
+        [UnityTest]
+        public IEnumerator StretchedCardControls_KeepTheirLabelsVisible()
+        {
+            yield return LoadDemoScene();
+
+            var controller = FindSingle<DemoAppController>();
+            var saveButton = (Button)GetPrivateField(controller, "cardSaveButton");
+            var backButton = (Button)GetPrivateField(controller, "cardBackButton");
+            var saveLabel = saveButton.GetComponentInChildren<Text>(true);
+            var backLabel = backButton.GetComponentInChildren<Text>(true);
+
+            Assert.That(saveLabel, Is.Not.Null);
+            Assert.That(backLabel, Is.Not.Null);
+            Assert.That(saveLabel.gameObject.activeSelf, Is.True);
+            Assert.That(backLabel.gameObject.activeSelf, Is.True);
+            Assert.That(saveLabel.text, Is.EqualTo("保存 PNG"));
+            Assert.That(backLabel.text, Is.EqualTo("返回展示"));
+        }
+
+        [UnityTest]
+        public IEnumerator ModelChatBubble_IsCompactAndReadable()
+        {
+            yield return LoadDemoScene();
+
+            var controller = FindSingle<DemoAppController>();
+            var bubble = (GameObject)GetPrivateField(controller, "modelChatBubble");
+            var bubbleText = (Text)GetPrivateField(controller, "modelChatBubbleText");
+            var bubbleRect = bubble.GetComponent<RectTransform>();
+
+            Assert.That(bubbleRect.anchorMax.y - bubbleRect.anchorMin.y, Is.LessThanOrEqualTo(0.15f));
+            Assert.That(bubbleText.fontSize, Is.GreaterThanOrEqualTo(27));
+        }
+
+        [UnityTest]
         public IEnumerator KnowledgeCard_CapturesOnlyTheShareSurface()
         {
             yield return LoadDemoScene();

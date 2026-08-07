@@ -720,7 +720,7 @@ namespace EndangeredAR.UI
         private void BuildModelChatUi(Transform parent)
         {
             modelBackButton = CreateButton(parent, "Model Back Button", "‹", new Vector2(-430, 790), new Vector2(76, 76), new Color(0.97f, 0.99f, 0.94f, 0.94f));
-            modelChatBubble = CreatePanel(parent, "Model Chat Bubble", new Vector2(0.56f, 0.52f), new Vector2(0.91f, 0.70f), new Color(0.97f, 0.99f, 0.94f, 0.94f));
+            modelChatBubble = CreatePanel(parent, "Model Chat Bubble", new Vector2(0.56f, 0.52f), new Vector2(0.91f, 0.66f), new Color(0.97f, 0.99f, 0.94f, 0.94f));
             ApplyRoundedPanel(modelChatBubble, new Color(0.97f, 0.99f, 0.94f, 0.94f), 34f);
             var bubbleImage = modelChatBubble.GetComponent<Image>();
             if (bubbleImage != null)
@@ -728,7 +728,7 @@ namespace EndangeredAR.UI
                 bubbleImage.raycastTarget = false;
             }
 
-            modelChatBubbleText = CreateText(modelChatBubble.transform, "Model Chat Bubble Text", "你好！我是动物伙伴。\n你可以直接问我问题。", Vector2.zero, new Vector2(315, 260), 24, new Color(0.09f, 0.14f, 0.12f), TextAnchor.MiddleLeft);
+            modelChatBubbleText = CreateText(modelChatBubble.transform, "Model Chat Bubble Text", "你好！我是动物伙伴。\n你可以直接问我问题。", Vector2.zero, new Vector2(340, 280), 28, new Color(0.09f, 0.14f, 0.12f), TextAnchor.MiddleLeft);
             var pointer = CreateSolidImage(modelChatBubble.transform, "Model Chat Pointer", new Vector2(-205, 10), new Vector2(34, 34), new Color(0.97f, 0.99f, 0.94f, 0.94f));
             pointer.transform.localRotation = Quaternion.Euler(0f, 0f, 45f);
 
@@ -859,7 +859,7 @@ namespace EndangeredAR.UI
             var secondaryText = new Color(0.2f, 0.36f, 0.25f, 1f);
 
             cardPanel = CreatePanel(parent, "Knowledge Card Panel", Vector2.zero, Vector2.one, panelColor);
-            var shareSurface = CreatePanel(cardPanel.transform, "Share Card Surface", new Vector2(0.065f, 0.17f), new Vector2(0.935f, 0.955f), surfaceColor);
+            var shareSurface = CreatePanel(cardPanel.transform, "Share Card Surface", new Vector2(0.065f, 0.24f), new Vector2(0.935f, 0.955f), surfaceColor);
             ApplyRoundedPanel(shareSurface, surfaceColor, 34f);
             cardCaptureRect = shareSurface.GetComponent<RectTransform>();
 
@@ -872,20 +872,20 @@ namespace EndangeredAR.UI
             cardModelHintText = CreateText(shareSurface.transform, "Card Model Hint", $"{CurrentShortName}：谢谢你愿意认识我的森林。", new Vector2(0, 670), new Vector2(850, 70), 25, secondaryText, TextAnchor.MiddleCenter);
 
             CreateSolidImage(shareSurface.transform, "Card Top Divider", new Vector2(0, 610), new Vector2(850, 2), new Color(0.32f, 0.5f, 0.34f, 0.28f));
-            cardContentText = CreateText(shareSurface.transform, "Card Content", "", new Vector2(0, 160), new Vector2(820, 760), 27, primaryText, TextAnchor.UpperLeft);
-            CreateSolidImage(shareSurface.transform, "Card Bottom Divider", new Vector2(0, -255), new Vector2(850, 2), new Color(0.32f, 0.5f, 0.34f, 0.28f));
+            cardContentText = CreateText(shareSurface.transform, "Card Content", "", new Vector2(0, 345), new Vector2(820, 360), 27, primaryText, TextAnchor.UpperLeft);
+            CreateSolidImage(shareSurface.transform, "Card Bottom Divider", new Vector2(0, 130), new Vector2(850, 2), new Color(0.32f, 0.5f, 0.34f, 0.28f));
 
-            CreateImage(shareSurface.transform, "Card Badge Icon", "Badges/badge-eco-guardian", new Vector2(-335, -430), new Vector2(150, 150), Color.white, true);
-            cardBadgeStatusText = CreateText(shareSurface.transform, "Card Badge Status", "", new Vector2(70, -405), new Vector2(650, 120), 27, primaryText, TextAnchor.MiddleLeft);
-            cardActionText = CreateText(shareSurface.transform, "Card Action", "", new Vector2(0, -650), new Vector2(820, 210), 25, secondaryText, TextAnchor.UpperLeft);
+            CreateImage(shareSurface.transform, "Card Badge Icon", "Badges/badge-eco-guardian", new Vector2(-335, -45), new Vector2(150, 150), Color.white, true);
+            cardBadgeStatusText = CreateText(shareSurface.transform, "Card Badge Status", "", new Vector2(70, -20), new Vector2(650, 120), 27, primaryText, TextAnchor.MiddleLeft);
+            cardActionText = CreateText(shareSurface.transform, "Card Action", "", new Vector2(0, -285), new Vector2(820, 180), 25, secondaryText, TextAnchor.UpperLeft);
             CreateText(shareSurface.transform, "Card Footer", "濒危动物 AR 科普 · 为森林多做一件小事", new Vector2(0, -860), new Vector2(820, 52), 20, new Color(0.28f, 0.43f, 0.3f, 1f), TextAnchor.MiddleCenter);
 
             cardSaveStatusText = CreateText(cardPanel.transform, "Card Save Status", "", Vector2.zero, new Vector2(780f, 72f), 19, secondaryText, TextAnchor.MiddleCenter);
-            SetAnchoredRect(cardSaveStatusText.GetComponent<RectTransform>(), new Vector2(0.08f, 0.12f), new Vector2(0.92f, 0.17f));
+            SetAnchoredRect(cardSaveStatusText.GetComponent<RectTransform>(), new Vector2(0.08f, 0.145f), new Vector2(0.92f, 0.185f));
             cardSaveButton = CreateButton(cardPanel.transform, "Save Card Button", "保存 PNG", Vector2.zero, new Vector2(350f, 76f), Leaf);
             cardBackButton = CreateButton(cardPanel.transform, "Card Back Button", "返回展示", Vector2.zero, new Vector2(350f, 76f), Moss);
-            SetAnchoredRect(cardSaveButton.GetComponent<RectTransform>(), new Vector2(0.065f, 0.035f), new Vector2(0.49f, 0.115f));
-            SetAnchoredRect(cardBackButton.GetComponent<RectTransform>(), new Vector2(0.51f, 0.035f), new Vector2(0.935f, 0.115f));
+            SetAnchoredRect(cardSaveButton.GetComponent<RectTransform>(), new Vector2(0.10f, 0.055f), new Vector2(0.48f, 0.115f));
+            SetAnchoredRect(cardBackButton.GetComponent<RectTransform>(), new Vector2(0.52f, 0.055f), new Vector2(0.90f, 0.115f));
             AddClick(cardSaveButton, "Card clicked", SaveKnowledgeCard);
             AddClick(cardBackButton, "Back clicked", EnterModelView);
             cardPanel.SetActive(false);
@@ -1406,6 +1406,8 @@ namespace EndangeredAR.UI
             SetPanelActive(cardPanel, false);
             SetPanelActive(missionPanel, true);
             SetPanelActive(animalPlaceholder, true);
+            SetButtonVisible(missionButton, false);
+            SetButtonVisible(cardButton, false);
             SetButtonVisible(askFoodButton, false);
             SetButtonVisible(askProtectButton, false);
             missionController?.StartMission();
@@ -1433,6 +1435,8 @@ namespace EndangeredAR.UI
             SetPanelActive(missionPanel, false);
             SetPanelActive(cardPanel, true);
             SetPanelActive(animalPlaceholder, false);
+            SetButtonVisible(missionButton, false);
+            SetButtonVisible(cardButton, false);
             SetButtonVisible(askFoodButton, false);
             SetButtonVisible(askProtectButton, false);
             UpdateCardContent();
@@ -2816,7 +2820,8 @@ namespace EndangeredAR.UI
             iconRect.sizeDelta = new Vector2(size, size);
 
             var buttonRect = button.GetComponent<RectTransform>();
-            var iconOnly = buttonRect != null && buttonRect.sizeDelta.x <= 120f;
+            var hasFixedWidth = buttonRect != null && Mathf.Approximately(buttonRect.anchorMin.x, buttonRect.anchorMax.x);
+            var iconOnly = hasFixedWidth && buttonRect.sizeDelta.x <= 120f;
             if (iconOnly)
             {
                 iconRect.anchorMin = new Vector2(0.5f, 0.5f);
