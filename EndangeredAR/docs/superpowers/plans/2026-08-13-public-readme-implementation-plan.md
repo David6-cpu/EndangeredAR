@@ -162,7 +162,7 @@ git add README.md server/README.md EndangeredAR/docs/superpowers/plans/2026-08-1
 git commit -m "docs: add public project README"
 ```
 
-- [ ] **Step 5: Push the verified commit**
+- [x] **Step 5: Push the verified commit**
 
 ```bash
 git push origin HEAD:feature/multi-animal-foundation
@@ -171,7 +171,7 @@ git push origin HEAD:main
 
 Expected: both remote branches point to the new documentation commit.
 
-- [ ] **Step 6: Verify the GitHub repository**
+- [x] **Step 6: Verify the GitHub repository**
 
 Run:
 
