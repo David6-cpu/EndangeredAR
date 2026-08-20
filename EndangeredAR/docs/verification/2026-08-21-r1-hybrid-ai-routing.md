@@ -29,7 +29,7 @@ Local timeout: 8 seconds
 Total Provider budget: 38 seconds
 ```
 
-The existing UI timeout guard remains 40 seconds. Cloud credentials remain in the repository-root `.env.local` file loaded by Python and never enter Unity.
+The existing UI timeout guard remains 40 seconds. When Cloud is configured, its credentials must stay in the Git-ignored repository-root `.env.local` file loaded by Python and must never enter Unity.
 
 ## Automated verification
 
