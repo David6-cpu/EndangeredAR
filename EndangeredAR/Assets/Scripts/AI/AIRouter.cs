@@ -191,20 +191,22 @@ namespace EndangeredAR.AI
                     yield break;
                 }
 
-                if (!hasNext)
+                if (result.IsComplete)
                 {
-                    if (!result.IsComplete)
-                    {
-                        result.CompleteError(new AIProviderError("provider_no_response", "Provider did not respond.", false));
-                    }
-
                     Dispose(routine);
                     yield break;
                 }
 
-                if (routine.Current is IEnumerator)
+                if (!hasNext)
                 {
-                    result.CompleteError(new AIProviderError("provider_unobservable_yield", "Provider yielded unsupported nested work.", false));
+                    result.CompleteError(new AIProviderError("provider_no_response", "Provider did not respond.", false));
+                    Dispose(routine);
+                    yield break;
+                }
+
+                if (routine.Current != null)
+                {
+                    result.CompleteError(new AIProviderError("provider_unobservable_yield", "Provider yielded unsupported work.", false));
                     Dispose(routine);
                     yield break;
                 }

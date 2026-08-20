@@ -244,7 +244,7 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
-        public void CoroutineTimeLateSuccess_AfterProviderError_DoesNotCompleteRouteTwice()
+        public void CoroutineTimeProviderError_DisposesBeforeLateSuccessAndUsesFallback()
         {
             var cloud = new ErrorThenLateSuccessProvider();
             var knowledge = FakeProvider.Success("knowledge", "unity_knowledge", "knowledge reply");
@@ -265,9 +265,60 @@ namespace EndangeredAR.Tests.EditMode
                 },
                 error => errorCount++));
 
-            Assert.That(cloud.LateSuccessAttempted, Is.True);
+            Assert.That(cloud.LateSuccessAttempted, Is.False);
             Assert.That(successCount, Is.EqualTo(1));
             Assert.That(errorCount, Is.EqualTo(0));
+            Assert.That(response.source, Is.EqualTo("unity_knowledge"));
+        }
+
+        [Test]
+        public void CloudOnly_SuccessCallbackFollowedByInfiniteYields_CompletesAndDisposesImmediately()
+        {
+            var cloud = CallbackThenInfiniteProvider.Success();
+            var knowledge = FakeProvider.Success("knowledge", "unity_knowledge", "knowledge reply");
+            var router = new AIRouter(null, cloud, knowledge, () => 0f);
+            AIResponse response = null;
+
+            var completed = RunFor(
+                router.Route(Request(), AIRouteMode.CloudOnly, 8f, 38f, value => response = value, Fail),
+                12);
+
+            Assert.That(completed, Is.True);
+            Assert.That(cloud.Disposed, Is.True);
+            Assert.That(knowledge.CallCount, Is.EqualTo(0));
+            Assert.That(response.source, Is.EqualTo("cloud_proxy"));
+        }
+
+        [Test]
+        public void CloudOnly_ErrorCallbackFollowedByInfiniteYields_FallsBackAndDisposesImmediately()
+        {
+            var cloud = CallbackThenInfiniteProvider.Error();
+            var knowledge = FakeProvider.Success("knowledge", "unity_knowledge", "knowledge reply");
+            var router = new AIRouter(null, cloud, knowledge, () => 0f);
+            AIResponse response = null;
+
+            var completed = RunFor(
+                router.Route(Request(), AIRouteMode.CloudOnly, 8f, 38f, value => response = value, Fail),
+                12);
+
+            Assert.That(completed, Is.True);
+            Assert.That(cloud.Disposed, Is.True);
+            Assert.That(knowledge.CallCount, Is.EqualTo(1));
+            Assert.That(response.source, Is.EqualTo("unity_knowledge"));
+        }
+
+        [Test]
+        public void CloudOnly_NonNullProviderYield_IsRejectedAndFallsBack()
+        {
+            var cloud = new NonNullYieldThenSuccessProvider();
+            var knowledge = FakeProvider.Success("knowledge", "unity_knowledge", "knowledge reply");
+            var router = new AIRouter(null, cloud, knowledge, () => 0f);
+            AIResponse response = null;
+
+            Run(router.Route(Request(), AIRouteMode.CloudOnly, 8f, 38f, value => response = value, Fail));
+
+            Assert.That(cloud.Disposed, Is.True);
+            Assert.That(knowledge.CallCount, Is.EqualTo(1));
             Assert.That(response.source, Is.EqualTo("unity_knowledge"));
         }
 
@@ -301,6 +352,32 @@ namespace EndangeredAR.Tests.EditMode
                     routines.Push(nestedRoutine);
                 }
             }
+        }
+
+        private static bool RunFor(IEnumerator routine, int maximumSteps)
+        {
+            var routines = new Stack<IEnumerator>();
+            routines.Push(routine);
+            var steps = 0;
+
+            while (routines.Count > 0 && steps < maximumSteps)
+            {
+                steps++;
+                var current = routines.Peek();
+                if (!current.MoveNext())
+                {
+                    routines.Pop();
+                    continue;
+                }
+
+                var nestedRoutine = current.Current as IEnumerator;
+                if (nestedRoutine != null)
+                {
+                    routines.Push(nestedRoutine);
+                }
+            }
+
+            return routines.Count == 0;
         }
 
         private static void Ignore(AIResponse response)
@@ -520,6 +597,147 @@ namespace EndangeredAR.Tests.EditMode
                 yield return null;
                 LateSuccessAttempted = true;
                 onSuccess?.Invoke(new AIResponse { source = "cloud_proxy", reply = "late cloud reply" });
+            }
+        }
+
+        private sealed class CallbackThenInfiniteProvider : IAIProvider
+        {
+            private readonly bool succeeds;
+
+            private CallbackThenInfiniteProvider(bool succeeds)
+            {
+                this.succeeds = succeeds;
+            }
+
+            public string ProviderId => "cloud";
+            public bool Disposed { get; private set; }
+
+            public static CallbackThenInfiniteProvider Success()
+            {
+                return new CallbackThenInfiniteProvider(true);
+            }
+
+            public static CallbackThenInfiniteProvider Error()
+            {
+                return new CallbackThenInfiniteProvider(false);
+            }
+
+            public IEnumerator Send(
+                AIRequest request,
+                float timeoutSeconds,
+                Action<AIResponse> onSuccess,
+                Action<AIProviderError> onError)
+            {
+                return new CallbackThenInfiniteEnumerator(this, succeeds, onSuccess, onError);
+            }
+
+            private sealed class CallbackThenInfiniteEnumerator : IEnumerator, IDisposable
+            {
+                private readonly CallbackThenInfiniteProvider owner;
+                private readonly bool succeeds;
+                private readonly Action<AIResponse> onSuccess;
+                private readonly Action<AIProviderError> onError;
+                private bool callbackSent;
+
+                public CallbackThenInfiniteEnumerator(
+                    CallbackThenInfiniteProvider owner,
+                    bool succeeds,
+                    Action<AIResponse> onSuccess,
+                    Action<AIProviderError> onError)
+                {
+                    this.owner = owner;
+                    this.succeeds = succeeds;
+                    this.onSuccess = onSuccess;
+                    this.onError = onError;
+                }
+
+                public object Current => null;
+
+                public bool MoveNext()
+                {
+                    if (!callbackSent)
+                    {
+                        callbackSent = true;
+                        if (succeeds)
+                        {
+                            onSuccess?.Invoke(new AIResponse { source = "cloud_proxy", reply = "cloud reply" });
+                        }
+                        else
+                        {
+                            onError?.Invoke(new AIProviderError("provider_failed", "Provider failed.", false));
+                        }
+                    }
+
+                    return true;
+                }
+
+                public void Reset()
+                {
+                    throw new NotSupportedException();
+                }
+
+                public void Dispose()
+                {
+                    owner.Disposed = true;
+                }
+            }
+        }
+
+        private sealed class NonNullYieldThenSuccessProvider : IAIProvider
+        {
+            public string ProviderId => "cloud";
+            public bool Disposed { get; private set; }
+
+            public IEnumerator Send(
+                AIRequest request,
+                float timeoutSeconds,
+                Action<AIResponse> onSuccess,
+                Action<AIProviderError> onError)
+            {
+                return new NonNullYieldThenSuccessEnumerator(this, onSuccess);
+            }
+
+            private sealed class NonNullYieldThenSuccessEnumerator : IEnumerator, IDisposable
+            {
+                private readonly NonNullYieldThenSuccessProvider owner;
+                private readonly Action<AIResponse> onSuccess;
+                private readonly object yieldedValue = new object();
+                private int step;
+
+                public NonNullYieldThenSuccessEnumerator(NonNullYieldThenSuccessProvider owner, Action<AIResponse> onSuccess)
+                {
+                    this.owner = owner;
+                    this.onSuccess = onSuccess;
+                }
+
+                public object Current => yieldedValue;
+
+                public bool MoveNext()
+                {
+                    if (step == 0)
+                    {
+                        step++;
+                        return true;
+                    }
+
+                    if (step == 1)
+                    {
+                        step++;
+                        onSuccess?.Invoke(new AIResponse { source = "cloud_proxy", reply = "late cloud reply" });
+                    }
+
+                    return false;
+                }
+
+                public void Reset()
+                {
+                    throw new NotSupportedException();
+                }
+
+                public void Dispose()
+                {
+                    owner.Disposed = true;
+                }
             }
         }
     }
