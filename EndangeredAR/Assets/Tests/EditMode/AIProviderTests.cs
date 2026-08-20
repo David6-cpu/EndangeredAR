@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using EndangeredAR.AI;
 using EndangeredAR.API;
 using EndangeredAR.Chat;
@@ -56,10 +55,25 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
-        public void CloudProvider_UsesChatApiClientAndPreservesResponseSource()
+        public void ChatApiClient_LegacyOverloadsForwardThirtyFiveSecondTimeout()
         {
-            var source = File.ReadAllText(Path.GetFullPath("Assets/Scripts/AI/CloudLLMProvider.cs"));
-            var mapped = CloudLLMProvider.ToAIResponse(new ChatResponse
+            var client = CreateControlledChatClient();
+
+            RunCoroutine(client.SendMessage("sensen", "First", IgnoreChatResponse, FailChat));
+            Assert.That(client.LastTimeoutSeconds, Is.EqualTo(35f));
+            Assert.That(client.LastHistory, Is.Empty);
+
+            var history = new[] { new ChatMessage { role = "user", content = "Earlier" } };
+            RunCoroutine(client.SendMessage("sensen", "Second", history, IgnoreChatResponse, FailChat));
+            Assert.That(client.LastTimeoutSeconds, Is.EqualTo(35f));
+            Assert.That(client.LastHistory, Is.SameAs(history));
+        }
+
+        [Test]
+        public void CloudProvider_MapsSuccessOnceAndYieldsOnlyNull()
+        {
+            var client = CreateControlledChatClient();
+            client.RoutineFactory = (onSuccess, onError) => ControlledChatEnumerator.SuccessTwice(new ChatResponse
             {
                 animalId = "sensen",
                 reply = "Cloud reply.",
@@ -67,15 +81,55 @@ namespace EndangeredAR.Tests.EditMode
                 routeReason = "server_reason",
                 suggestedQuestions = new[] { "Why?" },
                 missionHint = "Protect forest."
-            });
+            }, onSuccess);
+            var provider = new CloudLLMProvider(client);
+            AIResponse response = null;
+            var callbacks = 0;
 
-            StringAssert.Contains("chatApiClient.SendMessage", source);
-            StringAssert.DoesNotContain("new UnityWebRequest", source);
-            Assert.That(mapped.animalId, Is.EqualTo("sensen"));
-            Assert.That(mapped.reply, Is.EqualTo("Cloud reply."));
-            Assert.That(mapped.source, Is.EqualTo("server_rule"));
-            Assert.That(mapped.routeReason, Is.Null);
-            Assert.That(mapped.suggestedQuestions, Is.EqualTo(new[] { "Why?" }));
+            RunProviderStrict(provider.Send(Request(), 7.5f, value =>
+            {
+                callbacks++;
+                response = value;
+            }, Fail));
+
+            Assert.That(client.LastTimeoutSeconds, Is.EqualTo(7.5f));
+            Assert.That(callbacks, Is.EqualTo(1));
+            Assert.That(response.animalId, Is.EqualTo("sensen"));
+            Assert.That(response.reply, Is.EqualTo("Cloud reply."));
+            Assert.That(response.source, Is.EqualTo("server_rule"));
+            Assert.That(response.routeReason, Is.Null);
+            Assert.That(response.suggestedQuestions, Is.EqualTo(new[] { "Why?" }));
+        }
+
+        [Test]
+        public void CloudProvider_ClassifiesTimeoutErrors()
+        {
+            var client = CreateControlledChatClient();
+            client.RoutineFactory = (onSuccess, onError) => ControlledChatEnumerator.Error("Request timeout after 7 seconds.", onError);
+            var provider = new CloudLLMProvider(client);
+            AIProviderError error = null;
+
+            RunProviderStrict(provider.Send(Request(), 7f, Ignore, value => error = value));
+
+            Assert.That(error, Is.Not.Null);
+            Assert.That(error.Code, Is.EqualTo("cloud_timeout"));
+            Assert.That(error.IsTimeout, Is.True);
+        }
+
+        [Test]
+        public void CloudProvider_DisposingOuterEnumeratorDisposesInnerClientEnumerator()
+        {
+            var client = CreateControlledChatClient();
+            var inner = ControlledChatEnumerator.Pending();
+            client.RoutineFactory = (onSuccess, onError) => inner;
+            var provider = new CloudLLMProvider(client);
+            var routine = provider.Send(Request(), 7f, Ignore, Fail);
+
+            Assert.That(routine.MoveNext(), Is.True);
+            Assert.That(routine.Current, Is.Null);
+            ((IDisposable)routine).Dispose();
+
+            Assert.That(inner.Disposed, Is.True);
         }
 
         [Test]
@@ -84,7 +138,7 @@ namespace EndangeredAR.Tests.EditMode
             var provider = new LocalLLMProvider(" ");
             AIProviderError error = null;
 
-            Run(provider.Send(Request(), 8f, Ignore, value => error = value));
+            RunProviderStrict(provider.Send(Request(), 8f, Ignore, value => error = value));
 
             Assert.That(error, Is.Not.Null);
             Assert.That(error.Code, Is.EqualTo("local_configuration_error"));
@@ -92,13 +146,17 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
-        public void LocalProvider_BuildsStableLocalEndpointAndRejectsUnsupportedSchemes()
+        public void LocalProvider_BuildsStableLocalEndpointAndRejectsUnsafeBaseUrls()
         {
             string endpoint;
 
             Assert.That(LocalLLMProvider.TryBuildEndpoint("http://127.0.0.1:8000/", out endpoint), Is.True);
             Assert.That(endpoint, Is.EqualTo("http://127.0.0.1:8000/chat/local"));
             Assert.That(LocalLLMProvider.TryBuildEndpoint("file:///tmp/local-ai", out endpoint), Is.False);
+            Assert.That(endpoint, Is.Null);
+            Assert.That(LocalLLMProvider.TryBuildEndpoint("http://127.0.0.1:8000?token=one", out endpoint), Is.False);
+            Assert.That(endpoint, Is.Null);
+            Assert.That(LocalLLMProvider.TryBuildEndpoint("http://127.0.0.1:8000#fragment", out endpoint), Is.False);
             Assert.That(endpoint, Is.Null);
         }
 
@@ -119,6 +177,35 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(response.suggestedQuestions, Is.EqualTo(new[] { "How?" }));
         }
 
+        [TestCase("local_llm_not_configured", false)]
+        [TestCase("local_llm_invalid_configuration", false)]
+        [TestCase("local_llm_timeout", true)]
+        public void LocalProvider_ParsesStablePythonErrorCode(string code, bool isTimeout)
+        {
+            AIProviderError error;
+            var parsed = LocalLLMProvider.TryParseErrorResponse($"{{\"error\":\"{code}\"}}", out error);
+
+            Assert.That(parsed, Is.True);
+            Assert.That(error.Code, Is.EqualTo(code));
+            Assert.That(error.IsTimeout, Is.EqualTo(isTimeout));
+        }
+
+        [Test]
+        public void ChatApiClient_AbortAndDisposeAlwaysDisposesAfterAbortFailure()
+        {
+            var calls = new List<string>();
+
+            Assert.Throws<InvalidOperationException>(() => ChatApiClient.AbortAndDispose(
+                () =>
+                {
+                    calls.Add("abort");
+                    throw new InvalidOperationException("abort failed");
+                },
+                () => calls.Add("dispose")));
+
+            Assert.That(calls, Is.EqualTo(new[] { "abort", "dispose" }));
+        }
+
         [Test]
         public void LocalKnowledgeProvider_MapsServiceAnswerToUnifiedKnowledgeSource()
         {
@@ -127,7 +214,7 @@ namespace EndangeredAR.Tests.EditMode
             var provider = new LocalKnowledgeProvider(gameObject.AddComponent<LocalKnowledgeChatService>());
             AIResponse response = null;
 
-            Run(provider.Send(Request(), 0f, value => response = value, Fail));
+            RunProviderStrict(provider.Send(Request(), 0f, value => response = value, Fail));
 
             Assert.That(response, Is.Not.Null);
             Assert.That(response.source, Is.EqualTo("unity_knowledge"));
@@ -147,7 +234,7 @@ namespace EndangeredAR.Tests.EditMode
             serializedManager.ApplyModifiedPropertiesWithoutUndo();
             AIResponse response = null;
 
-            Assert.DoesNotThrow(() => Run(manager.Send(Request(), value => response = value, Fail)));
+            Assert.DoesNotThrow(() => RunCoroutine(manager.Send(Request(), value => response = value, Fail)));
             Assert.That(response, Is.Not.Null);
             Assert.That(response.source, Is.EqualTo("unity_knowledge"));
         }
@@ -163,7 +250,22 @@ namespace EndangeredAR.Tests.EditMode
             };
         }
 
-        private static void Run(IEnumerator routine)
+        private ControlledChatApiClient CreateControlledChatClient()
+        {
+            var gameObject = new GameObject("ControlledChatApiClientTests");
+            createdObjects.Add(gameObject);
+            return gameObject.AddComponent<ControlledChatApiClient>();
+        }
+
+        private static void RunProviderStrict(IEnumerator routine)
+        {
+            while (routine.MoveNext())
+            {
+                Assert.That(routine.Current, Is.Null, "IAIProvider root enumerators may yield only null while pending.");
+            }
+        }
+
+        private static void RunCoroutine(IEnumerator routine)
         {
             var routines = new Stack<IEnumerator>();
             routines.Push(routine);
@@ -184,7 +286,6 @@ namespace EndangeredAR.Tests.EditMode
                     continue;
                 }
 
-                Assert.That(current.Current, Is.Null, "Provider root enumerators may yield only null while pending.");
             }
         }
 
@@ -192,9 +293,132 @@ namespace EndangeredAR.Tests.EditMode
         {
         }
 
+        private static void IgnoreChatResponse(ChatResponse response)
+        {
+        }
+
+        private static void FailChat(string error)
+        {
+            Assert.Fail($"Unexpected chat client error: {error}");
+        }
+
         private static void Fail(AIProviderError error)
         {
             Assert.Fail($"Unexpected provider error: {error?.Code}");
+        }
+
+        private sealed class ControlledChatApiClient : ChatApiClient
+        {
+            public Func<Action<ChatResponse>, Action<string>, IEnumerator> RoutineFactory { get; set; }
+            public float LastTimeoutSeconds { get; private set; }
+            public ChatMessage[] LastHistory { get; private set; }
+
+            public override IEnumerator SendMessage(
+                string animalId,
+                string message,
+                ChatMessage[] history,
+                float timeoutSeconds,
+                Action<ChatResponse> onSuccess,
+                Action<string> onError)
+            {
+                LastTimeoutSeconds = timeoutSeconds;
+                LastHistory = history;
+                return RoutineFactory?.Invoke(onSuccess, onError) ?? ControlledChatEnumerator.Success(new ChatResponse
+                {
+                    animalId = animalId,
+                    reply = "Default reply.",
+                    source = "cloud_llm"
+                }, onSuccess);
+            }
+        }
+
+        private sealed class ControlledChatEnumerator : IEnumerator, IDisposable
+        {
+            private readonly Action<ChatResponse> onSuccess;
+            private readonly Action<string> onError;
+            private readonly ChatResponse response;
+            private readonly string error;
+            private readonly bool invokeTwice;
+            private readonly bool staysPending;
+            private bool invoked;
+
+            private ControlledChatEnumerator(
+                ChatResponse response,
+                string error,
+                bool invokeTwice,
+                bool staysPending,
+                Action<ChatResponse> onSuccess = null,
+                Action<string> onError = null)
+            {
+                this.response = response;
+                this.error = error;
+                this.invokeTwice = invokeTwice;
+                this.staysPending = staysPending;
+                this.onSuccess = onSuccess;
+                this.onError = onError;
+            }
+
+            public bool Disposed { get; private set; }
+            public object Current => null;
+
+            public static ControlledChatEnumerator Success(ChatResponse response, Action<ChatResponse> onSuccess)
+            {
+                return new ControlledChatEnumerator(response, null, false, false, onSuccess);
+            }
+
+            public static ControlledChatEnumerator SuccessTwice(ChatResponse response, Action<ChatResponse> onSuccess)
+            {
+                return new ControlledChatEnumerator(response, null, true, false, onSuccess);
+            }
+
+            public static ControlledChatEnumerator Error(string error, Action<string> onError)
+            {
+                return new ControlledChatEnumerator(null, error, false, false, null, onError);
+            }
+
+            public static ControlledChatEnumerator Pending()
+            {
+                return new ControlledChatEnumerator(null, null, false, true);
+            }
+
+            public bool MoveNext()
+            {
+                if (staysPending)
+                {
+                    return true;
+                }
+
+                if (invoked)
+                {
+                    return false;
+                }
+
+                invoked = true;
+                if (response != null)
+                {
+                    onSuccess?.Invoke(response);
+                    if (invokeTwice)
+                    {
+                        onSuccess?.Invoke(response);
+                    }
+                }
+                else
+                {
+                    onError?.Invoke(error);
+                }
+
+                return false;
+            }
+
+            public void Reset()
+            {
+                throw new NotSupportedException();
+            }
+
+            public void Dispose()
+            {
+                Disposed = true;
+            }
         }
     }
 }

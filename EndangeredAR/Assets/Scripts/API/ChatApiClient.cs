@@ -20,7 +20,7 @@ namespace EndangeredAR.API
             yield return SendMessage(animalId, message, history, 35f, onSuccess, onError);
         }
 
-        public IEnumerator SendMessage(
+        public virtual IEnumerator SendMessage(
             string animalId,
             string message,
             ChatMessage[] history,
@@ -43,7 +43,8 @@ namespace EndangeredAR.API
 
             var json = JsonUtility.ToJson(request);
             var url = $"{config.baseUrl.TrimEnd('/')}/chat";
-            using (var webRequest = new UnityWebRequest(url, "POST"))
+            var webRequest = new UnityWebRequest(url, "POST");
+            try
             {
                 webRequest.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
                 webRequest.downloadHandler = new DownloadHandlerBuffer();
@@ -71,6 +72,10 @@ namespace EndangeredAR.API
 
                 onSuccess?.Invoke(response);
             }
+            finally
+            {
+                AbortAndDispose(webRequest);
+            }
         }
 
         internal static int ToUnityTimeoutSeconds(float timeoutSeconds)
@@ -81,6 +86,28 @@ namespace EndangeredAR.API
             }
 
             return timeoutSeconds >= int.MaxValue ? int.MaxValue : Mathf.Max(1, Mathf.CeilToInt(timeoutSeconds));
+        }
+
+        internal static void AbortAndDispose(UnityWebRequest webRequest)
+        {
+            if (webRequest == null)
+            {
+                return;
+            }
+
+            AbortAndDispose(webRequest.Abort, webRequest.Dispose);
+        }
+
+        internal static void AbortAndDispose(Action abort, Action dispose)
+        {
+            try
+            {
+                abort?.Invoke();
+            }
+            finally
+            {
+                dispose?.Invoke();
+            }
         }
     }
 

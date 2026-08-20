@@ -38,7 +38,8 @@ namespace EndangeredAR.AI
                 history = request == null || request.history == null ? Array.Empty<ChatMessage>() : request.history
             };
 
-            using (var webRequest = new UnityWebRequest(url, "POST"))
+            var webRequest = new UnityWebRequest(url, "POST");
+            try
             {
                 webRequest.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(JsonUtility.ToJson(payload)));
                 webRequest.downloadHandler = new DownloadHandlerBuffer();
@@ -53,6 +54,13 @@ namespace EndangeredAR.AI
 
                 if (webRequest.result != UnityWebRequest.Result.Success)
                 {
+                    AIProviderError parsedError;
+                    if (TryParseErrorResponse(webRequest.downloadHandler.text, out parsedError))
+                    {
+                        onError?.Invoke(parsedError);
+                        yield break;
+                    }
+
                     var isTimeout = IsTimeout(webRequest.error);
                     onError?.Invoke(new AIProviderError(
                         isTimeout ? "local_timeout" : "local_request_failed",
@@ -69,6 +77,10 @@ namespace EndangeredAR.AI
                 }
 
                 onSuccess?.Invoke(response);
+            }
+            finally
+            {
+                ChatApiClient.AbortAndDispose(webRequest);
             }
         }
 
@@ -87,8 +99,46 @@ namespace EndangeredAR.AI
                 return false;
             }
 
-            endpoint = $"{serverUrl.Trim().TrimEnd('/')}/chat/local";
+            if (!string.IsNullOrEmpty(parsed.Query) || !string.IsNullOrEmpty(parsed.Fragment))
+            {
+                return false;
+            }
+
+            var builder = new UriBuilder(parsed.Scheme, parsed.Host, parsed.Port)
+            {
+                Path = "/chat/local"
+            };
+            endpoint = builder.Uri.AbsoluteUri;
             return true;
+        }
+
+        internal static bool TryParseErrorResponse(string json, out AIProviderError error)
+        {
+            error = null;
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return false;
+            }
+
+            try
+            {
+                var parsed = JsonUtility.FromJson<LocalErrorResponse>(json);
+                if (parsed == null || string.IsNullOrWhiteSpace(parsed.error))
+                {
+                    return false;
+                }
+
+                var isTimeout = parsed.error.IndexOf("timeout", StringComparison.OrdinalIgnoreCase) >= 0;
+                error = new AIProviderError(
+                    parsed.error,
+                    isTimeout ? "Local AI request timed out." : "Local AI request failed.",
+                    isTimeout);
+                return true;
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
         }
 
         internal static bool TryParseResponse(AIRequest request, string json, out AIResponse response)
@@ -127,6 +177,12 @@ namespace EndangeredAR.AI
         {
             return !string.IsNullOrWhiteSpace(error) &&
                 error.IndexOf("timeout", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        [Serializable]
+        private sealed class LocalErrorResponse
+        {
+            public string error;
         }
     }
 }
