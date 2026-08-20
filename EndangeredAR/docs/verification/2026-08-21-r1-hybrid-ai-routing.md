@@ -59,6 +59,20 @@ Expected R1 baseline at the time of this document:
 | Python | 16 / 16 passed |
 | Unity EditMode | 124 / 124 passed |
 
+## Executed HTTP checks
+
+The following checks were run locally on 2026-08-21:
+
+| Check | Result |
+| --- | --- |
+| `GET /health` | HTTP 200, `status=ok` |
+| `/chat/local` without local configuration | HTTP 503, `local_llm_not_configured` |
+| `/chat/local` through a temporary OpenAI-compatible test double | HTTP 200, `source=local_llm`, `routeReason=local_provider_succeeded` |
+| `/chat/local` after stopping that test double | HTTP 502, explicit local Provider failure |
+| `/chat` without Moonshot configuration | HTTP 200, `source=server_rule`, existing Python fallback preserved |
+
+The temporary compatible service verifies the Python adapter boundary, not real model quality or performance. A real `llama-server` executable and GGUF were not present on this machine, so Cases A and D below still require real-model acceptance.
+
 ## Manual acceptance checklist
 
 Before testing, start `llama-server` with a GGUF on `127.0.0.1:8080`, start `python3 server/dev_server.py`, and configure Unity to reach port 8000.
