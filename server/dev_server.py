@@ -1,5 +1,7 @@
 import json
+import math
 import os
+from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -12,7 +14,15 @@ ANIMALS_DIR = ROOT / "content" / "animals"
 ENV_FILE = ROOT / ".env.local"
 DEFAULT_MOONSHOT_BASE_URL = "https://api.moonshot.cn/v1"
 DEFAULT_MOONSHOT_MODEL = "moonshot-v1-8k"
+DEFAULT_LOCAL_LLM_TIMEOUT = 7.0
+MAX_LOCAL_LLM_TIMEOUT = 60.0
 MAX_HISTORY_MESSAGES = 20
+
+
+@dataclass(frozen=True)
+class ProviderResult:
+    reply: Optional[str] = None
+    error: Optional[str] = None
 
 
 def load_local_env() -> None:
@@ -79,7 +89,7 @@ def make_rule_reply(animal: Dict, message: str) -> str:
     return f"我是{nickname}，很高兴和你一起认识森林！你想先了解我的食物、家园，还是怎么保护我呢？"
 
 
-def make_llm_payload(animal: Dict, message: str, history: List[Dict]) -> Dict:
+def make_llm_messages(animal: Dict, message: str, history: List[Dict]) -> List[Dict]:
     clean_history = []
     for item in history or []:
         if not isinstance(item, dict):
@@ -93,12 +103,39 @@ def make_llm_payload(animal: Dict, message: str, history: List[Dict]) -> Dict:
     messages = [{"role": "system", "content": make_system_prompt(animal)}]
     messages.extend(clean_history[-MAX_HISTORY_MESSAGES:])
     messages.append({"role": "user", "content": message.strip()})
+    return messages
+
+
+def make_llm_payload(animal: Dict, message: str, history: List[Dict]) -> Dict:
     return {
         "model": os.environ.get("MOONSHOT_MODEL", DEFAULT_MOONSHOT_MODEL),
-        "messages": messages,
+        "messages": make_llm_messages(animal, message, history),
         "temperature": 0.8,
         "max_completion_tokens": 220,
     }
+
+
+def make_local_llm_payload(animal: Dict, message: str, history: List[Dict]) -> Dict:
+    payload = {
+        "messages": make_llm_messages(animal, message, history),
+        "temperature": 0.8,
+        "max_completion_tokens": 220,
+    }
+    model = os.environ.get("LOCAL_LLM_MODEL", "").strip()
+    if model:
+        payload["model"] = model
+    return payload
+
+
+def get_local_llm_timeout() -> float:
+    raw_timeout = os.environ.get("LOCAL_LLM_TIMEOUT", "").strip()
+    try:
+        timeout = float(raw_timeout) if raw_timeout else DEFAULT_LOCAL_LLM_TIMEOUT
+    except ValueError:
+        return DEFAULT_LOCAL_LLM_TIMEOUT
+    if not math.isfinite(timeout):
+        return DEFAULT_LOCAL_LLM_TIMEOUT
+    return min(max(timeout, 1.0), MAX_LOCAL_LLM_TIMEOUT)
 
 
 def call_moonshot(animal: Dict, message: str, history: List[Dict]) -> Optional[str]:
@@ -134,6 +171,104 @@ def call_moonshot(animal: Dict, message: str, history: List[Dict]) -> Optional[s
     return content.strip() if isinstance(content, str) and content.strip() else None
 
 
+def call_local_llm(animal: Dict, message: str, history: List[Dict]) -> ProviderResult:
+    base_url = os.environ.get("LOCAL_LLM_BASE_URL", "").strip().rstrip("/")
+    if not base_url:
+        return ProviderResult(error="local_llm_not_configured")
+
+    data = json.dumps(make_local_llm_payload(animal, message, history), ensure_ascii=False).encode("utf-8")
+    http_request = request.Request(
+        f"{base_url}/chat/completions",
+        data=data,
+        method="POST",
+        headers={"Content-Type": "application/json"},
+    )
+
+    try:
+        with request.urlopen(http_request, timeout=get_local_llm_timeout()) as response:
+            result = json.loads(response.read().decode("utf-8"))
+    except TimeoutError:
+        return ProviderResult(error="local_llm_timeout")
+    except error.HTTPError:
+        return ProviderResult(error="local_llm_provider_error")
+    except OSError:
+        return ProviderResult(error="local_llm_unavailable")
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return ProviderResult(error="local_llm_invalid_response")
+
+    if not isinstance(result, dict):
+        return ProviderResult(error="local_llm_invalid_response")
+    choices = result.get("choices")
+    if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+        return ProviderResult(error="local_llm_invalid_response")
+    response_message = choices[0].get("message")
+    content = response_message.get("content") if isinstance(response_message, dict) else None
+    if not isinstance(content, str) or not content.strip():
+        return ProviderResult(error="local_llm_invalid_response")
+    return ProviderResult(reply=content.strip())
+
+
+def make_chat_response(animal: Dict, reply: str, source: str, route_reason: str) -> Dict:
+    nickname = animal.get("nickname", "动物朋友")
+    return {
+        "animalId": animal["id"],
+        "reply": reply,
+        "suggestedQuestions": ["你平时吃什么？", "你为什么会濒危？", "我可以怎样保护你？"],
+        "missionHint": f"可以去完成“帮{nickname}寻找食物”任务。",
+        "source": source,
+        "routeReason": route_reason,
+    }
+
+
+def local_error_status(error_code: str) -> int:
+    if error_code == "local_llm_not_configured":
+        return 503
+    if error_code == "local_llm_timeout":
+        return 504
+    return 502
+
+
+def process_chat_request(path: str, payload: Dict) -> tuple[Dict, int]:
+    if path not in ("/chat", "/chat/local"):
+        return {"error": "not_found"}, 404
+
+    animal = get_animal(str(payload.get("animalId") or "sensen"))
+    if animal is None:
+        return {"error": "animal_not_found"}, 404
+
+    message = str(payload.get("message") or "").strip()
+    if not message:
+        return {"error": "message_required"}, 400
+
+    history = payload.get("history")
+    if not isinstance(history, list):
+        history = []
+
+    if path == "/chat/local":
+        local_result = call_local_llm(animal, message, history)
+        if local_result.reply is None:
+            return {"error": local_result.error}, local_error_status(local_result.error or "")
+        return make_chat_response(
+            animal,
+            local_result.reply,
+            "local_llm",
+            "local_provider_succeeded",
+        ), 200
+
+    if path == "/chat":
+        reply = call_moonshot(animal, message, history)
+        if reply:
+            return make_chat_response(animal, reply, "cloud_llm", "cloud_provider_succeeded"), 200
+        return make_chat_response(
+            animal,
+            make_rule_reply(animal, message),
+            "server_rule",
+            "cloud_provider_unavailable_server_rule_fallback",
+        ), 200
+
+    return {"error": "not_found"}, 404
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self) -> None:
         self.send_json({})
@@ -149,7 +284,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_json({"error": "not_found"}, status=404)
 
     def do_POST(self) -> None:
-        if urlparse(self.path).path != "/chat":
+        path = urlparse(self.path).path
+        if path not in ("/chat", "/chat/local"):
             self.send_json({"error": "not_found"}, status=404)
             return
 
@@ -160,29 +296,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"error": "invalid_json"}, status=400)
             return
 
-        animal = get_animal(str(payload.get("animalId") or "sensen"))
-        if animal is None:
-            self.send_json({"error": "animal_not_found"}, status=404)
-            return
-
-        message = str(payload.get("message") or "").strip()
-        if not message:
-            self.send_json({"error": "message_required"}, status=400)
-            return
-
-        history = payload.get("history")
-        if not isinstance(history, list):
-            history = []
-        reply = call_moonshot(animal, message, history) or make_rule_reply(animal, message)
-        nickname = animal.get("nickname", "动物朋友")
-        self.send_json(
-            {
-                "animalId": animal["id"],
-                "reply": reply,
-                "suggestedQuestions": ["你平时吃什么？", "你为什么会濒危？", "我可以怎样保护你？"],
-                "missionHint": f"可以去完成“帮{nickname}寻找食物”任务。",
-            }
-        )
+        response, status = process_chat_request(path, payload)
+        self.send_json(response, status=status)
 
     def log_message(self, format_string: str, *args) -> None:
         print(f"{self.address_string()} - {format_string % args}", flush=True)
