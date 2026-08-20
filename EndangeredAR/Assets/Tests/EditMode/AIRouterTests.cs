@@ -185,6 +185,92 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(knowledge.CallCount, Is.EqualTo(0));
         }
 
+        [Test]
+        public void LocalOnly_ClampsLocalTimeoutToTotalBudget()
+        {
+            var local = FakeProvider.Success("local", "local_llm", "local reply");
+            var knowledge = FakeProvider.Success("knowledge", "unity_knowledge", "knowledge reply");
+            var router = new AIRouter(local, null, knowledge, () => 0f);
+
+            Run(router.Route(Request(), AIRouteMode.LocalOnly, 8f, 3f, Ignore, Fail));
+
+            Assert.That(local.LastTimeoutSeconds, Is.EqualTo(3f));
+        }
+
+        [Test]
+        public void CloudOnly_WhenProviderRunsPastDeadline_DisposesAndUsesKnowledge()
+        {
+            var now = 0f;
+            var cloud = new DeadlineIgnoringProvider(seconds => now += seconds);
+            var knowledge = FakeProvider.Success("knowledge", "unity_knowledge", "knowledge reply");
+            var router = new AIRouter(null, cloud, knowledge, () => now);
+            AIResponse response = null;
+
+            Run(router.Route(Request(), AIRouteMode.CloudOnly, 8f, 1f, value => response = value, Fail));
+
+            Assert.That(cloud.Disposed, Is.True);
+            Assert.That(knowledge.CallCount, Is.EqualTo(1));
+            Assert.That(response.source, Is.EqualTo("unity_knowledge"));
+            Assert.That(response.routeReason, Is.EqualTo("cloud_only_knowledge_fallback"));
+        }
+
+        [Test]
+        public void CloudOnly_WhenProviderTimesOutAndKnowledgeFails_ReturnsTimeoutError()
+        {
+            var now = 0f;
+            var cloud = new DeadlineIgnoringProvider(seconds => now += seconds);
+            var knowledge = FakeProvider.Error("knowledge");
+            var router = new AIRouter(null, cloud, knowledge, () => now);
+            AIProviderError error = null;
+
+            Run(router.Route(Request(), AIRouteMode.CloudOnly, 8f, 1f, Ignore, value => error = value));
+
+            Assert.That(error, Is.Not.Null);
+            Assert.That(error.IsTimeout, Is.True);
+        }
+
+        [Test]
+        public void CloudOnly_WhenProviderMoveNextThrows_UsesKnowledgeFallback()
+        {
+            var cloud = new ThrowingProvider();
+            var knowledge = FakeProvider.Success("knowledge", "unity_knowledge", "knowledge reply");
+            var router = new AIRouter(null, cloud, knowledge, () => 0f);
+            AIResponse response = null;
+
+            Assert.DoesNotThrow(() => Run(router.Route(Request(), AIRouteMode.CloudOnly, 8f, 38f, value => response = value, Fail)));
+
+            Assert.That(knowledge.CallCount, Is.EqualTo(1));
+            Assert.That(response.source, Is.EqualTo("unity_knowledge"));
+        }
+
+        [Test]
+        public void CoroutineTimeLateSuccess_AfterProviderError_DoesNotCompleteRouteTwice()
+        {
+            var cloud = new ErrorThenLateSuccessProvider();
+            var knowledge = FakeProvider.Success("knowledge", "unity_knowledge", "knowledge reply");
+            var router = new AIRouter(null, cloud, knowledge, () => 0f);
+            var successCount = 0;
+            var errorCount = 0;
+            AIResponse response = null;
+
+            Run(router.Route(
+                Request(),
+                AIRouteMode.CloudOnly,
+                8f,
+                38f,
+                value =>
+                {
+                    successCount++;
+                    response = value;
+                },
+                error => errorCount++));
+
+            Assert.That(cloud.LateSuccessAttempted, Is.True);
+            Assert.That(successCount, Is.EqualTo(1));
+            Assert.That(errorCount, Is.EqualTo(0));
+            Assert.That(response.source, Is.EqualTo("unity_knowledge"));
+        }
+
         private static AIRequest Request()
         {
             return new AIRequest
@@ -311,6 +397,129 @@ namespace EndangeredAR.Tests.EditMode
                 {
                     onError?.Invoke(error);
                 }
+            }
+        }
+
+        private sealed class DeadlineIgnoringProvider : IAIProvider
+        {
+            private readonly Action<float> advance;
+
+            public DeadlineIgnoringProvider(Action<float> advance)
+            {
+                this.advance = advance;
+            }
+
+            public string ProviderId => "cloud";
+            public bool Disposed { get; private set; }
+
+            public IEnumerator Send(
+                AIRequest request,
+                float timeoutSeconds,
+                Action<AIResponse> onSuccess,
+                Action<AIProviderError> onError)
+            {
+                return new DeadlineIgnoringEnumerator(this, advance, onSuccess);
+            }
+
+            private sealed class DeadlineIgnoringEnumerator : IEnumerator, IDisposable
+            {
+                private readonly DeadlineIgnoringProvider owner;
+                private readonly Action<float> advance;
+                private readonly Action<AIResponse> onSuccess;
+                private int step;
+
+                public DeadlineIgnoringEnumerator(
+                    DeadlineIgnoringProvider owner,
+                    Action<float> advance,
+                    Action<AIResponse> onSuccess)
+                {
+                    this.owner = owner;
+                    this.advance = advance;
+                    this.onSuccess = onSuccess;
+                }
+
+                public object Current => null;
+
+                public bool MoveNext()
+                {
+                    if (step == 0)
+                    {
+                        step++;
+                        advance(0.5f);
+                        return true;
+                    }
+
+                    if (step == 1)
+                    {
+                        step++;
+                        advance(1f);
+                        onSuccess?.Invoke(new AIResponse { source = "cloud_proxy", reply = "late cloud reply" });
+                    }
+
+                    return false;
+                }
+
+                public void Reset()
+                {
+                    throw new NotSupportedException();
+                }
+
+                public void Dispose()
+                {
+                    owner.Disposed = true;
+                }
+            }
+        }
+
+        private sealed class ThrowingProvider : IAIProvider
+        {
+            public string ProviderId => "cloud";
+
+            public IEnumerator Send(
+                AIRequest request,
+                float timeoutSeconds,
+                Action<AIResponse> onSuccess,
+                Action<AIProviderError> onError)
+            {
+                return new ThrowingEnumerator();
+            }
+
+            private sealed class ThrowingEnumerator : IEnumerator
+            {
+                public object Current => null;
+
+                public bool MoveNext()
+                {
+                    throw new InvalidOperationException("Test provider failure.");
+                }
+
+                public void Reset()
+                {
+                    throw new NotSupportedException();
+                }
+            }
+        }
+
+        private sealed class ErrorThenLateSuccessProvider : IAIProvider
+        {
+            public string ProviderId => "cloud";
+            public bool LateSuccessAttempted { get; private set; }
+
+            public IEnumerator Send(
+                AIRequest request,
+                float timeoutSeconds,
+                Action<AIResponse> onSuccess,
+                Action<AIProviderError> onError)
+            {
+                return SendAfterError(onSuccess, onError);
+            }
+
+            private IEnumerator SendAfterError(Action<AIResponse> onSuccess, Action<AIProviderError> onError)
+            {
+                onError?.Invoke(new AIProviderError("provider_failed", "Provider failed.", false));
+                yield return null;
+                LateSuccessAttempted = true;
+                onSuccess?.Invoke(new AIResponse { source = "cloud_proxy", reply = "late cloud reply" });
             }
         }
     }

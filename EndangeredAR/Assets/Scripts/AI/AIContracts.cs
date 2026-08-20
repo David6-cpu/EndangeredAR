@@ -54,6 +54,8 @@ namespace EndangeredAR.AI
     {
         string ProviderId { get; }
 
+        // Send must yield frame-observable progress directly, never a nested IEnumerator.
+        // AIRouter advances this root enumerator itself so it can enforce its realtime deadline.
         IEnumerator Send(
             AIRequest request,
             float timeoutSeconds,

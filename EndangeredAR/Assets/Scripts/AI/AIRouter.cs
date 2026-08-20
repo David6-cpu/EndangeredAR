@@ -8,6 +8,8 @@ namespace EndangeredAR.AI
     {
         private const string FinalErrorCode = "all_providers_failed";
         private const string FinalErrorMessage = "No AI provider could answer the request.";
+        private const string ProviderTimeoutCode = "provider_timeout";
+        private const string ProviderTimeoutMessage = "Provider request timed out.";
 
         private readonly IAIProvider local;
         private readonly IAIProvider cloud;
@@ -37,12 +39,14 @@ namespace EndangeredAR.AI
             var route = new RouteCompletion(onSuccess, onError);
             var localTimeout = ClampTimeout(localTimeoutSeconds);
             var totalTimeout = ClampTimeout(totalTimeoutSeconds);
+            var routeDeadline = Now() + totalTimeout;
 
             switch (mode)
             {
                 case AIRouteMode.LocalOnly:
                     var localOnlyAttempt = new ProviderAttempt();
-                    yield return TryProvider(local, request, localTimeout, localOnlyAttempt);
+                    var localOnlyDeadline = Mathf.Min(Now() + localTimeout, routeDeadline);
+                    yield return TryProvider(local, request, localOnlyDeadline, true, localOnlyAttempt);
                     if (TryCompleteSuccess(route, local, localOnlyAttempt, "local_only"))
                     {
                         yield break;
@@ -55,24 +59,22 @@ namespace EndangeredAR.AI
                         yield break;
                     }
 
-                    route.CompleteError(FinalError());
+                    route.CompleteError(FinalError(localOnlyAttempt, localOnlyKnowledgeAttempt));
                     yield break;
 
                 case AIRouteMode.LocalFirstCloudFallback:
-                    var startTime = Now();
-                    var initialLocalTimeout = Mathf.Min(localTimeout, totalTimeout);
+                    var initialLocalDeadline = Mathf.Min(Now() + localTimeout, routeDeadline);
                     var localFirstAttempt = new ProviderAttempt();
-                    yield return TryProvider(local, request, initialLocalTimeout, localFirstAttempt);
+                    yield return TryProvider(local, request, initialLocalDeadline, true, localFirstAttempt);
                     if (TryCompleteSuccess(route, local, localFirstAttempt, "local_first"))
                     {
                         yield break;
                     }
 
-                    var remainingBudget = RemainingBudget(startTime, totalTimeout);
-                    if (remainingBudget > 0f)
+                    var cloudAttempt = new ProviderAttempt();
+                    if (!HasExpired(routeDeadline))
                     {
-                        var cloudAttempt = new ProviderAttempt();
-                        yield return TryProvider(cloud, request, remainingBudget, cloudAttempt);
+                        yield return TryProvider(cloud, request, routeDeadline, true, cloudAttempt);
                         if (TryCompleteSuccess(route, cloud, cloudAttempt, "local_first_cloud_fallback"))
                         {
                             yield break;
@@ -86,13 +88,13 @@ namespace EndangeredAR.AI
                         yield break;
                     }
 
-                    route.CompleteError(FinalError());
+                    route.CompleteError(FinalError(localFirstAttempt, cloudAttempt, localFirstKnowledgeAttempt));
                     yield break;
 
                 case AIRouteMode.CloudOnly:
                 default:
                     var cloudOnlyAttempt = new ProviderAttempt();
-                    yield return TryProvider(cloud, request, totalTimeout, cloudOnlyAttempt);
+                    yield return TryProvider(cloud, request, routeDeadline, true, cloudOnlyAttempt);
                     if (TryCompleteSuccess(route, cloud, cloudOnlyAttempt, "cloud_only"))
                     {
                         yield break;
@@ -105,21 +107,32 @@ namespace EndangeredAR.AI
                         yield break;
                     }
 
-                    route.CompleteError(FinalError());
+                    route.CompleteError(FinalError(cloudOnlyAttempt, cloudOnlyKnowledgeAttempt));
                     yield break;
             }
         }
 
         private IEnumerator TryKnowledge(AIRequest request, ProviderAttempt attempt)
         {
-            yield return TryProvider(knowledge, request, 0f, attempt);
+            yield return TryProvider(knowledge, request, 0f, false, attempt);
         }
 
-        private IEnumerator TryProvider(IAIProvider provider, AIRequest request, float timeoutSeconds, ProviderAttempt result)
+        private IEnumerator TryProvider(
+            IAIProvider provider,
+            AIRequest request,
+            float deadline,
+            bool enforceDeadline,
+            ProviderAttempt result)
         {
             if (provider == null)
             {
                 result.CompleteError(new AIProviderError("provider_unavailable", "Provider is unavailable.", false));
+                yield break;
+            }
+
+            if (enforceDeadline && HasExpired(deadline))
+            {
+                result.CompleteError(TimeoutError());
                 yield break;
             }
 
@@ -128,9 +141,9 @@ namespace EndangeredAR.AI
             {
                 routine = provider.Send(
                     request,
-                    timeoutSeconds,
-                    response => result.CompleteSuccess(response),
-                    error => result.CompleteError(error));
+                    enforceDeadline ? Mathf.Max(0f, deadline - Now()) : 0f,
+                    response => CompleteProviderSuccess(result, response, deadline, enforceDeadline),
+                    error => CompleteProviderError(result, error, deadline, enforceDeadline));
             }
             catch (Exception)
             {
@@ -140,6 +153,7 @@ namespace EndangeredAR.AI
 
             if (result.IsComplete)
             {
+                Dispose(routine);
                 yield break;
             }
 
@@ -149,12 +163,54 @@ namespace EndangeredAR.AI
                 yield break;
             }
 
-            yield return routine;
-            if (!result.IsComplete)
+            while (true)
             {
-                result.CompleteError(new AIProviderError("provider_no_response", "Provider did not respond.", false));
-            }
+                if (enforceDeadline && HasExpired(deadline))
+                {
+                    result.CompleteError(TimeoutError());
+                    Dispose(routine);
+                    yield break;
+                }
 
+                bool hasNext;
+                try
+                {
+                    hasNext = routine.MoveNext();
+                }
+                catch (Exception)
+                {
+                    result.CompleteError(new AIProviderError("provider_exception", "Provider request failed.", false));
+                    Dispose(routine);
+                    yield break;
+                }
+
+                if (enforceDeadline && HasExpired(deadline))
+                {
+                    result.CompleteError(TimeoutError());
+                    Dispose(routine);
+                    yield break;
+                }
+
+                if (!hasNext)
+                {
+                    if (!result.IsComplete)
+                    {
+                        result.CompleteError(new AIProviderError("provider_no_response", "Provider did not respond.", false));
+                    }
+
+                    Dispose(routine);
+                    yield break;
+                }
+
+                if (routine.Current is IEnumerator)
+                {
+                    result.CompleteError(new AIProviderError("provider_unobservable_yield", "Provider yielded unsupported nested work.", false));
+                    Dispose(routine);
+                    yield break;
+                }
+
+                yield return null;
+            }
         }
 
         private static bool TryCompleteSuccess(RouteCompletion route, IAIProvider provider, ProviderAttempt attempt, string reason)
@@ -174,9 +230,31 @@ namespace EndangeredAR.AI
             return true;
         }
 
-        private float RemainingBudget(float startTime, float totalTimeout)
+        private void CompleteProviderSuccess(ProviderAttempt result, AIResponse response, float deadline, bool enforceDeadline)
         {
-            return Mathf.Max(0f, totalTimeout - Mathf.Max(0f, Now() - startTime));
+            if (enforceDeadline && HasExpired(deadline))
+            {
+                result.CompleteError(TimeoutError());
+                return;
+            }
+
+            result.CompleteSuccess(response);
+        }
+
+        private void CompleteProviderError(ProviderAttempt result, AIProviderError error, float deadline, bool enforceDeadline)
+        {
+            if (enforceDeadline && HasExpired(deadline))
+            {
+                result.CompleteError(TimeoutError());
+                return;
+            }
+
+            result.CompleteError(error ?? new AIProviderError("provider_failed", "Provider request failed.", false));
+        }
+
+        private bool HasExpired(float deadline)
+        {
+            return Now() >= deadline;
         }
 
         private float Now()
@@ -189,14 +267,34 @@ namespace EndangeredAR.AI
             return Mathf.Max(0f, timeoutSeconds);
         }
 
-        private static AIProviderError FinalError()
+        private static void Dispose(IEnumerator routine)
         {
+            var disposable = routine as IDisposable;
+            disposable?.Dispose();
+        }
+
+        private static AIProviderError TimeoutError()
+        {
+            return new AIProviderError(ProviderTimeoutCode, ProviderTimeoutMessage, true);
+        }
+
+        private static AIProviderError FinalError(params ProviderAttempt[] attempts)
+        {
+            foreach (var attempt in attempts)
+            {
+                if (attempt != null && attempt.Error != null && attempt.Error.IsTimeout)
+                {
+                    return new AIProviderError(FinalErrorCode, FinalErrorMessage, true);
+                }
+            }
+
             return new AIProviderError(FinalErrorCode, FinalErrorMessage, false);
         }
 
         private sealed class ProviderAttempt
         {
             public AIResponse Response { get; private set; }
+            public AIProviderError Error { get; private set; }
             public bool IsComplete { get; private set; }
 
             public void CompleteSuccess(AIResponse response)
@@ -217,6 +315,7 @@ namespace EndangeredAR.AI
                     return;
                 }
 
+                Error = error;
                 IsComplete = true;
             }
         }
