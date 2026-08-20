@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using EndangeredAR.AI;
 using EndangeredAR.API;
 using EndangeredAR.AR;
 using EndangeredAR.Animals;
@@ -18,6 +19,7 @@ namespace EndangeredAR.UI
     public class DemoAppController : MonoBehaviour
     {
         [SerializeField] private ARImageScanController scanController;
+        [SerializeField] private AIManager aiManager;
         [SerializeField] private ChatApiClient chatApiClient;
         [SerializeField] private LocalKnowledgeChatService localChatService;
         [SerializeField] private MissionController missionController;
@@ -1627,18 +1629,33 @@ namespace EndangeredAR.UI
             ScrollChatToBottom();
             StartCloudAnswerTimeout(request, message);
 
-            if (chatApiClient == null)
+            if (aiManager == null)
             {
-                FinishCloudAnswer(request, message, BuildFallbackReply(message), $"云端还没配置好，{CurrentShortName}先用本地知识陪你继续。");
+                FinishCloudAnswer(request, message, BuildFallbackReply(message), $"AI 服务还没配置好，{CurrentShortName}先用本地知识陪你继续。");
                 return;
             }
 
-            StartCoroutine(chatApiClient.SendMessage(
-                CurrentAnimalId,
-                message,
-                chatHistory.ToArray(),
-                response => StartCoroutine(FinishCloudAnswerAfterDelay(request, message, response.reply, response.missionHint)),
-                error => StartCoroutine(FinishCloudAnswerAfterDelay(request, message, BuildFallbackReply(message), $"云端暂时不稳定，{CurrentShortName}先用本地知识陪你继续。"))
+            var aiRequest = new AIRequest
+            {
+                requestId = Guid.NewGuid().ToString("N"),
+                animalId = CurrentAnimalId,
+                message = message,
+                history = chatHistory.ToArray(),
+                knowledgeProfile = CurrentAnimal?.Knowledge
+            };
+
+            StartCoroutine(aiManager.Send(
+                aiRequest,
+                response =>
+                {
+                    Debug.Log($"AI response source={response?.source ?? "unknown"}, routeReason={response?.routeReason ?? "unspecified"}", this);
+                    StartCoroutine(FinishCloudAnswerAfterDelay(
+                        request,
+                        message,
+                        response?.reply,
+                        response?.missionHint));
+                },
+                error => StartCoroutine(FinishCloudAnswerAfterDelay(request, message, BuildFallbackReply(message), $"AI 服务暂时不稳定，{CurrentShortName}先用本地知识陪你继续。"))
             ));
         }
 

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using EndangeredAR.AI;
+using EndangeredAR.API;
 using EndangeredAR.AR;
 using EndangeredAR.Animals;
 using EndangeredAR.Chat;
@@ -20,6 +22,7 @@ namespace EndangeredAR.Editor
     {
         private const string DemoScenePath = "Assets/Scenes/DemoScene.unity";
         private const string SensenDefinitionPath = "Assets/Resources/Animals/Sensen.asset";
+        private const string AIConfigPath = "Assets/Config/LocalAIConfig.asset";
 
         [MenuItem("Endangered AR/Migrate Demo Scene Animal Architecture")]
         public static void MigrateDemoScene()
@@ -32,6 +35,7 @@ namespace EndangeredAR.Editor
             var demo = FindSingleRequired<DemoAppController>(scene, "Demo App Controller");
             var scanner = FindSingleRequired<ARImageScanController>(scene, "AR Image Scan Controller");
             var mission = FindSingleRequired<MissionController>(scene, "Mission Controller");
+            var chatApi = FindSingleRequired<ChatApiClient>(scene, "Chat API Client");
             var localChat = FindSingleRequired<LocalKnowledgeChatService>(scene, "Local Knowledge Chat Service");
             var modelLoader = FindSingleRequired<AnimalModelLoader>(scene, "Sensen Placeholder AnimalModelLoader");
             var sensen = AssetDatabase.LoadAssetAtPath<AnimalDefinition>(SensenDefinitionPath);
@@ -43,6 +47,8 @@ namespace EndangeredAR.Editor
             var catalog = GetOrCreateRootComponent<AnimalCatalogService>(scene, "Animal Catalog Service", ref changed);
             var progress = GetOrCreateRootComponent<AnimalProgressService>(scene, "Animal Progress Service", ref changed);
             var experience = GetOrCreateRootComponent<AnimalExperienceController>(scene, "Animal Experience Controller", ref changed);
+            var aiManager = GetOrCreateRootComponent<AIManager>(scene, "AI Manager", ref changed);
+            var aiConfig = GetOrCreateAIConfig();
 
             changed |= ConfigureCatalog(catalog, sensen);
             changed |= ConfigureScanner(scanner);
@@ -57,9 +63,17 @@ namespace EndangeredAR.Editor
                 { "experienceHostTransform", modelLoader.transform }
             });
 
+            changed |= SetReferences(aiManager, new Dictionary<string, UnityEngine.Object>
+            {
+                { "aiConfig", aiConfig },
+                { "chatApiClient", chatApi },
+                { "localKnowledgeService", localChat }
+            });
+
             changed |= SetReferences(demo, new Dictionary<string, UnityEngine.Object>
             {
                 { "scanController", scanner },
+                { "aiManager", aiManager },
                 { "localChatService", localChat },
                 { "missionController", mission },
                 { "animalCatalog", catalog },
@@ -77,8 +91,22 @@ namespace EndangeredAR.Editor
             }
 
             Debug.Log(changed
-                ? "AnimalArchitectureSceneMigrator: migrated DemoScene with three root services and serialized references."
+                ? "AnimalArchitectureSceneMigrator: migrated DemoScene with animal and AI services plus serialized references."
                 : "AnimalArchitectureSceneMigrator: DemoScene already matches the animal architecture; no changes saved.");
+        }
+
+        private static AIConfig GetOrCreateAIConfig()
+        {
+            var existing = AssetDatabase.LoadAssetAtPath<AIConfig>(AIConfigPath);
+            if (existing != null)
+            {
+                return existing;
+            }
+
+            var config = ScriptableObject.CreateInstance<AIConfig>();
+            AssetDatabase.CreateAsset(config, AIConfigPath);
+            AssetDatabase.SaveAssets();
+            return config;
         }
 
         private static bool ConfigureCatalog(AnimalCatalogService catalog, AnimalDefinition sensen)

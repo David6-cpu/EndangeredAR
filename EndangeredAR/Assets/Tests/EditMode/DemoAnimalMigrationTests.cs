@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using EndangeredAR.AI;
 using EndangeredAR.API;
 using EndangeredAR.AR;
 using EndangeredAR.Animals;
@@ -21,6 +22,7 @@ namespace EndangeredAR.Tests.EditMode
     {
         private const string ScenePath = "Assets/Scenes/DemoScene.unity";
         private const string ControllerPath = "Assets/Scripts/UI/DemoAppController.cs";
+        private const string AIConfigPath = "Assets/Config/LocalAIConfig.asset";
 
         [Test]
         public void DemoController_NoLongerDeclaresEmbeddedAnimalProfileArray()
@@ -35,6 +37,15 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
+        public void DemoController_RoutesChatThroughAIManagerInsteadOfCallingCloudClientDirectly()
+        {
+            var source = ReadProjectFile(ControllerPath);
+
+            StringAssert.Contains("aiManager.Send", source);
+            StringAssert.DoesNotContain("chatApiClient.SendMessage", source);
+        }
+
+        [Test]
         public void DemoScene_HasCatalogProgressAndExperienceServices()
         {
             var scene = OpenDemoScene();
@@ -42,6 +53,47 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(FindComponents<AnimalCatalogService>(scene), Has.Count.EqualTo(1));
             Assert.That(FindComponents<AnimalProgressService>(scene), Has.Count.EqualTo(1));
             Assert.That(FindComponents<AnimalExperienceController>(scene), Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        public void DemoScene_HasExactlyOneRootAIManager()
+        {
+            var scene = OpenDemoScene();
+            var managers = FindComponents<AIManager>(scene);
+
+            Assert.That(managers, Has.Count.EqualTo(1));
+            Assert.That(managers[0].transform.parent, Is.Null,
+                "The AI Manager must remain a root GameObject so migration cannot disturb Canvas layout.");
+        }
+
+        [Test]
+        public void DemoScene_AIManagerAndDemoControllerReferencesAreFullyWired()
+        {
+            var scene = OpenDemoScene();
+            var manager = FindSingle<AIManager>(scene);
+            var demo = FindSingle<DemoAppController>(scene);
+            var managerProperties = new SerializedObject(manager);
+            var demoProperties = new SerializedObject(demo);
+
+            Assert.That(managerProperties.FindProperty("aiConfig").objectReferenceValue,
+                Is.SameAs(AssetDatabase.LoadAssetAtPath<AIConfig>(AIConfigPath)));
+            Assert.That(managerProperties.FindProperty("chatApiClient").objectReferenceValue,
+                Is.SameAs(FindSingle<ChatApiClient>(scene)));
+            Assert.That(managerProperties.FindProperty("localKnowledgeService").objectReferenceValue,
+                Is.SameAs(FindSingle<EndangeredAR.Chat.LocalKnowledgeChatService>(scene)));
+            Assert.That(demoProperties.FindProperty("aiManager").objectReferenceValue, Is.SameAs(manager));
+        }
+
+        [Test]
+        public void LocalAIConfig_DefaultsPreserveCurrentCloudBehaviorAndR1Budgets()
+        {
+            var config = AssetDatabase.LoadAssetAtPath<AIConfig>(AIConfigPath);
+
+            Assert.That(config, Is.Not.Null);
+            Assert.That(config.routeMode, Is.EqualTo(AIRouteMode.CloudOnly));
+            Assert.That(config.localServerUrl, Is.EqualTo("http://127.0.0.1:8000"));
+            Assert.That(config.localTimeoutSeconds, Is.EqualTo(8f));
+            Assert.That(config.totalTimeoutSeconds, Is.EqualTo(38f));
         }
 
         [Test]
