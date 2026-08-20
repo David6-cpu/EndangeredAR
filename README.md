@@ -25,7 +25,7 @@
 | --- | --- |
 | 动物展示 | 森森 GLB 模型、材质加载、出现反馈、双指缩放和单指旋转 |
 | 扫描体验 | iOS 相机预览、扫描框、手动/模拟识别兜底；稳定版暂未启用 ARFoundation 图像追踪 |
-| AI 对话 | 后端代理接入 Moonshot，保留最近对话上下文；断网或未配置密钥时使用本地角色知识兜底 |
+| AI 对话 | Unity 可切换 CloudOnly、LocalOnly、LocalFirstCloudFallback；Python 代理 Moonshot 与本机 llama.cpp，最终保留 Unity 角色知识兜底 |
 | 科普任务 | “帮森森寻找食物”选择任务，区分正确/错误反馈并避免重复发放奖励 |
 | 学习闭环 | 学习中心、动物解锁进度、徽章、图鉴、科普卡片 PNG |
 | 移动端适配 | Safe Area、Dynamic Island、Home Indicator、iPhone 竖屏布局 |
@@ -48,14 +48,20 @@ flowchart LR
     X --> C["Animal Catalog"]
     X --> M["GLB 模型加载与手势"]
     X --> P["本地解锁、任务与对话进度"]
-    UI --> A["ChatApiClient"]
-    A --> S["Python Chat Proxy"]
-    S --> L["Moonshot API"]
-    S --> F["本地角色知识兜底"]
+    UI --> A["AIManager / AIRouter"]
+    A --> LP["LocalLLMProvider"]
+    A --> CP["CloudLLMProvider"]
+    A --> UK["LocalKnowledgeProvider"]
+    LP --> LS["Python POST /chat/local"]
+    CP --> CS["ChatApiClient → Python POST /chat"]
+    LS --> LL["llama.cpp-compatible server"]
+    CS --> L["Moonshot API"]
+    CS --> F["Python rule fallback"]
+    UK --> K["Unity animal knowledge"]
     C --> D["AnimalDefinition / Knowledge / Mission"]
 ```
 
-核心原则是：**Unity 只访问项目自己的 `/chat` 接口，供应商密钥永远不进入客户端和 Git 历史。**
+核心原则是：**Unity 只访问项目自己的 Python 代理；Moonshot 密钥永远不进入客户端和 Git 历史。** `/chat/local` 代理本机 llama.cpp-compatible 服务，`/chat` 保留原有 Moonshot → Python 规则回答行为。
 
 ## 技术栈
 
@@ -107,9 +113,9 @@ cd EndangeredAR
 
 请直接使用已经审查和验证过的 `DemoScene`。除非你明确要重新生成场景，否则不要运行 `Endangered AR > Build Demo Scene`，因为该菜单会重建场景内容。
 
-### 3. 启动 AI 代理
+### 3. 启动 AI 服务
 
-项目不需要第三方 Python 包：
+仅使用云端或 Unity 知识兜底时，项目不需要第三方 Python 包：
 
 ```bash
 cp server/.env.example .env.local
@@ -129,11 +135,34 @@ curl http://127.0.0.1:8000/health
 {"status": "ok"}
 ```
 
-Unity Editor 可使用 `http://127.0.0.1:8000`。iPhone 真机必须访问开发电脑在同一局域网内可达的地址，可以在 Unity 中选择：
+要启用本地模型，先在另一个终端启动一个 OpenAI-compatible llama.cpp 服务：
+
+```bash
+llama-server \
+  -m /absolute/path/to/model.gguf \
+  --host 127.0.0.1 \
+  --port 8080
+```
+
+然后确认 `.env.local` 包含：
+
+```dotenv
+LOCAL_LLM_BASE_URL=http://127.0.0.1:8080/v1
+LOCAL_LLM_MODEL=
+LOCAL_LLM_TIMEOUT=7
+```
+
+`LOCAL_LLM_MODEL` 可留空；是否需要模型名取决于所使用的兼容服务。完整启动、接口调用和故障排查见 [`server/README.md`](server/README.md)。
+
+Unity 的默认路由仍是 `CloudOnly`。在 `EndangeredAR/Assets/Config/LocalAIConfig.asset` 中可选择 `CloudOnly`、`LocalOnly` 或 `LocalFirstCloudFallback`。Unity Editor 的本地服务地址和云端代理地址都可使用 `http://127.0.0.1:8000`。
+
+iPhone 真机中的 `localhost` 指向手机自身，因此 `LocalAIConfig.localServerUrl` 和现有 `LocalApiConfig.baseUrl` 都必须填写开发电脑在同一局域网内可达的地址，例如 `http://192.168.1.20:8000`。Python 代理仍可通过 Mac 自己的 `127.0.0.1:8080` 访问 llama.cpp。现有菜单可设置 `LocalApiConfig` 的云端代理地址：
 
 ```text
 Endangered AR > Set Local API To Mac LAN IP
 ```
+
+该菜单当前不会同步更新 `LocalAIConfig.localServerUrl`；使用本地路由进行真机测试前，请在 Inspector 中单独填写同一个 Mac 局域网地址。
 
 生产环境应将代理部署到 HTTPS 服务，不应依赖开发电脑的局域网地址。
 
@@ -154,12 +183,20 @@ Endangered AR > Set Local API To Mac LAN IP
 MOONSHOT_API_KEY=
 MOONSHOT_BASE_URL=https://api.moonshot.cn/v1
 MOONSHOT_MODEL=moonshot-v1-8k
+LOCAL_LLM_BASE_URL=http://127.0.0.1:8080/v1
+LOCAL_LLM_MODEL=
+LOCAL_LLM_TIMEOUT=7
 ```
 
 - `.env.local` 已被 `.gitignore` 排除，**不要提交真实密钥**。
 - Unity 客户端不保存 Moonshot Key，也不发送 `Authorization: Bearer` 到供应商。
+- `CloudOnly`：Python `/chat` → Moonshot；Moonshot 不可用时保持现有 Python 规则回答；代理不可达时使用 Unity 知识兜底。
+- `LocalOnly`：Python `/chat/local` → llama.cpp；失败后直接使用 Unity 知识兜底，绝不访问 Cloud。
+- `LocalFirstCloudFallback`：先尝试本地模型，再使用剩余预算请求 `/chat`，最后使用 Unity 知识兜底。
+- `source` 标识实际答案来源（如 `local_llm`、`cloud_llm`、`server_rule`、`unity_knowledge`），`routeReason` 标识命中的路由路径。
+- 默认预算为本地 8 秒、整条 Provider 路由 38 秒；聊天 UI 另有 40 秒总保护，不会让 Local 与 Cloud 各自等待完整 40 秒。
 - 后端最多保留请求中最近 20 条受支持的用户/角色消息。
-- 供应商请求失败时，服务自动切换为动物角色的本地规则回答。
+- R1 没有实现 RAG、向量数据库、流式输出、移动端原生推理或 AI 动画/任务控制。
 
 更完整的后端说明见 [`server/README.md`](server/README.md)。
 
@@ -196,9 +233,9 @@ UNITY="/Applications/Unity/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/MacOS/Uni
 
 | 验证项 | 结果 |
 | --- | ---: |
-| Unity EditMode | 83 / 83 passed |
+| Unity EditMode | 124 / 124 passed |
 | Unity PlayMode | 13 / 13 passed |
-| Python backend | 4 / 4 passed |
+| Python backend | 16 / 16 passed |
 | iOS 构建 | Unity 导出、Xcode 签名构建与真机安装成功 |
 | 真机目标 | iPhone 17 Pro Max，竖屏 Safe Area 验证 |
 
@@ -208,7 +245,7 @@ UNITY="/Applications/Unity/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/MacOS/Uni
 
 - 森森是当前唯一完整跑通的动物体验。
 - 扫描页提供相机预览与手动/模拟识别；真实图片追踪尚未恢复。
-- AI 代理当前是适合本地开发和竞赛展示的轻量服务，不是生产级账号或高并发后台。
+- AI 代理当前是适合本地开发和竞赛展示的轻量服务，不是生产级账号或高并发后台；本地模型仍运行在开发电脑上，不在 iPhone/Android 包内。
 - iOS App Store 发布前仍需准备正式应用图标、隐私文案、生产 HTTPS 地址和分发配置。
 - 第二动物模型资源已进入仓库，但角色内容、任务、识别映射和完整真机验收尚未完成。
 
@@ -216,9 +253,10 @@ UNITY="/Applications/Unity/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/MacOS/Uni
 
 1. 完成第二动物的数据资产、独立任务、角色 Prompt 和模型验收。
 2. 将扫描解锁与图鉴入口扩展为真正的多动物选择闭环。
-3. 部署公开 HTTPS AI 代理，移除局域网演示依赖。
-4. 在稳定包基线之上评估恢复 ARFoundation 图片追踪。
-5. 完成 App Store 图标、隐私清单、性能与长时间真机测试。
+3. 在 R2 评估本地动物知识库与 RAG，并保持现有 Provider 合约稳定。
+4. 部署公开 HTTPS AI 代理，移除局域网演示依赖。
+5. 在稳定包基线之上评估恢复 ARFoundation 图片追踪。
+6. 完成 App Store 图标、隐私清单、性能与长时间真机测试。
 
 ## 参与项目
 
@@ -240,6 +278,7 @@ UNITY="/Applications/Unity/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/MacOS/Uni
 - [产品与多动物架构设计](EndangeredAR/docs/superpowers/specs/2026-07-18-multi-animal-product-design.md)
 - [森森稳定基线](EndangeredAR/docs/verification/2026-07-19-sensen-baseline.md)
 - [iPhone 真机验收记录](EndangeredAR/docs/verification/2026-08-06-sensen-device-acceptance.md)
+- [R1 端云协同 AI 验收说明](EndangeredAR/docs/verification/2026-08-21-r1-hybrid-ai-routing.md)
 - [UI Design System](EndangeredAR/DESIGN.md)
 
 ---

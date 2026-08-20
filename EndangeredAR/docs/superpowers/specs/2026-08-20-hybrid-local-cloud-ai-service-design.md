@@ -265,4 +265,3 @@ If llama.cpp is not installed or no GGUF model is available on the development m
 - Stale callbacks: retain `ChatRequestState` completion gate.
 - Configuration mistakes: validate and degrade to Unity knowledge.
 - Credentials: continue security tests prohibiting provider secrets and direct provider endpoints in Unity.
-

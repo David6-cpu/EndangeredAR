@@ -269,4 +269,3 @@ git commit -m "docs: record R1 hybrid AI routing"
 - [ ] **Step 6: Request final whole-branch review**
 
 Review the complete branch against the spec, resolve load-bearing findings, rerun affected tests, and stop before any R2 work.
-
