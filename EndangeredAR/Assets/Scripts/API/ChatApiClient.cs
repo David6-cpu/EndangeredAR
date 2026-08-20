@@ -12,10 +12,21 @@ namespace EndangeredAR.API
 
         public IEnumerator SendMessage(string animalId, string message, Action<ChatResponse> onSuccess, Action<string> onError)
         {
-            yield return SendMessage(animalId, message, Array.Empty<ChatMessage>(), onSuccess, onError);
+            yield return SendMessage(animalId, message, Array.Empty<ChatMessage>(), 35f, onSuccess, onError);
         }
 
         public IEnumerator SendMessage(string animalId, string message, ChatMessage[] history, Action<ChatResponse> onSuccess, Action<string> onError)
+        {
+            yield return SendMessage(animalId, message, history, 35f, onSuccess, onError);
+        }
+
+        public IEnumerator SendMessage(
+            string animalId,
+            string message,
+            ChatMessage[] history,
+            float timeoutSeconds,
+            Action<ChatResponse> onSuccess,
+            Action<string> onError)
         {
             if (config == null || string.IsNullOrWhiteSpace(config.baseUrl))
             {
@@ -36,10 +47,14 @@ namespace EndangeredAR.API
             {
                 webRequest.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
                 webRequest.downloadHandler = new DownloadHandlerBuffer();
-                webRequest.timeout = 35;
+                webRequest.timeout = ToUnityTimeoutSeconds(timeoutSeconds);
                 webRequest.SetRequestHeader("Content-Type", "application/json");
 
-                yield return webRequest.SendWebRequest();
+                var operation = webRequest.SendWebRequest();
+                while (!operation.isDone)
+                {
+                    yield return null;
+                }
 
                 if (webRequest.result != UnityWebRequest.Result.Success)
                 {
@@ -56,6 +71,16 @@ namespace EndangeredAR.API
 
                 onSuccess?.Invoke(response);
             }
+        }
+
+        internal static int ToUnityTimeoutSeconds(float timeoutSeconds)
+        {
+            if (float.IsNaN(timeoutSeconds) || float.IsInfinity(timeoutSeconds) || timeoutSeconds <= 0f)
+            {
+                return 1;
+            }
+
+            return timeoutSeconds >= int.MaxValue ? int.MaxValue : Mathf.Max(1, Mathf.CeilToInt(timeoutSeconds));
         }
     }
 
@@ -79,6 +104,8 @@ namespace EndangeredAR.API
     {
         public string animalId;
         public string reply;
+        public string source;
+        public string routeReason;
         public string[] suggestedQuestions;
         public string missionHint;
     }

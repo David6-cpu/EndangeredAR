@@ -42,11 +42,30 @@ namespace EndangeredAR.Tests.EditMode
             var source = File.ReadAllText(Path.GetFullPath(ChatClientPath));
 
             StringAssert.Contains("{config.baseUrl.TrimEnd('/')}/chat", source);
+            StringAssert.DoesNotContain("yield return webRequest.SendWebRequest()", source);
+            StringAssert.Contains("var operation = webRequest.SendWebRequest()", source);
             StringAssert.DoesNotContain("SendDirect" + "MoonshotMessage", source);
             StringAssert.DoesNotContain("Moon" + "shot", source);
             StringAssert.DoesNotContain("Author" + "ization", source);
             StringAssert.DoesNotContain("Bear" + "er", source);
             StringAssert.DoesNotContain("chat/completions", source);
+        }
+
+        [Test]
+        public void HybridProviders_DoNotContainCloudCredentialsOrDirectProviderEndpoints()
+        {
+            var source = string.Join(
+                "\n",
+                File.ReadAllText(Path.GetFullPath("Assets/Scripts/AI/AIConfig.cs")),
+                File.ReadAllText(Path.GetFullPath("Assets/Scripts/AI/CloudLLMProvider.cs")),
+                File.ReadAllText(Path.GetFullPath("Assets/Scripts/AI/LocalLLMProvider.cs")),
+                File.ReadAllText(Path.GetFullPath("Assets/Scripts/AI/AIManager.cs")));
+
+            StringAssert.DoesNotContain("Author" + "ization", source);
+            StringAssert.DoesNotContain("Bear" + "er", source);
+            StringAssert.DoesNotContain("Moon" + "shot", source);
+            StringAssert.DoesNotContain("chat/completions", source);
+            StringAssert.DoesNotContain("api" + "Key", source);
         }
     }
 }
