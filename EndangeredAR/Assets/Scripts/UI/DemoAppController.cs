@@ -1631,18 +1631,15 @@ namespace EndangeredAR.UI
 
             if (aiManager == null)
             {
-                FinishCloudAnswer(request, message, BuildFallbackReply(message), $"AI 服务还没配置好，{CurrentShortName}先用本地知识陪你继续。");
+                FinishCloudAnswer(request, message, new AIResponse
+                {
+                    reply = BuildFallbackReply(message),
+                    missionHint = $"AI 服务还没配置好，{CurrentShortName}先用本地知识陪你继续。"
+                });
                 return;
             }
 
-            var aiRequest = new AIRequest
-            {
-                requestId = Guid.NewGuid().ToString("N"),
-                animalId = CurrentAnimalId,
-                message = message,
-                history = chatHistory.ToArray(),
-                knowledgeProfile = CurrentAnimal?.Knowledge
-            };
+            var aiRequest = BuildAIRequest(CurrentAnimalId, message, chatHistory, CurrentAnimal?.Knowledge);
 
             StartCoroutine(aiManager.Send(
                 aiRequest,
@@ -1652,10 +1649,13 @@ namespace EndangeredAR.UI
                     StartCoroutine(FinishCloudAnswerAfterDelay(
                         request,
                         message,
-                        response?.reply,
-                        response?.missionHint));
+                        response));
                 },
-                error => StartCoroutine(FinishCloudAnswerAfterDelay(request, message, BuildFallbackReply(message), $"AI 服务暂时不稳定，{CurrentShortName}先用本地知识陪你继续。"))
+                error => StartCoroutine(FinishCloudAnswerAfterDelay(request, message, new AIResponse
+                {
+                    reply = BuildFallbackReply(message),
+                    missionHint = $"AI 服务暂时不稳定，{CurrentShortName}先用本地知识陪你继续。"
+                }))
             ));
         }
 
@@ -1676,7 +1676,11 @@ namespace EndangeredAR.UI
                 yield break;
             }
 
-            FinishCloudAnswer(request, userMessage, BuildFallbackReply(userMessage), $"网络有点慢，{CurrentShortName}先用本地知识回答你。");
+            FinishCloudAnswer(request, userMessage, new AIResponse
+            {
+                reply = BuildFallbackReply(userMessage),
+                missionHint = $"网络有点慢，{CurrentShortName}先用本地知识回答你。"
+            });
         }
 
         private void StartCloudAnswerTimeout(ChatRequestTicket request, string userMessage)
@@ -1700,32 +1704,30 @@ namespace EndangeredAR.UI
             cloudAnswerTimeoutRoutine = null;
         }
 
-        private IEnumerator FinishCloudAnswerAfterDelay(ChatRequestTicket request, string userMessage, string reply, string missionHint = "")
+        private IEnumerator FinishCloudAnswerAfterDelay(
+            ChatRequestTicket request,
+            string userMessage,
+            AIResponse response)
         {
             yield return new WaitForSeconds(0.45f);
-            FinishCloudAnswer(request, userMessage, reply, missionHint);
+            FinishCloudAnswer(request, userMessage, response);
         }
 
-        private void FinishCloudAnswer(ChatRequestTicket request, string userMessage, string reply, string missionHint = "")
+        private void FinishCloudAnswer(ChatRequestTicket request, string userMessage, AIResponse response)
         {
-            if (!chatRequestState.TryComplete(request, CurrentAnimalId))
+            if (!TryResolveAICompletion(
+                    chatRequestState,
+                    request,
+                    CurrentAnimalId,
+                    response,
+                    userMessage,
+                    BuildFallbackReply,
+                    out var reply))
             {
                 return;
             }
 
             StopCloudAnswerTimeout();
-
-            if (string.IsNullOrWhiteSpace(reply))
-            {
-                reply = BuildFallbackReply(userMessage);
-            }
-
-            reply = SanitizeUserFacingReply(reply, userMessage);
-
-            if (!string.IsNullOrWhiteSpace(missionHint) && !LooksTechnical(missionHint))
-            {
-                reply = $"{reply}\n{missionHint}";
-            }
 
             ReplaceLastThinkingLine($"{CurrentShortName}：{reply}");
             SetText(chatPageText, chatTranscript);
@@ -1739,14 +1741,64 @@ namespace EndangeredAR.UI
             PulseModel();
         }
 
-        private string SanitizeUserFacingReply(string reply, string userMessage)
+        internal static AIRequest BuildAIRequest(
+            string animalId,
+            string message,
+            IReadOnlyList<ChatMessage> history,
+            AnimalKnowledgeProfile knowledgeProfile)
         {
-            if (LooksTechnical(reply))
+            var historySnapshot = history == null ? Array.Empty<ChatMessage>() : new ChatMessage[history.Count];
+            for (var index = 0; index < historySnapshot.Length; index++)
             {
-                return BuildFallbackReply(userMessage);
+                var item = history[index];
+                historySnapshot[index] = item == null
+                    ? null
+                    : new ChatMessage { role = item.role, content = item.content };
             }
 
-            return reply.Trim();
+            return new AIRequest
+            {
+                requestId = Guid.NewGuid().ToString("N"),
+                animalId = animalId,
+                message = message,
+                history = historySnapshot,
+                knowledgeProfile = knowledgeProfile
+            };
+        }
+
+        internal static bool TryResolveAICompletion(
+            ChatRequestState requestState,
+            ChatRequestTicket request,
+            string currentAnimalId,
+            AIResponse response,
+            string userMessage,
+            Func<string, string> fallbackReply,
+            out string displayReply)
+        {
+            displayReply = null;
+            if (requestState == null || !requestState.TryComplete(request, currentAnimalId))
+            {
+                return false;
+            }
+
+            var reply = response?.reply;
+            if (string.IsNullOrWhiteSpace(reply) || LooksTechnical(reply))
+            {
+                reply = fallbackReply?.Invoke(userMessage);
+            }
+
+            reply = string.IsNullOrWhiteSpace(reply)
+                ? "我暂时无法回答这个问题，不过我们可以继续了解栖息地和保护行动。"
+                : reply.Trim();
+
+            var missionHint = response?.missionHint;
+            if (!string.IsNullOrWhiteSpace(missionHint) && !LooksTechnical(missionHint))
+            {
+                reply = $"{reply}\n{missionHint.Trim()}";
+            }
+
+            displayReply = reply;
+            return true;
         }
 
         private static bool LooksTechnical(string value)

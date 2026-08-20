@@ -1160,8 +1160,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 40ca243e539a43e1a42cfca97d1a3191, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   definitions:
   - {fileID: 11400000, guid: cb7ac05ccd8f847a8ae5b141ae5b6176, type: 2}
   defaultAnimalId: sensen
@@ -1633,8 +1633,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e08f0a9a24a14c55bc0bc78788a5380a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
 --- !u!4 &674462895
 Transform:
   m_ObjectHideFlags: 0
@@ -2713,8 +2713,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2ac2820e72754742b47951f0360f74c8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   aiConfig: {fileID: 11400000, guid: 6825ae7784dd141128472b5d7ad4bbb1, type: 2}
   chatApiClient: {fileID: 719218288}
   localKnowledgeService: {fileID: 405879257}
@@ -4036,8 +4036,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8f721accf6494bf2a9247a7c08916833, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   animalCatalogService: {fileID: 453843361}
   animalProgressService: {fileID: 674462894}
   missionController: {fileID: 1062457585}

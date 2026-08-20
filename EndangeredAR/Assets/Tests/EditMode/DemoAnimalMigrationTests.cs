@@ -37,12 +37,134 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
-        public void DemoController_RoutesChatThroughAIManagerInsteadOfCallingCloudClientDirectly()
+        public void DemoController_BuildAIRequestCapturesAnimalMessageHistoryAndKnowledge()
         {
-            var source = ReadProjectFile(ControllerPath);
+            var knowledge = ScriptableObject.CreateInstance<AnimalKnowledgeProfile>();
+            try
+            {
+                var history = new List<ChatMessage>
+                {
+                    new ChatMessage { role = "user", content = "上一问" },
+                    new ChatMessage { role = "assistant", content = "上一答" }
+                };
 
-            StringAssert.Contains("aiManager.Send", source);
-            StringAssert.DoesNotContain("chatApiClient.SendMessage", source);
+                var request = DemoAppController.BuildAIRequest(
+                    "sensen",
+                    "森森，你平时吃什么？",
+                    history,
+                    knowledge);
+
+                Assert.That(request.requestId, Is.Not.Null.And.Not.Empty);
+                Assert.That(request.animalId, Is.EqualTo("sensen"));
+                Assert.That(request.message, Is.EqualTo("森森，你平时吃什么？"));
+                Assert.That(request.history, Has.Length.EqualTo(2));
+                Assert.That(request.history[0].role, Is.EqualTo("user"));
+                Assert.That(request.history[0].content, Is.EqualTo("上一问"));
+                Assert.That(request.history[1].role, Is.EqualTo("assistant"));
+                Assert.That(request.history[1].content, Is.EqualTo("上一答"));
+                Assert.That(request.knowledgeProfile, Is.SameAs(knowledge));
+
+                history[0].content = "被后续修改";
+                history.Add(new ChatMessage { role = "user", content = "新消息" });
+                Assert.That(request.history, Has.Length.EqualTo(2));
+                Assert.That(request.history[0].content, Is.EqualTo("上一问"),
+                    "The provider request must own an immutable snapshot of the visible chat history.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(knowledge);
+            }
+        }
+
+        [Test]
+        public void DemoController_UnifiedSuccessForwardsReplyAndMissionHintOnce()
+        {
+            var state = new ChatRequestState();
+            var ticket = state.Begin("sensen");
+            var response = new AIResponse
+            {
+                animalId = "sensen",
+                reply = "我最喜欢嫩叶和花朵。",
+                missionHint = "要不要帮我寻找食物？"
+            };
+
+            Assert.That(TryResolveAICompletion(
+                state,
+                ticket,
+                "sensen",
+                response,
+                "你吃什么？",
+                out var displayReply), Is.True);
+            Assert.That(displayReply, Is.EqualTo("我最喜欢嫩叶和花朵。\n要不要帮我寻找食物？"));
+
+            Assert.That(TryResolveAICompletion(
+                state,
+                ticket,
+                "sensen",
+                response,
+                "你吃什么？",
+                out var duplicateReply), Is.False);
+            Assert.That(duplicateReply, Is.Null);
+        }
+
+        [Test]
+        public void DemoController_TechnicalProviderContentNeverReachesDisplayCompletion()
+        {
+            var state = new ChatRequestState();
+            var ticket = state.Begin("sensen");
+            var response = new AIResponse
+            {
+                animalId = "sensen",
+                reply = "HTTP 500 UnityWebRequest Exception",
+                missionHint = "stack trace at api.moonshot.cn"
+            };
+
+            Assert.That(TryResolveAICompletion(
+                state,
+                ticket,
+                "sensen",
+                response,
+                "你吃什么？",
+                out var displayReply), Is.True);
+            Assert.That(displayReply, Is.EqualTo("安全的本地知识回答"));
+            StringAssert.DoesNotContain("HTTP", displayReply);
+            StringAssert.DoesNotContain("Exception", displayReply);
+            StringAssert.DoesNotContain("stack", displayReply);
+        }
+
+        [Test]
+        public void DemoController_AnimalSwitchRejectsUnifiedLateCompletion()
+        {
+            var state = new ChatRequestState();
+            var ticket = state.Begin("sensen");
+            Assert.That(state.InvalidateForAnimalChange("red-panda"), Is.True);
+
+            Assert.That(TryResolveAICompletion(
+                state,
+                ticket,
+                "red-panda",
+                new AIResponse { animalId = "sensen", reply = "迟到的森森回答" },
+                "问题",
+                out var displayReply), Is.False);
+            Assert.That(displayReply, Is.Null);
+        }
+
+        private static bool TryResolveAICompletion(
+            ChatRequestState state,
+            ChatRequestTicket ticket,
+            string currentAnimalId,
+            AIResponse response,
+            string userMessage,
+            out string displayReply)
+        {
+            return DemoAppController.TryResolveAICompletion(
+                state,
+                ticket,
+                currentAnimalId,
+                response,
+                userMessage,
+                new Func<string, string>(_ => "安全的本地知识回答"),
+                out displayReply);
         }
 
         [Test]

@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a55126e9151141c3a5dce8dfccee5a42, type: 3}
   m_Name: LocalAIConfig
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier:
   routeMode: 0
   localServerUrl: http://127.0.0.1:8000
   localTimeoutSeconds: 8
