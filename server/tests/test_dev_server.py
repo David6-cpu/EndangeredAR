@@ -19,7 +19,7 @@ SENSEN = {
 
 class InMemoryHandler(dev_server.Handler):
     def __init__(self, path, payload):
-        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        body = payload if isinstance(payload, bytes) else json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.path = path
         self.headers = {"Content-Length": str(len(body))}
         self.rfile = io.BytesIO(body)
@@ -133,6 +133,20 @@ class DevServerTests(unittest.TestCase):
         self.assertIsNone(result.reply)
         self.assertEqual(result.error, "local_llm_timeout")
 
+    def test_call_local_llm_reports_timeout_when_url_error_wraps_timeout(self):
+        with mock.patch.dict(
+            os.environ,
+            {"LOCAL_LLM_BASE_URL": "http://127.0.0.1:8080/v1"},
+            clear=True,
+        ), mock.patch(
+            "server.dev_server.request.urlopen",
+            side_effect=dev_server.error.URLError(TimeoutError("timed out")),
+        ):
+            result = dev_server.call_local_llm(SENSEN, "你好", [])
+
+        self.assertIsNone(result.reply)
+        self.assertEqual(result.error, "local_llm_timeout")
+
     def test_call_local_llm_reports_invalid_response_shape(self):
         with mock.patch.dict(
             os.environ,
@@ -161,6 +175,46 @@ class DevServerTests(unittest.TestCase):
         self.assertEqual(status, 503)
         self.assertEqual(payload, {"error": "local_llm_not_configured"})
 
+    def test_local_chat_route_returns_503_when_base_url_is_invalid(self):
+        with mock.patch.dict(
+            os.environ,
+            {"LOCAL_LLM_BASE_URL": "not-a-url"},
+            clear=True,
+        ), mock.patch("server.dev_server.get_animal", return_value=SENSEN):
+            status, payload = self.invoke_post("/chat/local", {"message": "你好"})
+
+        self.assertEqual(status, 503)
+        self.assertEqual(payload, {"error": "local_llm_invalid_configuration"})
+
+    def test_local_chat_route_returns_503_when_base_url_is_malformed(self):
+        with mock.patch.dict(
+            os.environ,
+            {"LOCAL_LLM_BASE_URL": "http://[malformed"},
+            clear=True,
+        ), mock.patch("server.dev_server.get_animal", return_value=SENSEN):
+            status, payload = self.invoke_post("/chat/local", {"message": "你好"})
+
+        self.assertEqual(status, 503)
+        self.assertEqual(payload, {"error": "local_llm_invalid_configuration"})
+
+    def test_local_chat_route_does_not_fall_back_to_cloud_or_rules(self):
+        with mock.patch("server.dev_server.get_animal", return_value=SENSEN), mock.patch(
+            "server.dev_server.call_local_llm",
+            return_value=dev_server.ProviderResult(error="local_llm_provider_error"),
+        ), mock.patch(
+            "server.dev_server.call_moonshot",
+            side_effect=AssertionError("local route must not call Moonshot"),
+        ) as call_moonshot, mock.patch(
+            "server.dev_server.make_rule_reply",
+            side_effect=AssertionError("local route must not call the rule fallback"),
+        ) as make_rule_reply:
+            status, payload = self.invoke_post("/chat/local", {"message": "你好"})
+
+        self.assertEqual(status, 502)
+        self.assertEqual(payload, {"error": "local_llm_provider_error"})
+        call_moonshot.assert_not_called()
+        make_rule_reply.assert_not_called()
+
     def test_cloud_chat_response_identifies_server_rule_fallback(self):
         with mock.patch("server.dev_server.get_animal", return_value=SENSEN), mock.patch(
             "server.dev_server.call_moonshot", return_value=None
@@ -172,8 +226,7 @@ class DevServerTests(unittest.TestCase):
         self.assertEqual(payload["routeReason"], "cloud_provider_unavailable_server_rule_fallback")
 
     def test_unknown_post_route_remains_not_found_before_payload_validation(self):
-        with mock.patch("server.dev_server.get_animal", return_value=SENSEN):
-            status, payload = self.invoke_post("/chat/unknown", {})
+        status, payload = self.invoke_post("/chat/unknown", b"{")
 
         self.assertEqual(status, 404)
         self.assertEqual(payload, {"error": "not_found"})

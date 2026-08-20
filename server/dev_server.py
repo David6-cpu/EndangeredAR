@@ -175,6 +175,12 @@ def call_local_llm(animal: Dict, message: str, history: List[Dict]) -> ProviderR
     base_url = os.environ.get("LOCAL_LLM_BASE_URL", "").strip().rstrip("/")
     if not base_url:
         return ProviderResult(error="local_llm_not_configured")
+    try:
+        parsed_base_url = urlparse(base_url)
+    except ValueError:
+        return ProviderResult(error="local_llm_invalid_configuration")
+    if parsed_base_url.scheme not in ("http", "https") or not parsed_base_url.netloc:
+        return ProviderResult(error="local_llm_invalid_configuration")
 
     data = json.dumps(make_local_llm_payload(animal, message, history), ensure_ascii=False).encode("utf-8")
     http_request = request.Request(
@@ -191,6 +197,10 @@ def call_local_llm(animal: Dict, message: str, history: List[Dict]) -> ProviderR
         return ProviderResult(error="local_llm_timeout")
     except error.HTTPError:
         return ProviderResult(error="local_llm_provider_error")
+    except error.URLError as exc:
+        if isinstance(exc.reason, TimeoutError):
+            return ProviderResult(error="local_llm_timeout")
+        return ProviderResult(error="local_llm_unavailable")
     except OSError:
         return ProviderResult(error="local_llm_unavailable")
     except (UnicodeDecodeError, json.JSONDecodeError):
@@ -221,7 +231,7 @@ def make_chat_response(animal: Dict, reply: str, source: str, route_reason: str)
 
 
 def local_error_status(error_code: str) -> int:
-    if error_code == "local_llm_not_configured":
+    if error_code in ("local_llm_not_configured", "local_llm_invalid_configuration"):
         return 503
     if error_code == "local_llm_timeout":
         return 504
