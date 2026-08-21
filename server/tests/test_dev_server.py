@@ -2,7 +2,9 @@ import io
 import json
 import os
 import socket
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from server import dev_server
@@ -65,6 +67,32 @@ class DevServerTests(unittest.TestCase):
         handler = InMemoryHandler(path, payload)
         handler.do_POST()
         return handler.status, handler.payload
+
+    def test_load_local_env_reads_configured_root_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            env_file = Path(directory) / ".env.local"
+            env_file.write_text("LOCAL_LLM_MODEL=local-test-model\n", encoding="utf-8")
+            with mock.patch.object(dev_server, "ENV_FILE", env_file), mock.patch.dict(
+                os.environ,
+                {},
+                clear=True,
+            ):
+                dev_server.load_local_env()
+
+                self.assertEqual(os.environ["LOCAL_LLM_MODEL"], "local-test-model")
+
+    def test_load_local_env_preserves_existing_process_environment(self):
+        with tempfile.TemporaryDirectory() as directory:
+            env_file = Path(directory) / ".env.local"
+            env_file.write_text("LOCAL_LLM_MODEL=file-model\n", encoding="utf-8")
+            with mock.patch.object(dev_server, "ENV_FILE", env_file), mock.patch.dict(
+                os.environ,
+                {"LOCAL_LLM_MODEL": "process-model"},
+                clear=True,
+            ):
+                dev_server.load_local_env()
+
+                self.assertEqual(os.environ["LOCAL_LLM_MODEL"], "process-model")
 
     def test_system_prompt_is_sensen_specific_and_child_friendly(self):
         prompt = dev_server.make_system_prompt(SENSEN)

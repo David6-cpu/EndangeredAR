@@ -89,6 +89,8 @@ In terminal B, from the repository root:
 python3 server/dev_server.py
 ```
 
+`dev_server.py` automatically loads `<repository-root>/.env.local`, resolving the repository root from the script location rather than the shell's current directory. Existing process environment variables take precedence over values in the file. The explicit `set -a; source .env.local; set +a` form is also valid, but it is not required for normal startup.
+
 The proxy listens on `0.0.0.0:8000`; it calls the local model at the address configured by `LOCAL_LLM_BASE_URL`.
 
 ## 4. Verify the endpoints
