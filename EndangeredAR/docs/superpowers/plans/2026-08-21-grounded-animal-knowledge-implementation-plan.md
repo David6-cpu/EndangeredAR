@@ -102,4 +102,3 @@
 - [ ] Perform whole-branch independent review; resolve blocking findings with separate fix commits and rerun affected/full tests.
 - [ ] Record before/after 20-question metrics, source set, known limitations, commits, and clean Git status.
 - [ ] Commit `docs: verify R2 grounded animal knowledge` and stop before later roadmap work.
-

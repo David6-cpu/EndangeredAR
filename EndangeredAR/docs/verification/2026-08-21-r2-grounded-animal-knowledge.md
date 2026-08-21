@@ -1,7 +1,7 @@
 # R2 Grounded Animal Knowledge Acceptance
 
-Date: 2026-08-21  
-Branch: `codex/r2-grounded-animal-knowledge`  
+Date: 2026-08-21
+Branch: `codex/r2-grounded-animal-knowledge`
 Base: `f0df272d` (`docs: close R1 acceptance gates`)
 
 ## 1. Scope and result
@@ -115,7 +115,7 @@ citations[]:
 
 ## 7. Twenty-question comparison
 
-Fixture: `content/quality/sensen-r1.5-questions.json`  
+Fixture: `content/quality/sensen-r1.5-questions.json`
 Regression: `server/tests/test_sensen_quality_regression.py`
 
 | Metric | R1.5 baseline | R2 result |

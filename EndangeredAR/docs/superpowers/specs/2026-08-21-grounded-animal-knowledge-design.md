@@ -146,4 +146,3 @@ Missing new fields remain valid for backward compatibility. Existing conversatio
 - Keyword retrieval can miss paraphrases: maintain reviewed aliases and a generic scientific-question detector; do not add vectors in R2.
 - A provider can ignore prompt instructions: citations and approved factual response selection remain application-owned.
 - Subspecies diet data can be overgeneralized: mark its scope and phrase the species answer conservatively.
-
