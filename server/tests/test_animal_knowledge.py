@@ -144,7 +144,7 @@ class AnimalKnowledgeRetrievalTests(unittest.TestCase):
         self.assertEqual(result.answer_mode, "off_domain")
         self.assertEqual(result.evidence_status, "not_required")
         self.assertEqual(result.citations, ())
-        self.assertIn("濒危动物", result.approved_answer)
+        self.assertIn("珍稀及受保护野生动物", result.approved_answer)
 
     def test_prompt_injection_without_matching_fact_is_not_treated_as_evidence(self):
         result = animal_knowledge.retrieve(

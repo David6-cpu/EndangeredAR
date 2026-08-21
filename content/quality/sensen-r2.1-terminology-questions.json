@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "animalId": "sensen",
+  "cases": [
+    {
+      "id": 1,
+      "question": "森森是什么动物？",
+      "factId": "sensen.identity",
+      "evidenceStatus": "evidence_found",
+      "mustContain": ["缨冠灰叶猴", "Tufted Gray Langur"]
+    },
+    {
+      "id": 2,
+      "question": "你的学名是什么？",
+      "factId": "sensen.scientific_name",
+      "evidenceStatus": "evidence_found",
+      "mustContain": ["Semnopithecus priam"]
+    },
+    {
+      "id": 3,
+      "question": "你的保护等级是什么？",
+      "factId": "sensen.conservation_status",
+      "evidenceStatus": "evidence_found",
+      "mustContain": ["近危（NT）", "不是濒危（EN）"]
+    },
+    {
+      "id": 4,
+      "question": "你是濒危动物吗？",
+      "factId": "sensen.conservation_status",
+      "evidenceStatus": "evidence_found",
+      "mustContain": ["近危（NT）", "不是濒危（EN）"]
+    },
+    {
+      "id": 5,
+      "question": "IUCN 怎么评价你？",
+      "factId": "sensen.conservation_status",
+      "evidenceStatus": "evidence_found",
+      "mustContain": ["IUCN", "近危（NT）"]
+    },
+    {
+      "id": 6,
+      "question": "CITES 怎么保护你？",
+      "factId": "sensen.conservation_status",
+      "evidenceStatus": "evidence_found",
+      "mustContain": ["CITES", "附录 I"]
+    },
+    {
+      "id": 7,
+      "question": "CITES 附录 I 是不是等于 IUCN 濒危？",
+      "factId": "sensen.conservation_status",
+      "evidenceStatus": "evidence_found",
+      "mustContain": ["不等于", "近危（NT）", "附录 I"]
+    },
+    {
+      "id": 8,
+      "question": "你们野外还剩多少只？",
+      "factId": "sensen.population.global",
+      "evidenceStatus": "insufficient_evidence",
+      "mustContain": ["全球", "数量未知", "趋势下降"]
+    },
+    {
+      "id": 9,
+      "question": "你生活在哪里？",
+      "factId": "sensen.range",
+      "evidenceStatus": "evidence_found",
+      "mustContain": ["印度东南部", "斯里兰卡"]
+    },
+    {
+      "id": 10,
+      "question": "为什么还需要保护你？",
+      "factId": "sensen.threats",
+      "evidenceStatus": "evidence_found",
+      "mustContain": ["近危（NT）", "趋势", "栖息地"]
+    }
+  ]
+}

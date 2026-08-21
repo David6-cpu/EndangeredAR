@@ -1,13 +1,13 @@
 # 濒危动物交互科普系统 EndangeredAR
 
-> A Unity mobile experience where endangered animals can be discovered, understood, and spoken with.
+> A Unity mobile experience where rare and protected wildlife can be discovered, understood, and spoken with.
 
 [![Unity](https://img.shields.io/badge/Unity-2022.3.62f3c1-222C37?logo=unity)](https://unity.com/releases/editor/whats-new/2022.3.62)
 ![Platform](https://img.shields.io/badge/Platform-iOS%20%7C%20Unity%20Editor-2E6245)
 ![Status](https://img.shields.io/badge/Status-Sensen%20Vertical%20Slice-5EBB78)
 ![Repository](https://img.shields.io/badge/Repository-Public-C9A33A)
 
-**EndangeredAR** 是一款面向青少年科普与竞赛展示的移动端互动产品。用户通过相机扫描入口认识濒危动物，在 3D 场景中旋转、缩放动物模型，与角色化 AI 对话，完成轻量科普任务，并生成可保存的学习卡片。
+**EndangeredAR** 是一款面向青少年科普与竞赛展示的珍稀及受保护野生动物互动产品。用户通过相机扫描入口认识动物，在 3D 场景中旋转、缩放动物模型，与角色化 AI 对话，完成轻量科普任务，并生成可保存的学习卡片。
 
 当前已经完成并经过 iPhone 真机验证的主角是缨冠灰叶猴 **“森森”**。项目同时建立了数据驱动的多动物基础，但第二个动物体验仍在开发中。
 

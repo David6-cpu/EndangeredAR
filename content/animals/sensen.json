@@ -191,11 +191,11 @@
     {
       "factId": "sensen.threats",
       "topic": "threats",
-      "claim": "主要威胁包括狩猎、栖息地丧失和退化、人兽冲突中的迫害，以及捕捉作宠物。",
-      "approvedAnswer": "让我担心的威胁有狩猎、栖息地丧失和退化、人兽冲突中的伤害，还有被抓去当宠物。",
+      "claim": "IUCN 2020 将该物种评为近危（NT）并记录种群趋势下降；主要威胁包括狩猎、栖息地丧失和退化、人兽冲突中的迫害，以及捕捉作宠物。",
+      "approvedAnswer": "虽然 IUCN 把我们评为近危（NT），但种群趋势仍在下降；狩猎、栖息地丧失和退化、人兽冲突及宠物捕捉都让我需要持续保护。",
       "displayValue": "狩猎、栖息地丧失和退化、迫害与宠物捕捉",
       "keywords": ["威胁", "危险", "变少", "濒危原因", "为什么少"],
-      "aliases": ["为什么越来越少", "为什么近危", "为什么会濒危", "为什么你会濒危", "森林砍伐", "砍伐森林", "面临什么", "伤害"],
+      "aliases": ["为什么越来越少", "为什么近危", "为什么会濒危", "为什么你会濒危", "为什么需要保护", "为什么还需要保护", "森林砍伐", "砍伐森林", "面临什么", "伤害"],
       "items": ["狩猎", "栖息地丧失和退化", "人兽冲突中的迫害", "捕捉作宠物"],
       "sourceIds": ["iucn-2020-s-priam"],
       "confidence": "high",
@@ -221,17 +221,17 @@
     {
       "factId": "sensen.conservation_status",
       "topic": "conservation_status",
-      "claim": "IUCN 2020 将 Semnopithecus priam 评为近危（Near Threatened）；CITES 将其列入附录 I。",
-      "approvedAnswer": "IUCN 2020 评估把我们列为近危（Near Threatened），CITES 还把这个物种列入附录 I。",
-      "displayValue": "近危（Near Threatened）；CITES 附录 I",
+      "claim": "IUCN 2020 将 Semnopithecus priam 评为近危（NT，Near Threatened），不是濒危（EN）；CITES 将其列入附录 I。CITES 附录与 IUCN 红色名录是不同体系，二者不等同。",
+      "approvedAnswer": "IUCN 把我们评为近危（NT），不是濒危（EN）；CITES 则把本物种列入附录 I。两个体系不等于彼此，不能混为一谈。",
+      "displayValue": "近危（NT）",
       "keywords": ["保护等级", "濒危等级", "近危", "iucn", "cites"],
-      "aliases": ["什么等级", "是不是濒危", "附录几", "保护状态"],
-      "items": ["IUCN Near Threatened", "CITES Appendix I"],
+      "aliases": ["什么等级", "是不是濒危", "是濒危动物吗", "iucn评价", "cites保护", "附录几", "附录i等于", "附录i是不是", "保护状态"],
+      "items": ["IUCN：近危（NT）", "CITES：附录 I"],
       "sourceIds": ["mdd-1000692", "iucn-2020-s-priam", "cites-appendix-i-2023"],
       "confidence": "high",
       "evidenceStatus": "evidence_found",
       "lastVerified": "2026-08-21",
-      "notes": "Near Threatened is not translated as the formal IUCN category Endangered."
+      "notes": "Near Threatened (NT) is not the formal IUCN category Endangered (EN). CITES Appendix I is a separate legal listing and must not be mapped to IUCN EN."
     },
     {
       "factId": "sensen.conservation_actions",

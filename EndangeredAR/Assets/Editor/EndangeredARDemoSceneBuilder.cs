@@ -99,7 +99,7 @@ public static class EndangeredARDemoSceneBuilder
 
         var canvas = CreateCanvas();
         var homePanel = CreateHomePanel(canvas.transform);
-        var homeTitle = CreateText(homePanel.transform, "Home Title", "濒危动物 AR 科普", new Vector2(0, 360), 54);
+        var homeTitle = CreateText(homePanel.transform, "Home Title", "野生动物保护 AR 科普", new Vector2(0, 360), 54);
         homeTitle.fontStyle = FontStyle.Bold;
         var homeStatusText = CreateText(homePanel.transform, "Home Status Text", "发现：扫描识别卡，解锁森森互动体验", new Vector2(0, 190), 30);
         var bottomNav = CreateBottomNav(canvas.transform);
@@ -113,7 +113,7 @@ public static class EndangeredARDemoSceneBuilder
         var learnTitle = CreateText(learnPanel.transform, "Learn Title", "Learn", new Vector2(0, 650), 56);
         learnTitle.fontStyle = FontStyle.Bold;
         CreateText(learnPanel.transform, "Learn Progress", "环保等级 Lv.1    学习进度 20%", new Vector2(0, 535), 32);
-        CreateCardText(learnPanel.transform, "Species Card", "物种百科库\n缨冠灰叶猴 森森\n濒危等级：濒危\n栖息地：热带和亚热带森林", new Vector2(0, 330));
+        CreateCardText(learnPanel.transform, "Species Card", "物种百科库\n缨冠灰叶猴 森森\nIUCN：近危（NT）\nCITES：附录 I", new Vector2(0, 330));
         CreateCardText(learnPanel.transform, "Mission Card", "每日守护任务\n帮助森森找到适合的食物\n奖励：森林小助手徽章 +20", new Vector2(0, 85));
         CreateCardText(learnPanel.transform, "Crisis Card", "生态危机演练区\n模拟森林砍伐对栖息地的影响", new Vector2(0, -160));
         var learnBackButton = CreateButton(learnPanel.transform, "Learn Back Button", "返回首页", new Vector2(0, -430), new Vector2(760, 82));
@@ -125,7 +125,7 @@ public static class EndangeredARDemoSceneBuilder
         var chatPageText = CreateChatScrollText(
             chatPanel.transform,
             "Chat Message List",
-            "森森：你好！我是缨冠灰叶猴森森。你可以问我吃什么、住在哪里、为什么濒危。",
+            "森森：你好！我是缨冠灰叶猴森森。你可以问我吃什么、住在哪里、为什么需要保护。",
             new Vector2(0, 245),
             out var chatScrollRect
         );

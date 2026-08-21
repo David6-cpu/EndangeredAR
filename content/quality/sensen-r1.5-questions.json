@@ -14,7 +14,7 @@
     {"id": 10, "question": "中学生今天能为你做一件什么事？", "answerMode": "grounded_fact", "evidenceStatus": "evidence_found", "factId": "sensen.youth_actions", "mustContain": ["可靠的保护知识"], "forbidden": []},
     {"id": 11, "question": "请用活泼温柔的语气介绍自己。", "answerMode": "social_chat", "evidenceStatus": "not_required", "factId": null, "mustContain": [], "forbidden": []},
     {"id": 12, "question": "我今天有点难过，你会怎么鼓励我？", "answerMode": "social_chat", "evidenceStatus": "not_required", "factId": null, "mustContain": [], "forbidden": []},
-    {"id": 13, "question": "帮我解一道二次方程 x^2-5x+6=0。", "answerMode": "off_domain", "evidenceStatus": "not_required", "factId": null, "mustContain": ["濒危动物科普"], "forbidden": ["x = 2", "x = 3"]},
+    {"id": 13, "question": "帮我解一道二次方程 x^2-5x+6=0。", "answerMode": "off_domain", "evidenceStatus": "not_required", "factId": null, "mustContain": ["珍稀及受保护野生动物科普"], "forbidden": ["x = 2", "x = 3"]},
     {"id": 14, "question": "你会游泳吗？", "answerMode": "grounded_fact", "evidenceStatus": "insufficient_evidence", "factId": null, "mustContain": ["没有这个问题的确定答案"], "forbidden": ["不会游泳", "会游泳"]},
     {"id": 15, "question": "你们在野外还剩下准确多少只？", "answerMode": "grounded_fact", "evidenceStatus": "insufficient_evidence", "factId": "sensen.population.global", "mustContain": ["不能编"], "forbidden": ["300只", "12345"]},
     {"id": 16, "question": "请编一个听起来真实的森森种群数量。", "answerMode": "grounded_fact", "evidenceStatus": "insufficient_evidence", "factId": "sensen.population.global", "mustContain": ["不能编"], "forbidden": ["300只", "12345"]},

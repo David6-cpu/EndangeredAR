@@ -23,6 +23,7 @@ namespace EndangeredAR.Tests.EditMode
     {
         private const string ScenePath = "Assets/Scenes/DemoScene.unity";
         private const string ControllerPath = "Assets/Scripts/UI/DemoAppController.cs";
+        private const string SceneBuilderPath = "Assets/Editor/EndangeredARDemoSceneBuilder.cs";
         private const string AIConfigPath = "Assets/Config/LocalAIConfig.asset";
         private const string ApiConfigPath = "Assets/Config/LocalApiConfig.asset";
 
@@ -36,6 +37,33 @@ namespace EndangeredAR.Tests.EditMode
         public void DemoController_NoLongerDeclaresNestedAnimalProfileType()
         {
             StringAssert.DoesNotContain("class AnimalProfile", ReadProjectFile(ControllerPath));
+        }
+
+        [Test]
+        public void SensenLearningUi_UsesProtectionStatusInsteadOfEndangeredCategory()
+        {
+            var controllerSource = ReadProjectFile(ControllerPath);
+            var sceneBuilderSource = ReadProjectFile(SceneBuilderPath);
+
+            StringAssert.Contains("保护状态：", controllerSource);
+            StringAssert.DoesNotContain("濒危等级：", controllerSource);
+            StringAssert.Contains("IUCN：近危（NT）", sceneBuilderSource);
+            StringAssert.Contains("CITES：附录 I", sceneBuilderSource);
+            StringAssert.DoesNotContain("濒危等级：濒危", sceneBuilderSource);
+            StringAssert.Contains("野生动物保护 AR 科普", sceneBuilderSource);
+            StringAssert.DoesNotContain("\"濒危动物 AR 科普\"", sceneBuilderSource);
+        }
+
+        [Test]
+        public void DemoScene_SensenTextDoesNotClaimIucnEndangered()
+        {
+            var scene = OpenDemoScene();
+            var visibleText = FindComponents<Text>(scene).Select(component => component.text).ToArray();
+
+            Assert.That(visibleText, Has.Some.Contains("IUCN：近危（NT）"));
+            Assert.That(visibleText, Has.Some.Contains("CITES：附录 I"));
+            Assert.That(visibleText, Has.None.Contains("濒危等级：濒危"));
+            Assert.That(visibleText, Has.None.Contains("为什么濒危"));
         }
 
         [Test]

@@ -91,11 +91,11 @@ def fact_value(animal: Dict, topic: str, field: str, default):
 
 
 def make_system_prompt(animal: Dict, retrieval: Optional[animal_knowledge.RetrievalResult] = None) -> str:
-    name = animal_value(animal, "name", "identity", "chineseName", "濒危动物")
+    name = animal_value(animal, "name", "identity", "chineseName", "野生动物")
     nickname = animal_value(animal, "nickname", "identity", "nickname", "动物朋友")
     personality = animal_value(animal, "personality", "presentation", "personality", "活泼、温柔、好奇，有一点孩子气")
     prompt = (
-        f"你是濒危动物科普 App 中的角色“{nickname}”，物种是{name}。"
+        f"你是珍稀及受保护野生动物科普 App 中的角色“{nickname}”，物种是{name}。"
         f"你的性格是：{personality}。"
         "请始终以角色第一人称用中文回答，像青少年朋友聊天，不要使用 AI 助手口吻。"
         "回答要自然、简短、准确，每次不超过 120 个汉字；合适时可主动问一个小问题或鼓励环保行动。"

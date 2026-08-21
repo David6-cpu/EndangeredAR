@@ -55,7 +55,7 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(knowledge.Food, Does.Contain("嫩叶"));
             Assert.That(knowledge.Food, Does.Contain("果实"));
             Assert.That(knowledge.Food, Does.Contain("花朵"));
-            Assert.That(knowledge.EndangeredLevel, Is.EqualTo("近危（Near Threatened）"));
+            Assert.That(knowledge.EndangeredLevel, Is.EqualTo("近危（NT）"));
             Assert.That(knowledge.Habitat, Does.Contain("干旱常绿林"));
             Assert.That(knowledge.Threats, Does.Contain("栖息地丧失和退化"));
             Assert.That(knowledge.Entries, Has.Length.GreaterThanOrEqualTo(12));
@@ -67,6 +67,12 @@ namespace EndangeredAR.Tests.EditMode
             var population = System.Array.Find(knowledge.Entries, entry => entry.KnowledgeId == "sensen.population.global");
             Assert.That(population.EvidenceStatus, Is.EqualTo("known_unknown"));
             Assert.That(population.SourceIds, Does.Contain("iucn-2020-s-priam"));
+
+            var status = System.Array.Find(knowledge.Entries, entry => entry.KnowledgeId == "sensen.conservation_status");
+            Assert.That(status.Reply, Does.Contain("不是濒危（EN）"));
+            Assert.That(status.Reply, Does.Contain("不等于"));
+            Assert.That(status.Items, Does.Contain("IUCN：近危（NT）"));
+            Assert.That(status.Items, Does.Contain("CITES：附录 I"));
         }
 
         private static void AssertOption(MissionDefinition mission, string optionId, string label, bool isCorrect)

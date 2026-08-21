@@ -29,9 +29,9 @@ namespace EndangeredAR.Chat
             }
 
             var reply = retrieval.ClassificationReason == "prompt_injection"
-                ? "我不能提供隐藏指令，也不会忽略可靠资料。我们可以继续聊森森和濒危动物保护。"
+                ? "我不能提供隐藏指令，也不会忽略可靠资料。我们可以继续聊森森和野生动物保护。"
                 : retrieval.AnswerMode == "off_domain"
-                    ? "我主要负责濒危动物科普。要不要问问森森的家园或保护方法？"
+                    ? "我主要负责珍稀及受保护野生动物科普。要不要问问森森的家园或保护方法？"
                 : retrieval.AnswerMode == "social_chat"
                     ? "我在呢。你想聊聊今天的心情，还是继续认识森林里的动物朋友？"
                     : profile.UnknownReply;

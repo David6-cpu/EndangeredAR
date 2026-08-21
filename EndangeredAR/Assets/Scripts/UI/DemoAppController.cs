@@ -150,7 +150,7 @@ namespace EndangeredAR.UI
             ? CurrentShortName
             : CurrentAnimal.DisplayName;
         private string CurrentWelcomeText => string.IsNullOrWhiteSpace(CurrentAnimal?.WelcomeText)
-            ? "你好，很高兴见到你。我们一起认识濒危动物和保护行动吧。"
+            ? "你好，很高兴见到你。我们一起认识珍稀及受保护野生动物吧。"
             : CurrentAnimal.WelcomeText;
         private string CurrentMissionTitle => string.IsNullOrWhiteSpace(CurrentAnimal?.Mission?.Title)
             ? "完成保护任务"
@@ -256,7 +256,7 @@ namespace EndangeredAR.UI
                     "DemoAppController requires Animal Catalog Service, Animal Progress Service, and Animal Experience Controller. " +
                     "Run Endangered AR/Migrate Demo Scene Animal Architecture and verify the three serialized references.",
                     this);
-                chatTranscript = "动物伙伴：欢迎来到濒危动物科普体验。";
+                chatTranscript = "动物伙伴：欢迎来到野生动物保护科普体验。";
                 return;
             }
 
@@ -880,7 +880,7 @@ namespace EndangeredAR.UI
             CreateImage(shareSurface.transform, "Card Badge Icon", "Badges/badge-eco-guardian", new Vector2(-335, -45), new Vector2(150, 150), Color.white, true);
             cardBadgeStatusText = CreateText(shareSurface.transform, "Card Badge Status", "", new Vector2(70, -20), new Vector2(650, 120), 27, primaryText, TextAnchor.MiddleLeft);
             cardActionText = CreateText(shareSurface.transform, "Card Action", "", new Vector2(0, -285), new Vector2(820, 180), 25, secondaryText, TextAnchor.UpperLeft);
-            CreateText(shareSurface.transform, "Card Footer", "濒危动物 AR 科普 · 为森林多做一件小事", new Vector2(0, -860), new Vector2(820, 52), 20, new Color(0.28f, 0.43f, 0.3f, 1f), TextAnchor.MiddleCenter);
+            CreateText(shareSurface.transform, "Card Footer", "野生动物保护 AR 科普 · 为森林多做一件小事", new Vector2(0, -860), new Vector2(820, 52), 20, new Color(0.28f, 0.43f, 0.3f, 1f), TextAnchor.MiddleCenter);
 
             cardSaveStatusText = CreateText(cardPanel.transform, "Card Save Status", "", Vector2.zero, new Vector2(780f, 72f), 19, secondaryText, TextAnchor.MiddleCenter);
             SetAnchoredRect(cardSaveStatusText.GetComponent<RectTransform>(), new Vector2(0.08f, 0.145f), new Vector2(0.92f, 0.185f));
@@ -903,7 +903,7 @@ namespace EndangeredAR.UI
             ReparentTo(learnPanel, contentRoot);
             ClearChildren(learnPanel.transform);
             StylePanel(learnPanel, new Color(0.83f, 0.92f, 0.76f, 1f));
-            var content = CreateScrollPage(learnPanel, "学习中心", "认识濒危动物的栖息地、食物和保护行动");
+            var content = CreateScrollPage(learnPanel, "学习中心", "认识珍稀及受保护野生动物的栖息地、食物和保护行动");
             CreateInfoCard(content, "Learn Progress Card", "Icons/info-daily-fact", "Learn Progress", 150f, 24, out _);
             CreateInfoCard(content, "Species Learn Card", "Icons/info-endangered-level", "Species Card", 176f, 24, out _);
             CreateInfoCard(content, "Habitat Learn Card", "Icons/info-habitat", "Mission Card", 176f, 24, out _);
@@ -2081,7 +2081,7 @@ namespace EndangeredAR.UI
             chatHistory.Clear();
             if (animal == null)
             {
-                chatTranscript = "动物伙伴：欢迎来到濒危动物科普体验。";
+                chatTranscript = "动物伙伴：欢迎来到野生动物保护科普体验。";
                 return;
             }
 
@@ -2209,14 +2209,14 @@ namespace EndangeredAR.UI
             var knowledge = CurrentAnimal?.Knowledge;
             if (knowledge == null)
             {
-                return "认识濒危动物，是参与生态保护的第一步。";
+                return "认识受保护野生动物，是参与生态保护的第一步。";
             }
 
             if (index == 0)
             {
                 return string.IsNullOrWhiteSpace(knowledge.EndangeredLevel)
                     ? knowledge.Habitat
-                    : $"濒危等级：{knowledge.EndangeredLevel}；栖息地：{knowledge.Habitat}";
+                    : $"保护状态：{knowledge.EndangeredLevel}；栖息地：{knowledge.Habitat}";
             }
 
             if (index == 1)
@@ -2250,7 +2250,7 @@ namespace EndangeredAR.UI
                 return dailyFacts[0];
             }
 
-            return "认识濒危动物，是参与生态保护的第一步。";
+            return "认识受保护野生动物，是参与生态保护的第一步。";
         }
 
         private void UpdateLearnContent()
@@ -2264,7 +2264,7 @@ namespace EndangeredAR.UI
                 }
                 else if (text.name.Contains("Species Card"))
                 {
-                    text.text = $"濒危档案\n{CurrentDisplayName}\n{CurrentKnowledgeFact(0)}";
+                    text.text = $"物种档案\n{CurrentDisplayName}\n{CurrentKnowledgeFact(0)}";
                 }
                 else if (text.name.Contains("Mission Card"))
                 {

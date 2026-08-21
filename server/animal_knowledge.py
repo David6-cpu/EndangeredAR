@@ -124,7 +124,7 @@ def retrieve(document: Dict, message: str, animal_id: Optional[str] = None) -> R
             "not_required",
             (),
             (),
-            "我不能提供隐藏指令，也不会忽略可靠资料。我们可以继续聊森森和濒危动物保护。",
+            "我不能提供隐藏指令，也不会忽略可靠资料。我们可以继续聊森森和野生动物保护。",
             "prompt_injection",
         )
     if any(marker in normalized for marker in map(normalize_text, OFF_DOMAIN_MARKERS)):
@@ -133,7 +133,7 @@ def retrieve(document: Dict, message: str, animal_id: Optional[str] = None) -> R
             "not_required",
             (),
             (),
-            "我主要负责濒危动物科普，不能替你完成这个问题。要不要问问森森的家园或保护方法？",
+            "我主要负责珍稀及受保护野生动物科普，不能替你完成这个问题。要不要问问森森的家园或保护方法？",
             "off_domain_marker",
         )
     if any(marker in normalized for marker in map(normalize_text, SOCIAL_MARKERS)):
