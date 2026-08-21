@@ -15,7 +15,7 @@ MonoBehaviour:
   animalId: sensen
   displayName: "\u7F28\u51A0\u7070\u53F6\u7334 \u68EE\u68EE"
   shortName: "\u68EE\u68EE"
-  scientificName: Trachypithecus poliocephalus
+  scientificName: Semnopithecus priam
   markerName: sensen_marker
   modelRelativePath: Models/Sensen/sensen.glb
   baseColorTextureRelativePath: Models/Sensen/sensen_basecolor.png

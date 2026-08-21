@@ -12,79 +12,500 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4fa9a4fc4e62a4a11804e48ecac68589, type: 3}
   m_Name: SensenKnowledge
   m_EditorClassIdentifier: 
-  endangeredLevel: "\u6FD2\u5371"
-  habitat: "\u70ED\u5E26\u548C\u4E9A\u70ED\u5E26\u68EE\u6797"
-  food: "\u5AE9\u53F6\u3001\u679C\u5B9E\u548C\u82B1\u6735"
+  endangeredLevel: "\u8FD1\u5371\uFF08Near Threatened\uFF09"
+  habitat: "\u70ED\u5E26\u5E72\u65F1\u5E38\u7EFF\u6797\u3001\u6CB3\u5CB8\u6797\u3001\u5E72\u71E5\u843D\u53F6\u6797\u548C\u6D77\u5CB8\u6797"
+  food: "\u53F6\u7247\u548C\u5AE9\u53F6\u4E3A\u4E3B\uFF0C\u4E5F\u5403\u679C\u5B9E\u548C\u82B1\u6735"
   threats:
-  - "\u6816\u606F\u5730\u7834\u788E"
-  - "\u975E\u6CD5\u6355\u730E"
-  - "\u79CD\u7FA4\u9694\u79BB"
+  - "\u72E9\u730E"
+  - "\u6816\u606F\u5730\u4E27\u5931\u548C\u9000\u5316"
+  - "\u4EBA\u517D\u51B2\u7A81\u4E2D\u7684\u8FEB\u5BB3"
+  - "\u6355\u6349\u4F5C\u5BA0\u7269"
   protectionActions:
-  - "\u5C11\u6D6A\u8D39\u7EB8\u5F20"
-  - "\u62D2\u7EDD\u8D2D\u4E70\u91CE\u751F\u52A8\u7269\u5236\u54C1"
-  - "\u652F\u6301\u81EA\u7136\u4FDD\u62A4"
-  - "\u4F20\u64AD\u6B63\u786E\u77E5\u8BC6"
+  - "\u4F20\u64AD\u53EF\u9760\u77E5\u8BC6"
+  - "\u4E0D\u8D2D\u4E70\u6765\u6E90\u4E0D\u660E\u7684\u91CE\u751F\u52A8\u7269"
+  - "\u53C2\u52A0\u6B63\u89C4\u81EA\u7136\u6559\u80B2"
   dailyFacts:
-  - "\u7F28\u51A0\u7070\u53F6\u7334\u4E3B\u8981\u5403\u5AE9\u53F6\u3001\u679C\u5B9E\u548C\u82B1\u6735\u3002"
-  - "\u5B8C\u6574\u68EE\u6797\u80FD\u7ED9\u7F28\u51A0\u7070\u53F6\u7334\u63D0\u4F9B\u98DF\u7269\u3001\u5E87\u62A4\u548C\u8FC1\u5F99\u901A\u9053\u3002"
-  - "\u6816\u606F\u5730\u7834\u788E\u3001\u975E\u6CD5\u6355\u730E\u548C\u79CD\u7FA4\u9694\u79BB\u4F1A\u8BA9\u5B83\u4EEC\u66F4\u52A0\u6FD2\u5371\u3002"
+  - "\u8BE5\u7269\u79CD\u4EE5\u690D\u7269\u6027\u98DF\u7269\u4E3A\u4E3B\uFF0C\u98DF\u53F6\u4E5F\u98DF\u679C\uFF1B\u4E00\u9879
+    S. p. priam \u7FA4\u4F53\u7814\u7A76\u8BB0\u5F55\u53F6\u3001\u679C\u5B9E\u3001\u82B1\u7B49\u591A\u7C7B\u98DF\u7269\u3002"
+  - "\u8BE5\u7269\u79CD\u5229\u7528\u70ED\u5E26\u5E72\u65F1\u5E38\u7EFF\u6797\u3001\u6CB3\u5CB8\u6797\u3001\u5E72\u71E5\u843D\u53F6\u6797\u548C\u6D77\u5CB8\u6797\uFF0C\u4E5F\u53EF\u51FA\u73B0\u5728\u90E8\u5206\u82B1\u56ED\u3001\u5BFA\u5E99\u548C\u8015\u4F5C\u533A\u3002"
+  - "\u4E3B\u8981\u5A01\u80C1\u5305\u62EC\u72E9\u730E\u3001\u6816\u606F\u5730\u4E27\u5931\u548C\u9000\u5316\u3001\u4EBA\u517D\u51B2\u7A81\u4E2D\u7684\u8FEB\u5BB3\uFF0C\u4EE5\u53CA\u6355\u6349\u4F5C\u5BA0\u7269\u3002"
   entries:
-  - knowledgeId: food
+  - knowledgeId: sensen.identity
+    topic: identity
+    claim: "\u7F28\u51A0\u7070\u53F6\u7334\u7684\u82F1\u6587\u901A\u540D\u662F Tufted
+      Gray Langur\u3002"
+    keywords:
+    - "\u53EB\u4EC0\u4E48"
+    - "\u540D\u5B57"
+    - "\u662F\u8C01"
+    - "\u4EC0\u4E48\u52A8\u7269"
+    aliases:
+    - "\u4ECB\u7ECD\u81EA\u5DF1"
+    - "\u4F60\u662F\u8C01"
+    - "\u4E2D\u6587\u540D"
+    - "\u82F1\u6587\u540D"
+    reply: "\u6211\u662F\u7F28\u51A0\u7070\u53F6\u7334\u68EE\u68EE\uFF0C\u82F1\u6587\u540D\u662F
+      Tufted Gray Langur\u3002"
+    displayValue: "\u7F28\u51A0\u7070\u53F6\u7334\uFF08Tufted Gray Langur\uFF09"
+    items:
+    - "\u7F28\u51A0\u7070\u53F6\u7334"
+    - Tufted Gray Langur
+    sourceIds:
+    - gbif-4267223
+    - mdd-1000692
+    confidence: high
+    evidenceStatus: evidence_found
+    lastVerified: 2026-08-21
+    notes: Common names are linked to the explicit species identity in this document.
+    suggestedQuestions:
+    - "\u4F60\u7684\u5B66\u540D\u662F\u4EC0\u4E48\uFF1F"
+    - "\u4F60\u4F4F\u5728\u54EA\u91CC\uFF1F"
+    - "\u4F60\u5403\u4EC0\u4E48\uFF1F"
+  - knowledgeId: sensen.scientific_name
+    topic: scientific_name
+    claim: "\u7F28\u51A0\u7070\u53F6\u7334\u7684\u63A5\u53D7\u5B66\u540D\u662F Semnopithecus
+      priam\u3002"
+    keywords:
+    - "\u5B66\u540D"
+    - "\u62C9\u4E01\u540D"
+    - "\u79D1\u5B66\u540D\u79F0"
+    aliases:
+    - scientific name
+    - "\u53EB\u4EC0\u4E48\u5B66\u540D"
+    reply: "\u6211\u7684\u5B66\u540D\u662F Semnopithecus priam\u3002\u8FD9\u4E2A\u540D\u5B57\u5BF9\u5E94\u7F28\u51A0\u7070\u53F6\u7334\uFF0C\u53EF\u4E0D\u80FD\u548C\u76F8\u8FD1\u7684\u53F6\u7334\u5F04\u6DF7\u54E6\u3002"
+    displayValue: Semnopithecus priam
+    items:
+    - Semnopithecus priam
+    sourceIds:
+    - gbif-4267223
+    - mdd-1000692
+    confidence: high
+    evidenceStatus: evidence_found
+    lastVerified: 2026-08-21
+    notes: Reviewed accepted name; supersedes the former mismatched project value.
+    suggestedQuestions:
+    - "\u4F60\u7684\u5B66\u540D\u662F\u4EC0\u4E48\uFF1F"
+    - "\u4F60\u4F4F\u5728\u54EA\u91CC\uFF1F"
+    - "\u4F60\u5403\u4EC0\u4E48\uFF1F"
+  - knowledgeId: sensen.taxonomy
+    topic: taxonomy
+    claim: "Semnopithecus priam \u5C5E\u4E8E\u7075\u957F\u76EE\u3001\u7334\u79D1\u3001\u75A3\u7334\u4E9A\u79D1\u3001\u957F\u5C3E\u53F6\u7334\u5C5E\u3002"
+    keywords:
+    - "\u5206\u7C7B"
+    - "\u54EA\u4E00\u79D1"
+    - "\u54EA\u4E00\u5C5E"
+    - "\u79CD\u5C5E"
+    aliases:
+    - taxonomy
+    - "\u4EC0\u4E48\u79D1"
+    - "\u4EC0\u4E48\u5C5E"
+    reply: "\u5206\u7C7B\u4E0A\uFF0C\u6211\u5C5E\u4E8E\u7075\u957F\u76EE\u3001\u7334\u79D1\u3001\u75A3\u7334\u4E9A\u79D1\u3001\u957F\u5C3E\u53F6\u7334\u5C5E\u3002"
+    displayValue: "\u7075\u957F\u76EE \xB7 \u7334\u79D1 \xB7 \u957F\u5C3E\u53F6\u7334\u5C5E"
+    items:
+    - Primates
+    - Cercopithecidae
+    - Colobinae
+    - Semnopithecus
+    sourceIds:
+    - gbif-4267223
+    - mdd-1000692
+    confidence: high
+    evidenceStatus: evidence_found
+    lastVerified: 2026-08-21
+    notes: Chinese higher-rank labels are presentation translations of the cited
+      taxonomy.
+    suggestedQuestions:
+    - "\u4F60\u7684\u5B66\u540D\u662F\u4EC0\u4E48\uFF1F"
+    - "\u4F60\u4F4F\u5728\u54EA\u91CC\uFF1F"
+    - "\u4F60\u5403\u4EC0\u4E48\uFF1F"
+  - knowledgeId: sensen.range
+    topic: range
+    claim: "Semnopithecus priam \u5206\u5E03\u4E8E\u5370\u5EA6\u4E1C\u5357\u90E8\u548C\u65AF\u91CC\u5170\u5361\u3002"
+    keywords:
+    - "\u5206\u5E03"
+    - "\u54EA\u91CC\u6709"
+    - "\u54EA\u4E2A\u56FD\u5BB6"
+    - "\u54EA\u91CC\u751F\u6D3B"
+    aliases:
+    - "\u751F\u6D3B\u5728\u54EA"
+    - "\u6765\u81EA\u54EA\u91CC"
+    - "\u5BB6\u4E61"
+    - "\u4F4F\u5728\u54EA\u91CC"
+    - "\u4F4F\u54EA"
+    reply: "\u6211\u7684\u91CE\u5916\u5206\u5E03\u5728\u5370\u5EA6\u4E1C\u5357\u90E8\u548C\u65AF\u91CC\u5170\u5361\u3002\u53EF\u9760\u8D44\u6599\u6CA1\u6709\u8BF4\u6211\u751F\u6D3B\u5728\u4E2D\u56FD\u91CE\u5916\u3002"
+    displayValue: "\u5370\u5EA6\u4E1C\u5357\u90E8\u548C\u65AF\u91CC\u5170\u5361"
+    items:
+    - "\u5370\u5EA6\u4E1C\u5357\u90E8"
+    - "\u65AF\u91CC\u5170\u5361"
+    sourceIds:
+    - mdd-1000692
+    - iucn-2020-s-priam
+    confidence: high
+    evidenceStatus: evidence_found
+    lastVerified: 2026-08-21
+    notes: Country-level MDD summary and the detailed IUCN range account agree.
+    suggestedQuestions:
+    - "\u4F60\u7684\u5B66\u540D\u662F\u4EC0\u4E48\uFF1F"
+    - "\u4F60\u4F4F\u5728\u54EA\u91CC\uFF1F"
+    - "\u4F60\u5403\u4EC0\u4E48\uFF1F"
+  - knowledgeId: sensen.habitat
+    topic: habitat
+    claim: "\u8BE5\u7269\u79CD\u5229\u7528\u70ED\u5E26\u5E72\u65F1\u5E38\u7EFF\u6797\u3001\u6CB3\u5CB8\u6797\u3001\u5E72\u71E5\u843D\u53F6\u6797\u548C\u6D77\u5CB8\u6797\uFF0C\u4E5F\u53EF\u51FA\u73B0\u5728\u90E8\u5206\u82B1\u56ED\u3001\u5BFA\u5E99\u548C\u8015\u4F5C\u533A\u3002"
+    keywords:
+    - "\u6816\u606F\u5730"
+    - "\u73AF\u5883"
+    - "\u68EE\u6797\u7C7B\u578B"
+    - "\u4F4F\u4EC0\u4E48\u5730\u65B9"
+    aliases:
+    - "\u4F4F\u5728\u54EA\u91CC"
+    - "\u751F\u6D3B\u73AF\u5883"
+    - "\u4F4F\u5728\u6811\u6D1E"
+    - "\u5BB6\u5728\u54EA\u91CC"
+    reply: "\u6211\u4F1A\u751F\u6D3B\u5728\u70ED\u5E26\u5E72\u65F1\u5E38\u7EFF\u6797\u3001\u6CB3\u5CB8\u6797\u3001\u5E72\u71E5\u843D\u53F6\u6797\u548C\u6D77\u5CB8\u6797\uFF1B\u6709\u4E9B\u4F19\u4F34\u4E5F\u4F1A\u51FA\u73B0\u5728\u82B1\u56ED\u3001\u5BFA\u5E99\u6216\u8015\u4F5C\u533A\u9644\u8FD1\u3002"
+    displayValue: "\u70ED\u5E26\u5E72\u65F1\u5E38\u7EFF\u6797\u3001\u6CB3\u5CB8\u6797\u3001\u5E72\u71E5\u843D\u53F6\u6797\u548C\u6D77\u5CB8\u6797"
+    items:
+    - "\u70ED\u5E26\u5E72\u65F1\u5E38\u7EFF\u6797"
+    - "\u6CB3\u5CB8\u6797"
+    - "\u5E72\u71E5\u843D\u53F6\u6797"
+    - "\u6D77\u5CB8\u6797"
+    - "\u82B1\u56ED"
+    - "\u5BFA\u5E99"
+    - "\u8015\u4F5C\u533A"
+    sourceIds:
+    - iucn-2020-s-priam
+    confidence: high
+    evidenceStatus: evidence_found
+    lastVerified: 2026-08-21
+    notes: The source does not describe tree holes as the species' normal habitat.
+    suggestedQuestions:
+    - "\u4F60\u7684\u5B66\u540D\u662F\u4EC0\u4E48\uFF1F"
+    - "\u4F60\u4F4F\u5728\u54EA\u91CC\uFF1F"
+    - "\u4F60\u5403\u4EC0\u4E48\uFF1F"
+  - knowledgeId: sensen.diet
+    topic: diet
+    claim: "\u8BE5\u7269\u79CD\u4EE5\u690D\u7269\u6027\u98DF\u7269\u4E3A\u4E3B\uFF0C\u98DF\u53F6\u4E5F\u98DF\u679C\uFF1B\u4E00\u9879
+      S. p. priam \u7FA4\u4F53\u7814\u7A76\u8BB0\u5F55\u53F6\u3001\u679C\u5B9E\u3001\u82B1\u7B49\u591A\u7C7B\u98DF\u7269\u3002"
     keywords:
     - "\u5403"
     - "\u98DF\u7269"
-    - food
-    reply: "\u6211\u6700\u559C\u6B22\u68EE\u6797\u91CC\u7684\u5AE9\u53F6\uFF0C\u4E5F\u4F1A\u5403\u679C\u5B9E\u548C\u82B1\u6735\uFF1B\u4EBA\u7C7B\u96F6\u98DF\u4E0D\u9002\u5408\u6211\u3002"
+    - "\u98DF\u6027"
+    - "\u7231\u5403"
+    aliases:
+    - "\u5403\u4EC0\u4E48"
+    - "\u996E\u98DF"
+    - "\u83DC\u5355"
+    - "\u80FD\u5403"
+    reply: "\u6211\u4E3B\u8981\u5403\u690D\u7269\uFF0C\u5AE9\u53F6\u548C\u5176\u4ED6\u53F6\u7247\u5F88\u91CD\u8981\uFF0C\u4E5F\u4F1A\u5403\u679C\u5B9E\u548C\u82B1\u6735\u3002\u4E0D\u540C\u5730\u70B9\u548C\u5B63\u8282\u7684\u98DF\u7269\u6BD4\u4F8B\u4F1A\u53D8\u5316\u3002"
+    displayValue: "\u53F6\u7247\u548C\u5AE9\u53F6\u4E3A\u4E3B\uFF0C\u4E5F\u5403\u679C\u5B9E\u548C\u82B1\u6735"
+    items:
+    - "\u53F6\u7247"
+    - "\u5AE9\u53F6"
+    - "\u679C\u5B9E"
+    - "\u82B1\u6735"
+    sourceIds:
+    - iucn-2020-s-priam
+    - vanaraj-pragasan-2021-diet
+    confidence: high
+    evidenceStatus: evidence_found
+    lastVerified: 2026-08-21
+    notes: Detailed percentages come from one subspecies population and are not generalized
+      to every group.
     suggestedQuestions:
-    - "\u5E2E\u68EE\u68EE\u5BFB\u627E\u98DF\u7269"
-    - "\u4E3A\u4EC0\u4E48\u4E0D\u80FD\u6295\u5582\uFF1F"
+    - "\u4F60\u7684\u5B66\u540D\u662F\u4EC0\u4E48\uFF1F"
     - "\u4F60\u4F4F\u5728\u54EA\u91CC\uFF1F"
-  - knowledgeId: habitat
-    keywords:
-    - "\u4F4F"
-    - "\u6816\u606F"
-    - "\u5BB6"
-    - "\u54EA\u91CC"
-    reply: "\u6211\u7684\u5BB6\u5728\u70ED\u5E26\u548C\u4E9A\u70ED\u5E26\u68EE\u6797\uFF0C\u8FDE\u5728\u4E00\u8D77\u7684\u6811\u51A0\u65B9\u4FBF\u6211\u627E\u98DF\u7269\u548C\u540C\u4F34\u3002"
-    suggestedQuestions:
-    - "\u68EE\u6797\u88AB\u7834\u574F\u4F1A\u600E\u6837\uFF1F"
-    - "\u6211\u80FD\u600E\u4E48\u5E2E\u4F60\uFF1F"
     - "\u4F60\u5403\u4EC0\u4E48\uFF1F"
-  - knowledgeId: threats
+  - knowledgeId: sensen.behavior
+    topic: behavior
+    claim: "Semnopithecus priam \u662F\u65E5\u884C\u6027\u52A8\u7269\uFF0C\u53EF\u5728\u6811\u4E0A\u6D3B\u52A8\uFF0C\u4E5F\u4F1A\u5728\u5730\u9762\u6D3B\u52A8\u3002"
     keywords:
-    - "\u6FD2\u5371"
+    - "\u884C\u4E3A"
+    - "\u4E60\u6027"
+    - "\u6D3B\u52A8"
+    - "\u767D\u5929"
+    - "\u665A\u4E0A"
+    aliases:
+    - "\u600E\u4E48\u751F\u6D3B"
+    - "\u4F1A\u4E0B\u5730\u5417"
+    - "\u4F4F\u6811\u6D1E"
+    - "\u6811\u6D1E"
+    reply: "\u6211\u767D\u5929\u6D3B\u52A8\uFF0C\u65E2\u4F1A\u5728\u6811\u4E0A\u884C\u52A8\uFF0C\u4E5F\u4F1A\u5230\u5730\u9762\u6D3B\u52A8\u3002\u53EF\u9760\u8D44\u6599\u6CA1\u6709\u628A\u6211\u8BF4\u6210\u53EA\u4F4F\u5728\u6811\u6D1E\u91CC\u3002"
+    displayValue: "\u65E5\u884C\u6027\uFF1B\u6811\u6816\u4E14\u4F1A\u5728\u5730\u9762\u6D3B\u52A8"
+    items:
+    - "\u65E5\u884C\u6027"
+    - "\u6811\u4E0A\u6D3B\u52A8"
+    - "\u5730\u9762\u6D3B\u52A8"
+    sourceIds:
+    - iucn-2020-s-priam
+    confidence: high
+    evidenceStatus: evidence_found
+    lastVerified: 2026-08-21
+    notes: Uses IUCN descriptors arboreal, semi-terrestrial, and diurnal.
+    suggestedQuestions:
+    - "\u4F60\u7684\u5B66\u540D\u662F\u4EC0\u4E48\uFF1F"
+    - "\u4F60\u4F4F\u5728\u54EA\u91CC\uFF1F"
+    - "\u4F60\u5403\u4EC0\u4E48\uFF1F"
+  - knowledgeId: sensen.threats
+    topic: threats
+    claim: "\u4E3B\u8981\u5A01\u80C1\u5305\u62EC\u72E9\u730E\u3001\u6816\u606F\u5730\u4E27\u5931\u548C\u9000\u5316\u3001\u4EBA\u517D\u51B2\u7A81\u4E2D\u7684\u8FEB\u5BB3\uFF0C\u4EE5\u53CA\u6355\u6349\u4F5C\u5BA0\u7269\u3002"
+    keywords:
+    - "\u5A01\u80C1"
     - "\u5371\u9669"
-    - "\u4E3A\u4EC0\u4E48"
-    - "\u539F\u56E0"
-    reply: "\u68EE\u6797\u53D8\u5C11\u3001\u975E\u6CD5\u6355\u730E\u548C\u79CD\u7FA4\u9694\u79BB\u4F1A\u8BA9\u6211\u53D8\u5F97\u6FD2\u5371\u3002"
+    - "\u53D8\u5C11"
+    - "\u6FD2\u5371\u539F\u56E0"
+    - "\u4E3A\u4EC0\u4E48\u5C11"
+    aliases:
+    - "\u4E3A\u4EC0\u4E48\u8D8A\u6765\u8D8A\u5C11"
+    - "\u4E3A\u4EC0\u4E48\u8FD1\u5371"
+    - "\u9762\u4E34\u4EC0\u4E48"
+    - "\u4F24\u5BB3"
+    reply: "\u8BA9\u6211\u62C5\u5FC3\u7684\u5A01\u80C1\u6709\u72E9\u730E\u3001\u6816\u606F\u5730\u4E27\u5931\u548C\u9000\u5316\u3001\u4EBA\u517D\u51B2\u7A81\u4E2D\u7684\u4F24\u5BB3\uFF0C\u8FD8\u6709\u88AB\u6293\u53BB\u5F53\u5BA0\u7269\u3002"
+    displayValue: "\u72E9\u730E\u3001\u6816\u606F\u5730\u4E27\u5931\u548C\u9000\u5316\u3001\u8FEB\u5BB3\u4E0E\u5BA0\u7269\u6355\u6349"
+    items:
+    - "\u72E9\u730E"
+    - "\u6816\u606F\u5730\u4E27\u5931\u548C\u9000\u5316"
+    - "\u4EBA\u517D\u51B2\u7A81\u4E2D\u7684\u8FEB\u5BB3"
+    - "\u6355\u6349\u4F5C\u5BA0\u7269"
+    sourceIds:
+    - iucn-2020-s-priam
+    confidence: high
+    evidenceStatus: evidence_found
+    lastVerified: 2026-08-21
+    notes: Uses the threat categories described by the IUCN assessment.
     suggestedQuestions:
-    - "\u4EC0\u4E48\u662F\u79CD\u7FA4\u9694\u79BB\uFF1F"
-    - "\u600E\u4E48\u4FDD\u62A4\u4F60\uFF1F"
-    - "\u4F60\u7684\u6816\u606F\u5730\u5728\u54EA\u91CC\uFF1F"
-  - knowledgeId: protection
-    keywords:
-    - "\u4FDD\u62A4"
-    - "\u5E2E\u52A9"
-    - "\u600E\u4E48\u505A"
-    - "\u884C\u52A8"
-    reply: "\u5C11\u6D6A\u8D39\u7EB8\u5F20\u3001\u62D2\u7EDD\u91CE\u751F\u52A8\u7269\u5236\u54C1\u3001\u652F\u6301\u81EA\u7136\u4FDD\u62A4\uFF0C\u90FD\u80FD\u8BA9\u68EE\u6797\u66F4\u5B89\u5168\u3002"
-    suggestedQuestions:
-    - "\u6211\u53EF\u4EE5\u53C2\u52A0\u4EC0\u4E48\u4EFB\u52A1\uFF1F"
+    - "\u4F60\u7684\u5B66\u540D\u662F\u4EC0\u4E48\uFF1F"
+    - "\u4F60\u4F4F\u5728\u54EA\u91CC\uFF1F"
     - "\u4F60\u5403\u4EC0\u4E48\uFF1F"
-    - "\u4E3A\u4EC0\u4E48\u8981\u4FDD\u62A4\u68EE\u6797\uFF1F"
-  - knowledgeId: mission
+  - knowledgeId: sensen.population.global
+    topic: population
+    claim: "IUCN 2020 \u8BC4\u4F30\u8BB0\u5F55\u8BE5\u7269\u79CD\u5168\u7403\u79CD\u7FA4\u6570\u91CF\u672A\u77E5\uFF0C\u79CD\u7FA4\u8D8B\u52BF\u4E3A\u4E0B\u964D\u3002"
     keywords:
-    - "\u4EFB\u52A1"
-    - "\u6E38\u620F"
-    - "\u6311\u6218"
-    - "\u5FBD\u7AE0"
-    reply: "\u5E2E\u6211\u627E\u5230\u5929\u7136\u98DF\u7269\uFF0C\u5B8C\u6210\u540E\u9001\u4F60\u751F\u6001\u5B88\u62A4\u8005\u5FBD\u7AE0\uFF01"
+    - "\u591A\u5C11\u53EA"
+    - "\u8FD8\u5269"
+    - "\u6570\u91CF"
+    - "\u79CD\u7FA4"
+    - "\u51E0\u53EA"
+    aliases:
+    - "\u91CE\u5916\u6570\u91CF"
+    - "\u603B\u6570"
+    - "\u5269\u591A\u5C11"
+    - "\u7F16\u4E00\u4E2A\u6570\u91CF"
+    - "\u771F\u5B9E\u6570\u636E"
+    reply: "\u53EF\u9760\u8BC4\u4F30\u6CA1\u6709\u7ED9\u51FA\u5168\u7403\u8FD8\u5269\u591A\u5C11\u53EA\uFF0C\u53EA\u8BB0\u5F55\u4E86\u79CD\u7FA4\u6570\u91CF\u672A\u77E5\u3001\u8D8B\u52BF\u4E0B\u964D\uFF0C\u6240\u4EE5\u6211\u4E0D\u80FD\u7F16\u4E00\u4E2A\u6570\u5B57\u3002"
+    displayValue: "\u5168\u7403\u6570\u91CF\u672A\u77E5\uFF1B\u8D8B\u52BF\u4E0B\u964D"
+    items:
+    - "\u5168\u7403\u6570\u91CF\u672A\u77E5"
+    - "\u79CD\u7FA4\u8D8B\u52BF\u4E0B\u964D"
+    sourceIds:
+    - iucn-2020-s-priam
+    confidence: high
+    evidenceStatus: known_unknown
+    lastVerified: 2026-08-21
+    notes: Never replace the documented unknown with a local count or model estimate.
     suggestedQuestions:
-    - "\u5F00\u59CB\u5BFB\u627E\u98DF\u7269"
-    - "\u4F60\u559C\u6B22\u5403\u4EC0\u4E48\uFF1F"
-    - "\u5B8C\u6210\u540E\u6709\u4EC0\u4E48\u5956\u52B1\uFF1F"
-  unknownReply: "\u4F60\u53EF\u4EE5\u95EE\u6211\u5403\u4EC0\u4E48\u3001\u4F4F\u5728\u54EA\u91CC\u3001\u4E3A\u4EC0\u4E48\u6FD2\u5371\uFF0C\u6216\u6765\u5B8C\u6210\u5BFB\u627E\u98DF\u7269\u4EFB\u52A1\u3002"
+    - "\u4F60\u7684\u5B66\u540D\u662F\u4EC0\u4E48\uFF1F"
+    - "\u4F60\u4F4F\u5728\u54EA\u91CC\uFF1F"
+    - "\u4F60\u5403\u4EC0\u4E48\uFF1F"
+  - knowledgeId: sensen.conservation_status
+    topic: conservation_status
+    claim: "IUCN 2020 \u5C06 Semnopithecus priam \u8BC4\u4E3A\u8FD1\u5371\uFF08Near
+      Threatened\uFF09\uFF1BCITES \u5C06\u5176\u5217\u5165\u9644\u5F55 I\u3002"
+    keywords:
+    - "\u4FDD\u62A4\u7B49\u7EA7"
+    - "\u6FD2\u5371\u7B49\u7EA7"
+    - "\u8FD1\u5371"
+    - iucn
+    - cites
+    aliases:
+    - "\u4EC0\u4E48\u7B49\u7EA7"
+    - "\u662F\u4E0D\u662F\u6FD2\u5371"
+    - "\u9644\u5F55\u51E0"
+    - "\u4FDD\u62A4\u72B6\u6001"
+    reply: "IUCN 2020 \u8BC4\u4F30\u628A\u6211\u4EEC\u5217\u4E3A\u8FD1\u5371\uFF08Near
+      Threatened\uFF09\uFF0CCITES \u8FD8\u628A\u8FD9\u4E2A\u7269\u79CD\u5217\u5165\u9644\u5F55
+      I\u3002"
+    displayValue: "\u8FD1\u5371\uFF08Near Threatened\uFF09\uFF1BCITES \u9644\u5F55
+      I"
+    items:
+    - IUCN Near Threatened
+    - CITES Appendix I
+    sourceIds:
+    - mdd-1000692
+    - iucn-2020-s-priam
+    - cites-appendix-i-2023
+    confidence: high
+    evidenceStatus: evidence_found
+    lastVerified: 2026-08-21
+    notes: Near Threatened is not translated as the formal IUCN category Endangered.
+    suggestedQuestions:
+    - "\u4F60\u7684\u5B66\u540D\u662F\u4EC0\u4E48\uFF1F"
+    - "\u4F60\u4F4F\u5728\u54EA\u91CC\uFF1F"
+    - "\u4F60\u5403\u4EC0\u4E48\uFF1F"
+  - knowledgeId: sensen.conservation_actions
+    topic: conservation_actions
+    claim: "\u4FDD\u62A4\u9700\u6C42\u5305\u62EC\u6816\u606F\u5730\u548C\u79CD\u7FA4\u7BA1\u7406\u3001\u8C03\u67E5\u7814\u7A76\u3001\u6559\u80B2\u5BA3\u4F20\u53CA\u79CD\u7FA4\u4E0E\u6816\u606F\u5730\u76D1\u6D4B\u3002"
+    keywords:
+    - "\u4FDD\u62A4\u63AA\u65BD"
+    - "\u600E\u4E48\u4FDD\u62A4"
+    - "\u4FDD\u62A4\u884C\u52A8"
+    - "\u6551\u52A9"
+    aliases:
+    - "\u5982\u4F55\u4FDD\u62A4"
+    - "\u80FD\u505A\u4EC0\u4E48"
+    - "\u600E\u6837\u5E2E\u52A9"
+    - "\u4FDD\u62A4\u8BA1\u5212"
+    reply: "\u4FDD\u62A4\u6211\u9700\u8981\u7BA1\u597D\u6816\u606F\u5730\u548C\u79CD\u7FA4\uFF0C\u7EE7\u7EED\u8C03\u67E5\u7814\u7A76\u3001\u516C\u4F17\u6559\u80B2\uFF0C\u8FD8\u8981\u957F\u671F\u76D1\u6D4B\u6211\u4EEC\u548C\u68EE\u6797\u7684\u53D8\u5316\u3002"
+    displayValue: "\u6816\u606F\u5730\u7BA1\u7406\u3001\u8C03\u67E5\u7814\u7A76\u3001\u6559\u80B2\u4E0E\u957F\u671F\u76D1\u6D4B"
+    items:
+    - "\u6816\u606F\u5730\u548C\u79CD\u7FA4\u7BA1\u7406"
+    - "\u8C03\u67E5\u7814\u7A76"
+    - "\u6559\u80B2\u5BA3\u4F20"
+    - "\u79CD\u7FA4\u4E0E\u6816\u606F\u5730\u76D1\u6D4B"
+    sourceIds:
+    - iucn-2020-s-priam
+    - cites-appendix-i-2023
+    confidence: high
+    evidenceStatus: evidence_found
+    lastVerified: 2026-08-21
+    notes: CITES listing is regulatory context; recommended actions come from IUCN.
+    suggestedQuestions:
+    - "\u4F60\u7684\u5B66\u540D\u662F\u4EC0\u4E48\uFF1F"
+    - "\u4F60\u4F4F\u5728\u54EA\u91CC\uFF1F"
+    - "\u4F60\u5403\u4EC0\u4E48\uFF1F"
+  - knowledgeId: sensen.youth_actions
+    topic: youth_actions
+    claim: "\u9752\u5C11\u5E74\u53EF\u53C2\u4E0E\u53EF\u9760\u79D1\u666E\u3001\u62D2\u7EDD\u8D2D\u4E70\u548C\u9972\u517B\u6765\u6E90\u4E0D\u660E\u7684\u91CE\u751F\u52A8\u7269\uFF0C\u5E76\u652F\u6301\u6816\u606F\u5730\u4FDD\u62A4\u6559\u80B2\u3002"
+    keywords:
+    - "\u9752\u5C11\u5E74"
+    - "\u5B66\u751F"
+    - "\u6211\u80FD\u505A"
+    - "\u65E5\u5E38\u884C\u52A8"
+    aliases:
+    - "\u600E\u4E48\u5E2E\u52A9\u4F60"
+    - "\u5C0F\u670B\u53CB\u80FD\u505A\u4EC0\u4E48"
+    - "\u73AF\u4FDD\u884C\u52A8"
+    - "\u5B88\u62A4\u884C\u52A8"
+    reply: "\u4F60\u53EF\u4EE5\u4F20\u64AD\u53EF\u9760\u7684\u4FDD\u62A4\u77E5\u8BC6\uFF0C\u4E0D\u4E70\u3001\u4E0D\u517B\u6765\u6E90\u4E0D\u660E\u7684\u91CE\u751F\u52A8\u7269\uFF0C\u4E5F\u53EF\u4EE5\u53C2\u52A0\u6B63\u89C4\u7684\u81EA\u7136\u6559\u80B2\u548C\u6816\u606F\u5730\u4FDD\u62A4\u6D3B\u52A8\u3002"
+    displayValue: "\u4F20\u64AD\u53EF\u9760\u77E5\u8BC6\uFF0C\u4E0D\u8D2D\u4E70\u91CE\u751F\u52A8\u7269\uFF0C\u53C2\u52A0\u6B63\u89C4\u81EA\u7136\u6559\u80B2"
+    items:
+    - "\u4F20\u64AD\u53EF\u9760\u77E5\u8BC6"
+    - "\u4E0D\u8D2D\u4E70\u6765\u6E90\u4E0D\u660E\u7684\u91CE\u751F\u52A8\u7269"
+    - "\u53C2\u52A0\u6B63\u89C4\u81EA\u7136\u6559\u80B2"
+    sourceIds:
+    - iucn-2020-s-priam
+    confidence: medium
+    evidenceStatus: evidence_found
+    lastVerified: 2026-08-21
+    notes: Youth-facing project guidance derived conservatively from documented education
+      and threat-reduction needs.
+    suggestedQuestions:
+    - "\u4F60\u7684\u5B66\u540D\u662F\u4EC0\u4E48\uFF1F"
+    - "\u4F60\u4F4F\u5728\u54EA\u91CC\uFF1F"
+    - "\u4F60\u5403\u4EC0\u4E48\uFF1F"
+  - knowledgeId: sensen.fun_fact.plants
+    topic: fun_facts
+    claim: "\u4E00\u9879\u5BF9 S. p. priam \u5355\u4E2A\u7FA4\u4F53\u7684\u7814\u7A76\u8BB0\u5F55\u5176\u53D6\u98DF
+      95 \u79CD\u690D\u7269\u3002"
+    keywords:
+    - "\u8DA3\u5473"
+    - "\u51B7\u77E5\u8BC6"
+    - "\u6709\u8DA3"
+    - "\u690D\u7269\u79CD\u7C7B"
+    aliases:
+    - "\u597D\u73A9\u7684\u77E5\u8BC6"
+    - "\u7279\u522B\u4E4B\u5904"
+    - "\u591A\u5C11\u79CD\u690D\u7269"
+    reply: "\u4E00\u4E2A S. p. priam \u7FA4\u4F53\u7684\u7814\u7A76\u8BB0\u5F55\u5230\u5B83\u4EEC\u5403\u4E86
+      95 \u79CD\u690D\u7269\uFF0C\u4E0D\u8FC7\u8FD9\u662F\u4E00\u4E2A\u5730\u70B9\u7684\u89C2\u5BDF\uFF0C\u4E0D\u80FD\u4EE3\u8868\u6240\u6709\u4F19\u4F34\u3002"
+    displayValue: "\u4E00\u9879\u7FA4\u4F53\u7814\u7A76\u8BB0\u5F55\u4E86 95 \u79CD\u98DF\u7528\u690D\u7269"
+    items:
+    - "95 \u79CD\u98DF\u7528\u690D\u7269\uFF08\u5355\u4E2A\u7814\u7A76\u7FA4\u4F53\uFF09"
+    sourceIds:
+    - vanaraj-pragasan-2021-diet
+    confidence: high
+    evidenceStatus: evidence_found
+    lastVerified: 2026-08-21
+    notes: The number is explicitly scoped to the observed group and must not be
+      presented as a species-wide constant.
+    suggestedQuestions:
+    - "\u4F60\u7684\u5B66\u540D\u662F\u4EC0\u4E48\uFF1F"
+    - "\u4F60\u4F4F\u5728\u54EA\u91CC\uFF1F"
+    - "\u4F60\u5403\u4EC0\u4E48\uFF1F"
+  sources:
+  - sourceId: gbif-4267223
+    title: Semnopithecus priam (Blyth, 1844)
+    organization: GBIF Secretariat
+    sourceType: species_database
+    url: https://www.gbif.org/species/4267223
+    publishedOrUpdatedDate: 2026-08-21
+    projectVerifiedDate: 2026-08-21
+    appliesToFactIds:
+    - sensen.identity
+    - sensen.scientific_name
+    - sensen.taxonomy
+    notes: "GBIF accepted-name record; the names section includes the Chinese common
+      name \u7F28\u51A0\u7070\u53F6\u7334. Date records project access because the
+      live record is updated continuously."
+  - sourceId: mdd-1000692
+    title: Semnopithecus priam - Tufted Gray Langur
+    organization: American Society of Mammalogists, Mammal Diversity Database
+    sourceType: species_database
+    url: https://www.mammaldiversity.org/taxon/1000692/
+    publishedOrUpdatedDate: 2026-07-28
+    projectVerifiedDate: 2026-08-21
+    appliesToFactIds:
+    - sensen.identity
+    - sensen.scientific_name
+    - sensen.taxonomy
+    - sensen.range
+    - sensen.conservation_status
+    notes: MDD v2.5 taxon record used for current taxonomy, English common name,
+      country-level distribution, and IUCN category display.
+  - sourceId: iucn-2020-s-priam
+    title: Semnopithecus priam (Tufted Gray Langur) Red List assessment
+    organization: IUCN Red List of Threatened Species
+    sourceType: conservation_assessment
+    url: https://dx.doi.org/10.2305/IUCN.UK.2020-2.RLTS.T167546892A17942964.en
+    publishedOrUpdatedDate: 2020
+    projectVerifiedDate: 2026-08-21
+    appliesToFactIds:
+    - sensen.range
+    - sensen.habitat
+    - sensen.diet
+    - sensen.behavior
+    - sensen.threats
+    - sensen.population.global
+    - sensen.conservation_status
+    - sensen.conservation_actions
+    - sensen.youth_actions
+    notes: Primary project source for distribution, ecology, global population status/trend,
+      threats, and recommended conservation actions.
+  - sourceId: cites-appendix-i-2023
+    title: Appendices I, II and III valid from 21 May 2023
+    organization: CITES Secretariat
+    sourceType: official_listing
+    url: https://cites.org/sites/default/files/eng/app/2023/E-Appendices-2023-05-21.pdf
+    publishedOrUpdatedDate: 2023-05-21
+    projectVerifiedDate: 2026-08-21
+    appliesToFactIds:
+    - sensen.conservation_status
+    - sensen.conservation_actions
+    notes: Official appendices listing Semnopithecus priam in Appendix I.
+  - sourceId: vanaraj-pragasan-2021-diet
+    title: Activity and dietary budgets of Tufted grey langurs (Semnopithecus priam
+      priam)
+    organization: Ethology Ecology & Evolution; Ganapathy Vanaraj and Lingassamy
+      A. Pragasan
+    sourceType: peer_reviewed_article
+    url: https://doi.org/10.1080/03949370.2021.1883119
+    publishedOrUpdatedDate: 2021-02-21
+    projectVerifiedDate: 2026-08-21
+    appliesToFactIds:
+    - sensen.diet
+    - sensen.fun_fact.plants
+    notes: Study of one S. p. priam group near the eastern range boundary; results
+      are not treated as global population estimates.
+  unknownReply: "\u6211\u73B0\u5728\u7684\u53EF\u9760\u8D44\u6599\u91CC\u8FD8\u6CA1\u6709\u8FD9\u4E2A\u95EE\u9898\u7684\u786E\u5B9A\u7B54\u6848\uFF0C\u6240\u4EE5\u4E0D\u80FD\u968F\u4FBF\u544A\u8BC9\u4F60\u4E00\u4E2A\u7B54\u6848\u3002"
   defaultSuggestions:
+  - "\u4F60\u7684\u5B66\u540D\u662F\u4EC0\u4E48\uFF1F"
+  - "\u4F60\u4F4F\u5728\u54EA\u91CC\uFF1F"
   - "\u4F60\u5403\u4EC0\u4E48\uFF1F"
-  - "\u5E2E\u68EE\u68EE\u5BFB\u627E\u98DF\u7269"
-  - "\u6211\u600E\u4E48\u4FDD\u62A4\u4F60\uFF1F"

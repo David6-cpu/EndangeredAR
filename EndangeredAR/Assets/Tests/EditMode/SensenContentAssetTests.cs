@@ -16,7 +16,7 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(definition.AnimalId, Is.EqualTo("sensen"));
             Assert.That(definition.DisplayName, Is.EqualTo("缨冠灰叶猴 森森"));
             Assert.That(definition.ShortName, Is.EqualTo("森森"));
-            Assert.That(definition.ScientificName, Is.EqualTo("Trachypithecus poliocephalus"));
+            Assert.That(definition.ScientificName, Is.EqualTo("Semnopithecus priam"));
             Assert.That(definition.MarkerName, Is.EqualTo("sensen_marker"));
             Assert.That(definition.ModelRelativePath, Is.EqualTo("Models/Sensen/sensen.glb"));
             Assert.That(definition.BaseColorTextureRelativePath, Is.EqualTo("Models/Sensen/sensen_basecolor.png"));
@@ -55,14 +55,18 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(knowledge.Food, Does.Contain("嫩叶"));
             Assert.That(knowledge.Food, Does.Contain("果实"));
             Assert.That(knowledge.Food, Does.Contain("花朵"));
-            Assert.That(knowledge.Habitat, Does.Contain("热带和亚热带森林"));
-            Assert.That(knowledge.Threats, Is.EqualTo(new[] { "栖息地破碎", "非法捕猎", "种群隔离" }));
-            Assert.That(knowledge.Entries, Has.Length.EqualTo(5));
-            Assert.That(knowledge.Entries, Has.Exactly(1).Matches<AnimalKnowledgeEntry>(entry => entry.KnowledgeId == "food"));
-            Assert.That(knowledge.Entries, Has.Exactly(1).Matches<AnimalKnowledgeEntry>(entry => entry.KnowledgeId == "habitat"));
-            Assert.That(knowledge.Entries, Has.Exactly(1).Matches<AnimalKnowledgeEntry>(entry => entry.KnowledgeId == "threats"));
-            Assert.That(knowledge.Entries, Has.Exactly(1).Matches<AnimalKnowledgeEntry>(entry => entry.KnowledgeId == "protection"));
-            Assert.That(knowledge.Entries, Has.Exactly(1).Matches<AnimalKnowledgeEntry>(entry => entry.KnowledgeId == "mission"));
+            Assert.That(knowledge.EndangeredLevel, Is.EqualTo("近危（Near Threatened）"));
+            Assert.That(knowledge.Habitat, Does.Contain("干旱常绿林"));
+            Assert.That(knowledge.Threats, Does.Contain("栖息地丧失和退化"));
+            Assert.That(knowledge.Entries, Has.Length.GreaterThanOrEqualTo(12));
+            Assert.That(knowledge.Entries, Has.Exactly(1).Matches<AnimalKnowledgeEntry>(entry => entry.KnowledgeId == "sensen.scientific_name"));
+            Assert.That(knowledge.Entries, Has.Exactly(1).Matches<AnimalKnowledgeEntry>(entry => entry.KnowledgeId == "sensen.population.global"));
+            Assert.That(knowledge.Entries, Has.Exactly(1).Matches<AnimalKnowledgeEntry>(entry => entry.KnowledgeId == "sensen.diet"));
+            Assert.That(knowledge.Sources, Has.Exactly(1).Matches<AnimalKnowledgeSource>(source => source.SourceId == "iucn-2020-s-priam"));
+
+            var population = System.Array.Find(knowledge.Entries, entry => entry.KnowledgeId == "sensen.population.global");
+            Assert.That(population.EvidenceStatus, Is.EqualTo("known_unknown"));
+            Assert.That(population.SourceIds, Does.Contain("iucn-2020-s-priam"));
         }
 
         private static void AssertOption(MissionDefinition mission, string optionId, string label, bool isCorrect)

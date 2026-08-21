@@ -17,13 +17,14 @@ namespace EndangeredAR.Editor
         [MenuItem("Endangered AR/Data/Rebuild Sensen Content")]
         public static void RebuildSensenContent()
         {
+            var document = LoadCanonicalDocument();
             var knowledge = LoadOrCreate<AnimalKnowledgeProfile>(KnowledgePath);
             var mission = LoadOrCreate<MissionDefinition>(MissionPath);
             var definition = LoadOrCreate<AnimalDefinition>(DefinitionPath);
 
-            ConfigureKnowledge(knowledge);
+            ConfigureKnowledge(knowledge, document);
             ConfigureMission(mission);
-            ConfigureDefinition(definition, knowledge, mission);
+            ConfigureDefinition(definition, knowledge, mission, document);
 
             EditorUtility.SetDirty(knowledge);
             EditorUtility.SetDirty(mission);
@@ -33,22 +34,28 @@ namespace EndangeredAR.Editor
             Debug.Log("Rebuilt audited Sensen content assets.");
         }
 
-        private static void ConfigureKnowledge(AnimalKnowledgeProfile knowledge)
+        private static void ConfigureKnowledge(AnimalKnowledgeProfile knowledge, CanonicalAnimalDocument document)
         {
+            var habitat = FindFact(document, "sensen.habitat");
+            var diet = FindFact(document, "sensen.diet");
+            var threats = FindFact(document, "sensen.threats");
+            var youthActions = FindFact(document, "sensen.youth_actions");
+            var status = FindFact(document, "sensen.conservation_status");
             var serialized = new SerializedObject(knowledge);
-            serialized.FindProperty("endangeredLevel").stringValue = "濒危";
-            serialized.FindProperty("habitat").stringValue = "热带和亚热带森林";
-            serialized.FindProperty("food").stringValue = "嫩叶、果实和花朵";
-            SetStringArray(serialized.FindProperty("threats"), "栖息地破碎", "非法捕猎", "种群隔离");
-            SetStringArray(serialized.FindProperty("protectionActions"), "少浪费纸张", "拒绝购买野生动物制品", "支持自然保护", "传播正确知识");
+            serialized.FindProperty("endangeredLevel").stringValue = FirstSegment(status.displayValue);
+            serialized.FindProperty("habitat").stringValue = habitat.displayValue;
+            serialized.FindProperty("food").stringValue = diet.displayValue;
+            SetStringArray(serialized.FindProperty("threats"), threats.items);
+            SetStringArray(serialized.FindProperty("protectionActions"), youthActions.items);
             SetStringArray(
                 serialized.FindProperty("dailyFacts"),
-                "缨冠灰叶猴主要吃嫩叶、果实和花朵。",
-                "完整森林能给缨冠灰叶猴提供食物、庇护和迁徙通道。",
-                "栖息地破碎、非法捕猎和种群隔离会让它们更加濒危。");
-            SetKnowledgeEntries(serialized.FindProperty("entries"));
-            serialized.FindProperty("unknownReply").stringValue = "你可以问我吃什么、住在哪里、为什么濒危，或来完成寻找食物任务。";
-            SetStringArray(serialized.FindProperty("defaultSuggestions"), "你吃什么？", "帮森森寻找食物", "我怎么保护你？");
+                diet.claim,
+                habitat.claim,
+                threats.claim);
+            SetKnowledgeEntries(serialized.FindProperty("entries"), document.facts, document.presentation.defaultSuggestions);
+            SetKnowledgeSources(serialized.FindProperty("sources"), document.sources);
+            serialized.FindProperty("unknownReply").stringValue = document.presentation.unknownReply;
+            SetStringArray(serialized.FindProperty("defaultSuggestions"), document.presentation.defaultSuggestions);
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
@@ -71,13 +78,14 @@ namespace EndangeredAR.Editor
         private static void ConfigureDefinition(
             AnimalDefinition definition,
             AnimalKnowledgeProfile knowledge,
-            MissionDefinition mission)
+            MissionDefinition mission,
+            CanonicalAnimalDocument document)
         {
             var serialized = new SerializedObject(definition);
-            serialized.FindProperty("animalId").stringValue = "sensen";
-            serialized.FindProperty("displayName").stringValue = "缨冠灰叶猴 森森";
-            serialized.FindProperty("shortName").stringValue = "森森";
-            serialized.FindProperty("scientificName").stringValue = "Trachypithecus poliocephalus";
+            serialized.FindProperty("animalId").stringValue = document.animalId;
+            serialized.FindProperty("displayName").stringValue = $"{document.identity.chineseName} {document.identity.nickname}";
+            serialized.FindProperty("shortName").stringValue = document.identity.nickname;
+            serialized.FindProperty("scientificName").stringValue = document.identity.scientificName;
             serialized.FindProperty("markerName").stringValue = "sensen_marker";
             serialized.FindProperty("modelRelativePath").stringValue = "Models/Sensen/sensen.glb";
             serialized.FindProperty("baseColorTextureRelativePath").stringValue = "Models/Sensen/sensen_basecolor.png";
@@ -85,7 +93,7 @@ namespace EndangeredAR.Editor
             serialized.FindProperty("modelLocalOffset").vector3Value = new Vector3(0f, 0.04f, 0f);
             serialized.FindProperty("modelEulerAngles").vector3Value = new Vector3(0f, 180f, 0f);
             serialized.FindProperty("modelScale").vector3Value = new Vector3(1.45f, 1.45f, 1.45f);
-            serialized.FindProperty("welcomeText").stringValue = "你好呀！我是缨冠灰叶猴森森。谢谢你愿意来到我的森林，今天我们一起认识我的食物、家和保护方法吧。";
+            serialized.FindProperty("welcomeText").stringValue = document.presentation.welcomeText;
             serialized.FindProperty("themeColor").colorValue = Color.white;
             serialized.FindProperty("portrait").objectReferenceValue = null;
             serialized.FindProperty("lockedSilhouette").objectReferenceValue = null;
@@ -94,22 +102,58 @@ namespace EndangeredAR.Editor
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static void SetKnowledgeEntries(SerializedProperty entries)
+        private static void SetKnowledgeEntries(
+            SerializedProperty entries,
+            CanonicalFact[] facts,
+            string[] suggestedQuestions)
         {
-            entries.arraySize = 5;
-            SetKnowledgeEntry(entries.GetArrayElementAtIndex(0), "food", new[] { "吃", "食物", "food" }, "我最喜欢森林里的嫩叶，也会吃果实和花朵；人类零食不适合我。", new[] { "帮森森寻找食物", "为什么不能投喂？", "你住在哪里？" });
-            SetKnowledgeEntry(entries.GetArrayElementAtIndex(1), "habitat", new[] { "住", "栖息", "家", "哪里" }, "我的家在热带和亚热带森林，连在一起的树冠方便我找食物和同伴。", new[] { "森林被破坏会怎样？", "我能怎么帮你？", "你吃什么？" });
-            SetKnowledgeEntry(entries.GetArrayElementAtIndex(2), "threats", new[] { "濒危", "危险", "为什么", "原因" }, "森林变少、非法捕猎和种群隔离会让我变得濒危。", new[] { "什么是种群隔离？", "怎么保护你？", "你的栖息地在哪里？" });
-            SetKnowledgeEntry(entries.GetArrayElementAtIndex(3), "protection", new[] { "保护", "帮助", "怎么做", "行动" }, "少浪费纸张、拒绝野生动物制品、支持自然保护，都能让森林更安全。", new[] { "我可以参加什么任务？", "你吃什么？", "为什么要保护森林？" });
-            SetKnowledgeEntry(entries.GetArrayElementAtIndex(4), "mission", new[] { "任务", "游戏", "挑战", "徽章" }, "帮我找到天然食物，完成后送你生态守护者徽章！", new[] { "开始寻找食物", "你喜欢吃什么？", "完成后有什么奖励？" });
+            facts = facts ?? Array.Empty<CanonicalFact>();
+            entries.arraySize = facts.Length;
+            for (var index = 0; index < facts.Length; index++)
+            {
+                SetKnowledgeEntry(entries.GetArrayElementAtIndex(index), facts[index], suggestedQuestions);
+            }
         }
 
-        private static void SetKnowledgeEntry(SerializedProperty entry, string knowledgeId, string[] keywords, string reply, string[] suggestedQuestions)
+        private static void SetKnowledgeEntry(
+            SerializedProperty entry,
+            CanonicalFact fact,
+            string[] suggestedQuestions)
         {
-            entry.FindPropertyRelative("knowledgeId").stringValue = knowledgeId;
-            SetStringArray(entry.FindPropertyRelative("keywords"), keywords);
-            entry.FindPropertyRelative("reply").stringValue = reply;
+            entry.FindPropertyRelative("knowledgeId").stringValue = fact.factId;
+            entry.FindPropertyRelative("topic").stringValue = fact.topic;
+            entry.FindPropertyRelative("claim").stringValue = fact.claim;
+            SetStringArray(entry.FindPropertyRelative("keywords"), fact.keywords);
+            SetStringArray(entry.FindPropertyRelative("aliases"), fact.aliases);
+            entry.FindPropertyRelative("reply").stringValue = fact.approvedAnswer;
+            entry.FindPropertyRelative("displayValue").stringValue = fact.displayValue;
+            SetStringArray(entry.FindPropertyRelative("items"), fact.items);
+            SetStringArray(entry.FindPropertyRelative("sourceIds"), fact.sourceIds);
+            entry.FindPropertyRelative("confidence").stringValue = fact.confidence;
+            entry.FindPropertyRelative("evidenceStatus").stringValue = fact.evidenceStatus;
+            entry.FindPropertyRelative("lastVerified").stringValue = fact.lastVerified;
+            entry.FindPropertyRelative("notes").stringValue = fact.notes;
             SetStringArray(entry.FindPropertyRelative("suggestedQuestions"), suggestedQuestions);
+        }
+
+        private static void SetKnowledgeSources(SerializedProperty sources, CanonicalSource[] values)
+        {
+            values = values ?? Array.Empty<CanonicalSource>();
+            sources.arraySize = values.Length;
+            for (var index = 0; index < values.Length; index++)
+            {
+                var source = sources.GetArrayElementAtIndex(index);
+                var value = values[index];
+                source.FindPropertyRelative("sourceId").stringValue = value.sourceId;
+                source.FindPropertyRelative("title").stringValue = value.title;
+                source.FindPropertyRelative("organization").stringValue = value.organization;
+                source.FindPropertyRelative("sourceType").stringValue = value.sourceType;
+                source.FindPropertyRelative("url").stringValue = value.url;
+                source.FindPropertyRelative("publishedOrUpdatedDate").stringValue = value.publishedOrUpdatedDate;
+                source.FindPropertyRelative("projectVerifiedDate").stringValue = value.projectVerifiedDate;
+                SetStringArray(source.FindPropertyRelative("appliesToFactIds"), value.appliesToFactIds);
+                source.FindPropertyRelative("notes").stringValue = value.notes;
+            }
         }
 
         private static void SetMissionOptions(SerializedProperty options)
@@ -130,11 +174,52 @@ namespace EndangeredAR.Editor
 
         private static void SetStringArray(SerializedProperty property, params string[] values)
         {
+            values = values ?? Array.Empty<string>();
             property.arraySize = values.Length;
             for (var index = 0; index < values.Length; index++)
             {
                 property.GetArrayElementAtIndex(index).stringValue = values[index];
             }
+        }
+
+        private static CanonicalAnimalDocument LoadCanonicalDocument()
+        {
+            var repositoryRoot = Path.GetFullPath(Path.Combine(Application.dataPath, "..", ".."));
+            var path = Path.Combine(repositoryRoot, "content", "animals", "sensen.json");
+            if (!File.Exists(path))
+            {
+                throw new FileNotFoundException("Canonical Sensen knowledge was not found.", path);
+            }
+
+            var document = JsonUtility.FromJson<CanonicalAnimalDocument>(File.ReadAllText(path));
+            if (document == null || document.schemaVersion != 1 || document.animalId != "sensen")
+            {
+                throw new InvalidDataException("Canonical Sensen knowledge has an unsupported schema or identity.");
+            }
+
+            return document;
+        }
+
+        private static CanonicalFact FindFact(CanonicalAnimalDocument document, string factId)
+        {
+            var fact = Array.Find(document.facts ?? Array.Empty<CanonicalFact>(), value => value != null && value.factId == factId);
+            if (fact == null)
+            {
+                throw new InvalidDataException($"Canonical Sensen fact '{factId}' is missing.");
+            }
+
+            return fact;
+        }
+
+        private static string FirstSegment(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            var separator = value.IndexOf('；');
+            return separator < 0 ? value : value.Substring(0, separator);
         }
 
         private static T LoadOrCreate<T>(string path) where T : ScriptableObject
@@ -167,6 +252,65 @@ namespace EndangeredAR.Editor
             var parent = Path.GetDirectoryName(path)?.Replace('\\', '/');
             EnsureFolder(parent);
             AssetDatabase.CreateFolder(parent, Path.GetFileName(path));
+        }
+
+        [Serializable]
+        private sealed class CanonicalAnimalDocument
+        {
+            public int schemaVersion;
+            public string animalId;
+            public CanonicalIdentity identity;
+            public CanonicalPresentation presentation;
+            public CanonicalSource[] sources;
+            public CanonicalFact[] facts;
+        }
+
+        [Serializable]
+        private sealed class CanonicalIdentity
+        {
+            public string chineseName;
+            public string nickname;
+            public string scientificName;
+        }
+
+        [Serializable]
+        private sealed class CanonicalPresentation
+        {
+            public string welcomeText;
+            public string unknownReply;
+            public string[] defaultSuggestions;
+        }
+
+        [Serializable]
+        private sealed class CanonicalFact
+        {
+            public string factId;
+            public string topic;
+            public string claim;
+            public string approvedAnswer;
+            public string displayValue;
+            public string[] keywords;
+            public string[] aliases;
+            public string[] items;
+            public string[] sourceIds;
+            public string confidence;
+            public string evidenceStatus;
+            public string lastVerified;
+            public string notes;
+        }
+
+        [Serializable]
+        private sealed class CanonicalSource
+        {
+            public string sourceId;
+            public string title;
+            public string organization;
+            public string sourceType;
+            public string url;
+            public string publishedOrUpdatedDate;
+            public string projectVerifiedDate;
+            public string[] appliesToFactIds;
+            public string notes;
         }
     }
 }

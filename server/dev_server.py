@@ -60,13 +60,29 @@ def list_animals() -> List[Dict]:
     return [load_json(path) for path in sorted(ANIMALS_DIR.glob("*.json"))]
 
 
+def animal_value(animal: Dict, legacy_key: str, nested_group: str, nested_key: str, default):
+    legacy_value = animal.get(legacy_key)
+    if legacy_value not in (None, "", []):
+        return legacy_value
+    group = animal.get(nested_group)
+    return group.get(nested_key, default) if isinstance(group, dict) else default
+
+
+def fact_value(animal: Dict, topic: str, field: str, default):
+    for fact in animal.get("facts", []):
+        if isinstance(fact, dict) and fact.get("topic") == topic:
+            value = fact.get(field)
+            return value if value not in (None, "", []) else default
+    return default
+
+
 def make_system_prompt(animal: Dict) -> str:
-    name = animal.get("name", "濒危动物")
-    nickname = animal.get("nickname", "动物朋友")
-    foods = "、".join(animal.get("food", [])) or "森林中的天然食物"
-    threats = "、".join(animal.get("threats", [])) or "栖息地破坏"
-    actions = "、".join(animal.get("protectionActions", [])) or "保护栖息地、传播正确知识"
-    personality = animal.get("personality", "活泼、温柔、好奇，有一点孩子气")
+    name = animal_value(animal, "name", "identity", "chineseName", "濒危动物")
+    nickname = animal_value(animal, "nickname", "identity", "nickname", "动物朋友")
+    foods = "、".join(fact_value(animal, "diet", "items", animal.get("food", []))) or "森林中的天然食物"
+    threats = "、".join(fact_value(animal, "threats", "items", animal.get("threats", []))) or "栖息地破坏"
+    actions = "、".join(fact_value(animal, "youth_actions", "items", animal.get("protectionActions", []))) or "保护栖息地、传播正确知识"
+    personality = animal_value(animal, "personality", "presentation", "personality", "活泼、温柔、好奇，有一点孩子气")
     return (
         f"你是濒危动物科普 App 中的角色“{nickname}”，物种是{name}。"
         f"你的性格是：{personality}。你的食物包括：{foods}。"
@@ -78,19 +94,19 @@ def make_system_prompt(animal: Dict) -> str:
 
 
 def make_rule_reply(animal: Dict, message: str) -> str:
-    nickname = animal.get("nickname", "我")
+    nickname = animal_value(animal, "nickname", "identity", "nickname", "我")
     normalized = message.strip()
     if "吃" in normalized or "食物" in normalized:
-        foods = "、".join(animal.get("food", [])) or "森林里的嫩叶和果实"
+        foods = "、".join(fact_value(animal, "diet", "items", animal.get("food", []))) or "森林里的嫩叶和果实"
         return f"我是{nickname}，最喜欢森林里的{foods}啦！人类零食不适合我。你愿意帮我选一份健康食物吗？"
     if "保护" in normalized or "帮助" in normalized:
-        actions = "、".join(animal.get("protectionActions", [])[:2]) or "保护森林栖息地"
+        actions = "、".join(fact_value(animal, "youth_actions", "items", animal.get("protectionActions", []))[:2]) or "保护森林栖息地"
         return f"谢谢你愿意帮助{nickname}！你可以从{actions}做起，把保护森林的知识告诉更多人。"
     if "住" in normalized or "栖息" in normalized:
-        habitat = animal.get("habitat", "热带和亚热带森林")
+        habitat = fact_value(animal, "habitat", "displayValue", animal.get("habitat", "热带和亚热带森林"))
         return f"{nickname}住在{habitat}。森林不只是我的家，也为许多生命提供食物和通道。"
     if "濒危" in normalized or "威胁" in normalized:
-        threats = "、".join(animal.get("threats", [])) or "栖息地破坏"
+        threats = "、".join(fact_value(animal, "threats", "items", animal.get("threats", []))) or "栖息地破坏"
         return f"让我担心的主要问题是{threats}。森林越来越零碎，我和伙伴就更难安全生活了。"
     return f"我是{nickname}，很高兴和你一起认识森林！你想先了解我的食物、家园，还是怎么保护我呢？"
 
@@ -225,9 +241,9 @@ def call_local_llm(animal: Dict, message: str, history: List[Dict]) -> ProviderR
 
 
 def make_chat_response(animal: Dict, reply: str, source: str, route_reason: str) -> Dict:
-    nickname = animal.get("nickname", "动物朋友")
+    nickname = animal_value(animal, "nickname", "identity", "nickname", "动物朋友")
     return {
-        "animalId": animal["id"],
+        "animalId": animal.get("animalId") or animal.get("id"),
         "reply": reply,
         "suggestedQuestions": ["你平时吃什么？", "你为什么会濒危？", "我可以怎样保护你？"],
         "missionHint": f"可以去完成“帮{nickname}寻找食物”任务。",
