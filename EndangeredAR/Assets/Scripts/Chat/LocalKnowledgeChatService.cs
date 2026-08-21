@@ -11,14 +11,35 @@ namespace EndangeredAR.Chat
 
         public ChatAnswer Answer(AnimalKnowledgeProfile profile, string message)
         {
-            if (profile != null && profile.TryFindAnswer(message, out var entry))
+            if (profile == null)
             {
-                return new ChatAnswer(entry.Reply, entry.SuggestedQuestions, true);
+                return ChatAnswer.GenericFallback;
             }
 
-            return profile == null
-                ? ChatAnswer.GenericFallback
-                : new ChatAnswer(profile.UnknownReply, profile.DefaultSuggestions, false);
+            var retrieval = profile.Retrieve(message);
+            if (retrieval.Entry != null)
+            {
+                return new ChatAnswer(
+                    retrieval.Entry.Reply,
+                    retrieval.Entry.SuggestedQuestions,
+                    true,
+                    retrieval.AnswerMode,
+                    retrieval.EvidenceStatus,
+                    retrieval.SourceIds);
+            }
+
+            var reply = retrieval.AnswerMode == "off_domain"
+                ? "我主要负责濒危动物科普。要不要问问森森的家园或保护方法？"
+                : retrieval.AnswerMode == "social_chat"
+                    ? "我在呢。你想聊聊今天的心情，还是继续认识森林里的动物朋友？"
+                    : profile.UnknownReply;
+            return new ChatAnswer(
+                reply,
+                profile.DefaultSuggestions,
+                false,
+                retrieval.AnswerMode,
+                retrieval.EvidenceStatus,
+                retrieval.SourceIds);
         }
 
         [Obsolete("Use Answer(AnimalKnowledgeProfile, string) with the active animal profile.")]
@@ -160,12 +181,27 @@ namespace EndangeredAR.Chat
     public struct ChatAnswer
     {
         private readonly string[] suggestedQuestions;
+        private readonly string[] sourceIds;
 
         public ChatAnswer(string reply, string[] suggestedQuestions, bool isMatch)
+            : this(reply, suggestedQuestions, isMatch, isMatch ? "grounded_fact" : "grounded_fact", isMatch ? "evidence_found" : "insufficient_evidence", Array.Empty<string>())
+        {
+        }
+
+        public ChatAnswer(
+            string reply,
+            string[] suggestedQuestions,
+            bool isMatch,
+            string answerMode,
+            string evidenceStatus,
+            string[] sourceIds)
         {
             Reply = reply;
             this.suggestedQuestions = Copy(suggestedQuestions);
             IsMatch = isMatch;
+            AnswerMode = answerMode;
+            EvidenceStatus = evidenceStatus;
+            this.sourceIds = Copy(sourceIds);
         }
 
         public static ChatAnswer GenericFallback => new ChatAnswer("我暂时无法回答这个问题。", Array.Empty<string>(), false);
@@ -173,6 +209,9 @@ namespace EndangeredAR.Chat
         public string Reply { get; }
         public string[] SuggestedQuestions => Copy(suggestedQuestions);
         public bool IsMatch { get; }
+        public string AnswerMode { get; }
+        public string EvidenceStatus { get; }
+        public string[] SourceIds => Copy(sourceIds);
 
         private static string[] Copy(string[] values)
         {

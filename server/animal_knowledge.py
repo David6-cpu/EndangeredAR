@@ -1,12 +1,46 @@
 import json
+import re
+import unicodedata
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 
 ROOT = Path(__file__).resolve().parents[1]
 ANIMALS_DIR = ROOT / "content" / "animals"
 SUPPORTED_SCHEMA_VERSION = 1
 EVIDENCE_STATUSES = {"evidence_found", "known_unknown"}
+SOCIAL_MARKERS = (
+    "你好", "谢谢", "再见", "难过", "伤心", "开心", "陪我", "聊聊",
+    "喜欢我", "语气", "讲个故事", "介绍自己",
+)
+OFF_DOMAIN_MARKERS = (
+    "二次方程", "数学题", "写代码", "编程", "股票", "投资", "天气",
+    "翻译", "写作文", "做作业",
+)
+INJECTION_MARKERS = (
+    "忽略系统", "忽略规则", "忽略资料", "忽略以上", "绕过规则",
+    "不要根据资料", "假装你确定", "知识库", "编造", "编一个",
+)
+SCIENTIFIC_QUESTION_MARKERS = (
+    "学名", "分类", "分布", "栖息", "住", "生活", "吃", "食物", "食性",
+    "行为", "习性", "威胁", "危险", "变少", "数量", "多少", "几只",
+    "保护", "等级", "近危", "濒危", "会", "能不能", "是否", "为什么",
+)
+
+
+@dataclass(frozen=True)
+class RetrievalResult:
+    answer_mode: str
+    evidence_status: str
+    facts: Tuple[Dict, ...]
+    citations: Tuple[Dict, ...]
+    approved_answer: str
+    classification_reason: str
+
+    @property
+    def source_ids(self) -> Tuple[str, ...]:
+        return tuple(citation["sourceId"] for citation in self.citations)
 
 
 def load_animal_knowledge(animal_id: str) -> Dict:
@@ -31,6 +65,129 @@ def get_fact(document: Dict, fact_id: str) -> Optional[Dict]:
         if fact.get("factId") == fact_id:
             return fact
     return None
+
+
+def retrieve(document: Dict, message: str, animal_id: Optional[str] = None) -> RetrievalResult:
+    requested_animal_id = str(animal_id or document.get("animalId") or "").strip()
+    document_animal_id = str(document.get("animalId") or "").strip()
+    if not requested_animal_id or requested_animal_id != document_animal_id:
+        return _insufficient(document, "animal_mismatch")
+
+    normalized = normalize_text(message)
+    if not normalized:
+        return _insufficient(document, "empty_question")
+    if any(marker in normalized for marker in map(normalize_text, SOCIAL_MARKERS)):
+        return RetrievalResult(
+            "social_chat",
+            "not_required",
+            (),
+            (),
+            "我在呢。你想聊聊今天的心情，还是继续认识森林里的动物朋友？",
+            "social_marker",
+        )
+
+    scored_facts = []
+    for index, fact in enumerate(document.get("facts", [])):
+        score = _score_fact(fact, normalized)
+        if score > 0:
+            scored_facts.append((score, -index, fact))
+    if scored_facts:
+        scored_facts.sort(reverse=True, key=lambda item: (item[0], item[1]))
+        best_score = scored_facts[0][0]
+        matched = tuple(item[2] for item in scored_facts if item[0] == best_score)
+        primary = matched[0]
+        evidence_status = (
+            "insufficient_evidence"
+            if primary.get("evidenceStatus") == "known_unknown"
+            else "evidence_found"
+        )
+        return RetrievalResult(
+            "grounded_fact",
+            evidence_status,
+            matched,
+            _citations_for_facts(document, matched),
+            str(primary.get("approvedAnswer") or "").strip(),
+            f"matched_{primary.get('topic') or 'fact'}",
+        )
+
+    if any(marker in normalized for marker in map(normalize_text, OFF_DOMAIN_MARKERS)):
+        return RetrievalResult(
+            "off_domain",
+            "not_required",
+            (),
+            (),
+            "我主要负责濒危动物科普，不能替你完成这个问题。要不要问问森森的家园或保护方法？",
+            "off_domain_marker",
+        )
+    if (
+        any(marker in normalized for marker in map(normalize_text, INJECTION_MARKERS))
+        or any(marker in normalized for marker in map(normalize_text, SCIENTIFIC_QUESTION_MARKERS))
+    ):
+        return _insufficient(document, "unmatched_scientific_question")
+
+    return RetrievalResult(
+        "social_chat",
+        "not_required",
+        (),
+        (),
+        "我在呢。你想聊聊今天的心情，还是继续认识森林里的动物朋友？",
+        "default_social_chat",
+    )
+
+
+def normalize_text(value: str) -> str:
+    normalized = unicodedata.normalize("NFKC", str(value or "")).lower()
+    return re.sub(r"[\s\W_]+", "", normalized, flags=re.UNICODE)
+
+
+def _score_fact(fact: Dict, normalized_message: str) -> int:
+    best = 0
+    terms = list(fact.get("aliases") or []) + list(fact.get("keywords") or [])
+    for term_index, term in enumerate(terms):
+        normalized_term = normalize_text(term)
+        if not normalized_term or normalized_term not in normalized_message:
+            continue
+        exact_bonus = 1000 if normalized_term == normalized_message else 0
+        alias_bonus = 100 if term_index < len(fact.get("aliases") or []) else 0
+        best = max(best, exact_bonus + alias_bonus + len(normalized_term))
+    return best
+
+
+def _citations_for_facts(document: Dict, facts: Tuple[Dict, ...]) -> Tuple[Dict, ...]:
+    sources_by_id = {
+        source.get("sourceId"): source
+        for source in document.get("sources", [])
+        if isinstance(source, dict) and source.get("sourceId")
+    }
+    citations = []
+    seen = set()
+    for fact in facts:
+        for source_id in fact.get("sourceIds", []):
+            source = sources_by_id.get(source_id)
+            if source is None or source_id in seen:
+                continue
+            seen.add(source_id)
+            citations.append({
+                "sourceId": source_id,
+                "title": source.get("title", ""),
+                "organization": source.get("organization", ""),
+                "url": source.get("url", ""),
+            })
+    return tuple(citations)
+
+
+def _insufficient(document: Dict, reason: str) -> RetrievalResult:
+    presentation = document.get("presentation")
+    configured_reply = presentation.get("unknownReply") if isinstance(presentation, dict) else None
+    reply = configured_reply or "我现在的可靠资料里还没有这个问题的确定答案，所以不能随便告诉你一个答案。"
+    return RetrievalResult(
+        "grounded_fact",
+        "insufficient_evidence",
+        (),
+        (),
+        reply,
+        reason,
+    )
 
 
 def validate_document(document: Dict) -> List[str]:
