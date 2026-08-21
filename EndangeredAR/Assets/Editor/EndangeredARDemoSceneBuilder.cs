@@ -1,4 +1,5 @@
 using EndangeredAR.API;
+using EndangeredAR.AI;
 using EndangeredAR.AR;
 using EndangeredAR.Animals;
 using EndangeredAR.Chat;
@@ -68,6 +69,7 @@ public static class EndangeredARDemoSceneBuilder
 
         var localChatObject = new GameObject("Local Knowledge Chat Service");
         var localChatService = localChatObject.AddComponent<LocalKnowledgeChatService>();
+        var aiManager = CreateAIManager(chatApiClient, localChatService);
 
         var missionObject = new GameObject("Mission Controller");
         var missionController = missionObject.AddComponent<MissionController>();
@@ -151,6 +153,7 @@ public static class EndangeredARDemoSceneBuilder
         var demoSerialized = new SerializedObject(demoController);
         demoSerialized.FindProperty("scanController").objectReferenceValue = scanController;
         demoSerialized.FindProperty("chatApiClient").objectReferenceValue = chatApiClient;
+        demoSerialized.FindProperty("aiManager").objectReferenceValue = aiManager;
         demoSerialized.FindProperty("localChatService").objectReferenceValue = localChatService;
         demoSerialized.FindProperty("missionController").objectReferenceValue = missionController;
         demoSerialized.FindProperty("animalCatalog").objectReferenceValue = animalCatalog;
@@ -216,6 +219,29 @@ public static class EndangeredARDemoSceneBuilder
         AssetDatabase.CreateAsset(config, path);
         AssetDatabase.SaveAssets();
         return config;
+    }
+
+    private static AIManager CreateAIManager(
+        ChatApiClient chatApiClient,
+        LocalKnowledgeChatService localChatService)
+    {
+        const string path = "Assets/Config/LocalAIConfig.asset";
+        var config = AssetDatabase.LoadAssetAtPath<AIConfig>(path);
+        if (config == null)
+        {
+            config = ScriptableObject.CreateInstance<AIConfig>();
+            AssetDatabase.CreateAsset(config, path);
+            AssetDatabase.SaveAssets();
+        }
+
+        var managerObject = new GameObject("AI Manager");
+        var manager = managerObject.AddComponent<AIManager>();
+        var managerSerialized = new SerializedObject(manager);
+        managerSerialized.FindProperty("aiConfig").objectReferenceValue = config;
+        managerSerialized.FindProperty("chatApiClient").objectReferenceValue = chatApiClient;
+        managerSerialized.FindProperty("localKnowledgeService").objectReferenceValue = localChatService;
+        managerSerialized.ApplyModifiedPropertiesWithoutUndo();
+        return manager;
     }
 
     private static string GetLanIpAddress()

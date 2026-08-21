@@ -7,6 +7,7 @@ using EndangeredAR.AI;
 using EndangeredAR.API;
 using EndangeredAR.AR;
 using EndangeredAR.Animals;
+using EndangeredAR.Chat;
 using EndangeredAR.Progress;
 using EndangeredAR.UI;
 using NUnit.Framework;
@@ -23,6 +24,7 @@ namespace EndangeredAR.Tests.EditMode
         private const string ScenePath = "Assets/Scenes/DemoScene.unity";
         private const string ControllerPath = "Assets/Scripts/UI/DemoAppController.cs";
         private const string AIConfigPath = "Assets/Config/LocalAIConfig.asset";
+        private const string ApiConfigPath = "Assets/Config/LocalApiConfig.asset";
 
         [Test]
         public void DemoController_NoLongerDeclaresEmbeddedAnimalProfileArray()
@@ -216,6 +218,60 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(config.localServerUrl, Is.EqualTo("http://127.0.0.1:8000"));
             Assert.That(config.localTimeoutSeconds, Is.EqualTo(8f));
             Assert.That(config.totalTimeoutSeconds, Is.EqualTo(38f));
+        }
+
+        [Test]
+        public void DemoSceneBuilder_CreatesFullyWiredRootAIManager()
+        {
+            var builderType = AppDomain.CurrentDomain.GetAssemblies()
+                .Select(assembly => assembly.GetType("EndangeredARDemoSceneBuilder", false))
+                .FirstOrDefault(type => type != null);
+            Assert.That(builderType, Is.Not.Null);
+
+            var createManager = builderType.GetMethod(
+                "CreateAIManager",
+                BindingFlags.Static | BindingFlags.NonPublic);
+
+            Assert.That(createManager, Is.Not.Null,
+                "Build Demo Scene must use one helper that creates and wires the R1 AI service.");
+
+            var chatObject = new GameObject("Builder Chat Client Test");
+            var knowledgeObject = new GameObject("Builder Knowledge Test");
+            AIManager manager = null;
+            try
+            {
+                var chatClient = chatObject.AddComponent<ChatApiClient>();
+                var knowledge = knowledgeObject.AddComponent<LocalKnowledgeChatService>();
+                manager = (AIManager)createManager.Invoke(null, new object[] { chatClient, knowledge });
+                var serialized = new SerializedObject(manager);
+
+                Assert.That(manager, Is.Not.Null);
+                Assert.That(manager.transform.parent, Is.Null);
+                Assert.That(serialized.FindProperty("aiConfig").objectReferenceValue,
+                    Is.SameAs(AssetDatabase.LoadAssetAtPath<AIConfig>(AIConfigPath)));
+                Assert.That(serialized.FindProperty("chatApiClient").objectReferenceValue, Is.SameAs(chatClient));
+                Assert.That(serialized.FindProperty("localKnowledgeService").objectReferenceValue, Is.SameAs(knowledge));
+            }
+            finally
+            {
+                if (manager != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(manager.gameObject);
+                }
+
+                UnityEngine.Object.DestroyImmediate(chatObject);
+                UnityEngine.Object.DestroyImmediate(knowledgeObject);
+            }
+        }
+
+        [Test]
+        public void LocalApiConfig_DefaultsToPortableEditorProxyAddress()
+        {
+            var config = AssetDatabase.LoadAssetAtPath<ApiConfig>(ApiConfigPath);
+
+            Assert.That(config, Is.Not.Null);
+            Assert.That(config.baseUrl, Is.EqualTo("http://127.0.0.1:8000"),
+                "Fresh editor checkouts must not depend on one developer's LAN address.");
         }
 
         [Test]
