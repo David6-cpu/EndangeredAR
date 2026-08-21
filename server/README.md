@@ -23,12 +23,14 @@ cp server/.env.example .env.local
 MOONSHOT_API_KEY=
 MOONSHOT_BASE_URL=https://api.moonshot.cn/v1
 MOONSHOT_MODEL=moonshot-v1-8k
+DEV_SERVER_HOST=127.0.0.1
 LOCAL_LLM_BASE_URL=http://127.0.0.1:8080/v1
 LOCAL_LLM_MODEL=
 LOCAL_LLM_TIMEOUT=7
 ```
 
 - `MOONSHOT_API_KEY`: optional for offline/local use; keep it only in `.env.local`.
+- `DEV_SERVER_HOST`: proxy listen address. It defaults to `127.0.0.1` so cloud credentials are not exposed to the local network.
 - `LOCAL_LLM_BASE_URL`: OpenAI-compatible base URL. The proxy appends `/chat/completions`.
 - `LOCAL_LLM_MODEL`: optional model identifier. Leave empty for llama.cpp servers that do not require one.
 - `LOCAL_LLM_TIMEOUT`: Python-to-local-model timeout in seconds; malformed values fall back to 7 and values are clamped to 1-60.
@@ -91,7 +93,7 @@ python3 server/dev_server.py
 
 `dev_server.py` automatically loads `<repository-root>/.env.local`, resolving the repository root from the script location rather than the shell's current directory. Existing process environment variables take precedence over values in the file. The explicit `set -a; source .env.local; set +a` form is also valid, but it is not required for normal startup.
 
-The proxy listens on `0.0.0.0:8000`; it calls the local model at the address configured by `LOCAL_LLM_BASE_URL`.
+The proxy listens on `127.0.0.1:8000` by default; it calls the local model at the address configured by `LOCAL_LLM_BASE_URL`. For explicit physical-device testing on a trusted LAN, set `DEV_SERVER_HOST=0.0.0.0` temporarily and use the Mac's LAN address in Unity. Do not use the wildcard address on an untrusted network.
 
 ## 4. Verify the endpoints
 

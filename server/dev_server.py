@@ -15,6 +15,7 @@ ANIMALS_DIR = ROOT / "content" / "animals"
 ENV_FILE = ROOT / ".env.local"
 DEFAULT_MOONSHOT_BASE_URL = "https://api.moonshot.cn/v1"
 DEFAULT_MOONSHOT_MODEL = "moonshot-v1-8k"
+DEFAULT_DEV_SERVER_HOST = "127.0.0.1"
 DEFAULT_LOCAL_LLM_TIMEOUT = 7.0
 MAX_LOCAL_LLM_TIMEOUT = 60.0
 MAX_HISTORY_MESSAGES = 20
@@ -39,6 +40,10 @@ def load_local_env() -> None:
         os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
     print("Loaded local chat configuration.", flush=True)
+
+
+def get_server_host() -> str:
+    return os.getenv("DEV_SERVER_HOST", "").strip() or DEFAULT_DEV_SERVER_HOST
 
 
 def load_json(path: Path) -> Dict:
@@ -327,8 +332,9 @@ class Handler(BaseHTTPRequestHandler):
 
 def run() -> None:
     load_local_env()
-    server = ThreadingHTTPServer(("0.0.0.0", 8000), Handler)
-    print("Endangered AR chat proxy listening on http://0.0.0.0:8000", flush=True)
+    host = get_server_host()
+    server = ThreadingHTTPServer((host, 8000), Handler)
+    print(f"Endangered AR chat proxy listening on http://{host}:8000", flush=True)
     server.serve_forever()
 
 

@@ -94,6 +94,14 @@ class DevServerTests(unittest.TestCase):
 
                 self.assertEqual(os.environ["LOCAL_LLM_MODEL"], "process-model")
 
+    def test_server_host_defaults_to_loopback(self):
+        with mock.patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(dev_server.get_server_host(), "127.0.0.1")
+
+    def test_server_host_allows_explicit_development_override(self):
+        with mock.patch.dict(os.environ, {"DEV_SERVER_HOST": "0.0.0.0"}, clear=True):
+            self.assertEqual(dev_server.get_server_host(), "0.0.0.0")
+
     def test_system_prompt_is_sensen_specific_and_child_friendly(self):
         prompt = dev_server.make_system_prompt(SENSEN)
 
