@@ -135,5 +135,17 @@ namespace EndangeredAR.API
         public string routeReason;
         public string[] suggestedQuestions;
         public string missionHint;
+        public string answerMode;
+        public string evidenceStatus;
+        public ChatCitation[] citations = Array.Empty<ChatCitation>();
+    }
+
+    [Serializable]
+    public class ChatCitation
+    {
+        public string sourceId;
+        public string title;
+        public string organization;
+        public string url;
     }
 }

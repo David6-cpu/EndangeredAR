@@ -80,7 +80,19 @@ namespace EndangeredAR.Tests.EditMode
                 source = "server_rule",
                 routeReason = "server_reason",
                 suggestedQuestions = new[] { "Why?" },
-                missionHint = "Protect forest."
+                missionHint = "Protect forest.",
+                answerMode = "grounded_fact",
+                evidenceStatus = "evidence_found",
+                citations = new[]
+                {
+                    new ChatCitation
+                    {
+                        sourceId = "iucn-2020-s-priam",
+                        title = "IUCN assessment",
+                        organization = "IUCN Red List",
+                        url = "https://example.test/iucn"
+                    }
+                }
             }, onSuccess);
             var provider = new CloudLLMProvider(client);
             AIResponse response = null;
@@ -99,6 +111,10 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(response.source, Is.EqualTo("server_rule"));
             Assert.That(response.routeReason, Is.Null);
             Assert.That(response.suggestedQuestions, Is.EqualTo(new[] { "Why?" }));
+            Assert.That(response.answerMode, Is.EqualTo("grounded_fact"));
+            Assert.That(response.evidenceStatus, Is.EqualTo("evidence_found"));
+            Assert.That(response.citations, Has.Length.EqualTo(1));
+            Assert.That(response.citations[0].sourceId, Is.EqualTo("iucn-2020-s-priam"));
         }
 
         [Test]
@@ -166,7 +182,7 @@ namespace EndangeredAR.Tests.EditMode
             AIResponse response;
             var parsed = LocalLLMProvider.TryParseResponse(
                 Request(),
-                "{\"animalId\":\"sensen\",\"reply\":\"Local reply.\",\"source\":\"local_llm\",\"suggestedQuestions\":[\"How?\"],\"missionHint\":\"Protect habitat.\"}",
+                "{\"animalId\":\"sensen\",\"reply\":\"Local reply.\",\"source\":\"local_llm\",\"answerMode\":\"grounded_fact\",\"evidenceStatus\":\"evidence_found\",\"citations\":[{\"sourceId\":\"gbif-4267223\",\"title\":\"GBIF taxon\",\"organization\":\"GBIF\",\"url\":\"https://example.test/gbif\"}],\"suggestedQuestions\":[\"How?\"],\"missionHint\":\"Protect habitat.\"}",
                 out response);
 
             Assert.That(parsed, Is.True);
@@ -175,6 +191,26 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(response.source, Is.EqualTo("local_llm"));
             Assert.That(response.routeReason, Is.Null);
             Assert.That(response.suggestedQuestions, Is.EqualTo(new[] { "How?" }));
+            Assert.That(response.answerMode, Is.EqualTo("grounded_fact"));
+            Assert.That(response.evidenceStatus, Is.EqualTo("evidence_found"));
+            Assert.That(response.citations[0].organization, Is.EqualTo("GBIF"));
+        }
+
+        [Test]
+        public void LocalProvider_OldResponseWithoutGroundingFieldsRemainsReadable()
+        {
+            AIResponse response;
+
+            var parsed = LocalLLMProvider.TryParseResponse(
+                Request(),
+                "{\"animalId\":\"sensen\",\"reply\":\"Legacy reply.\",\"source\":\"local_llm\"}",
+                out response);
+
+            Assert.That(parsed, Is.True);
+            Assert.That(response.reply, Is.EqualTo("Legacy reply."));
+            Assert.That(response.answerMode, Is.Null);
+            Assert.That(response.evidenceStatus, Is.Null);
+            Assert.That(response.citations, Is.Empty);
         }
 
         [TestCase("local_llm_not_configured", false)]
@@ -220,6 +256,26 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(response.source, Is.EqualTo("unity_knowledge"));
             Assert.That(response.routeReason, Is.Null);
             Assert.That(response.reply, Is.EqualTo(ChatAnswer.GenericFallback.Reply));
+            Assert.That(response.citations, Is.Empty);
+        }
+
+        [Test]
+        public void LocalKnowledgeProvider_ResolvesOnlyCanonicalSourceIds()
+        {
+            var gameObject = new GameObject("LocalKnowledgeProviderCanonicalTests");
+            createdObjects.Add(gameObject);
+            var provider = new LocalKnowledgeProvider(gameObject.AddComponent<LocalKnowledgeChatService>());
+            var request = Request();
+            request.message = "你的学名是什么？";
+            request.knowledgeProfile = Resources.Load<EndangeredAR.Animals.AnimalKnowledgeProfile>("Animals/SensenKnowledge");
+            AIResponse response = null;
+
+            RunProviderStrict(provider.Send(request, 0f, value => response = value, Fail));
+
+            Assert.That(response.evidenceStatus, Is.EqualTo("evidence_found"));
+            Assert.That(response.citations, Has.Length.EqualTo(2));
+            Assert.That(response.citations[0].sourceId, Is.EqualTo("gbif-4267223"));
+            Assert.That(response.citations[1].sourceId, Is.EqualTo("mdd-1000692"));
         }
 
         [Test]

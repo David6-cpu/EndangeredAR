@@ -31,9 +31,20 @@ namespace EndangeredAR.AI
         public string routeReason;
         public string[] suggestedQuestions;
         public string missionHint;
+        public string answerMode;
+        public string evidenceStatus;
         public string action;
         public string emotion;
-        public string[] citations;
+        public AICitation[] citations = Array.Empty<AICitation>();
+    }
+
+    [Serializable]
+    public sealed class AICitation
+    {
+        public string sourceId;
+        public string title;
+        public string organization;
+        public string url;
     }
 
     public sealed class AIProviderError

@@ -110,6 +110,44 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
+        public void DemoController_GroundedCompletionAppendsConciseSourceLineOnce()
+        {
+            var state = new ChatRequestState();
+            var ticket = state.Begin("sensen");
+            var response = new AIResponse
+            {
+                animalId = "sensen",
+                reply = "我的学名是 Semnopithecus priam。",
+                answerMode = "grounded_fact",
+                evidenceStatus = "evidence_found",
+                citations = new[]
+                {
+                    new AICitation { sourceId = "gbif-4267223", title = "GBIF taxon", organization = "GBIF Secretariat" },
+                    new AICitation { sourceId = "mdd-1000692", title = "MDD taxon", organization = "Mammal Diversity Database" }
+                }
+            };
+
+            Assert.That(TryResolveAICompletion(
+                state,
+                ticket,
+                "sensen",
+                response,
+                "你的学名是什么？",
+                out var displayReply), Is.True);
+            Assert.That(displayReply, Does.Contain("Semnopithecus priam"));
+            Assert.That(displayReply, Does.Contain("资料来源：GBIF Secretariat；Mammal Diversity Database"));
+
+            Assert.That(TryResolveAICompletion(
+                state,
+                ticket,
+                "sensen",
+                response,
+                "你的学名是什么？",
+                out var duplicateReply), Is.False);
+            Assert.That(duplicateReply, Is.Null);
+        }
+
+        [Test]
         public void DemoController_TechnicalProviderContentNeverReachesDisplayCompletion()
         {
             var state = new ChatRequestState();

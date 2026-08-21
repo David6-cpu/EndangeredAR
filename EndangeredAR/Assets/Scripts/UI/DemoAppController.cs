@@ -1797,8 +1797,60 @@ namespace EndangeredAR.UI
                 reply = $"{reply}\n{missionHint.Trim()}";
             }
 
+            var citationLine = BuildCitationLine(response?.citations);
+            if (!string.IsNullOrWhiteSpace(citationLine))
+            {
+                reply = $"{reply}\n{citationLine}";
+            }
+
             displayReply = reply;
             return true;
+        }
+
+        internal static string BuildCitationLine(AICitation[] citations)
+        {
+            if (citations == null || citations.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            var labels = new List<string>();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var citation in citations)
+            {
+                var label = citation == null || string.IsNullOrWhiteSpace(citation.organization)
+                    ? citation?.title
+                    : citation.organization;
+                label = SanitizeCitationLabel(label);
+                if (string.IsNullOrWhiteSpace(label) || !seen.Add(label))
+                {
+                    continue;
+                }
+
+                labels.Add(label);
+                if (labels.Count == 2)
+                {
+                    break;
+                }
+            }
+
+            if (labels.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            return $"资料来源：{string.Join("；", labels)}";
+        }
+
+        private static string SanitizeCitationLabel(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            var label = value.Replace('\r', ' ').Replace('\n', ' ').Trim();
+            return label.Length <= 48 ? label : label.Substring(0, 48);
         }
 
         private static bool LooksTechnical(string value)

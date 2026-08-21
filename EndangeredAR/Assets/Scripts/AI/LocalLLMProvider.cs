@@ -163,7 +163,10 @@ namespace EndangeredAR.AI
                     reply = parsed.reply,
                     source = string.IsNullOrWhiteSpace(parsed.source) ? "local_llm" : parsed.source,
                     suggestedQuestions = parsed.suggestedQuestions,
-                    missionHint = parsed.missionHint
+                    missionHint = parsed.missionHint,
+                    answerMode = parsed.answerMode,
+                    evidenceStatus = parsed.evidenceStatus,
+                    citations = CloudLLMProvider.MapCitations(parsed.citations)
                 };
                 return true;
             }

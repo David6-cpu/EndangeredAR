@@ -120,8 +120,36 @@ namespace EndangeredAR.AI
                 reply = response == null ? null : response.reply,
                 source = response == null ? null : response.source,
                 suggestedQuestions = response == null ? null : response.suggestedQuestions,
-                missionHint = response == null ? null : response.missionHint
+                missionHint = response == null ? null : response.missionHint,
+                answerMode = response == null ? null : response.answerMode,
+                evidenceStatus = response == null ? null : response.evidenceStatus,
+                citations = MapCitations(response == null ? null : response.citations)
             };
+        }
+
+        internal static AICitation[] MapCitations(ChatCitation[] citations)
+        {
+            if (citations == null || citations.Length == 0)
+            {
+                return Array.Empty<AICitation>();
+            }
+
+            var mapped = new AICitation[citations.Length];
+            for (var index = 0; index < citations.Length; index++)
+            {
+                var citation = citations[index];
+                mapped[index] = citation == null
+                    ? new AICitation()
+                    : new AICitation
+                    {
+                        sourceId = citation.sourceId,
+                        title = citation.title,
+                        organization = citation.organization,
+                        url = citation.url
+                    };
+            }
+
+            return mapped;
         }
 
         private static AIProviderError ToProviderError(string error)
