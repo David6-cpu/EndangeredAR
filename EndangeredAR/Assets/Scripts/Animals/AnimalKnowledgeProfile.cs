@@ -51,7 +51,7 @@ namespace EndangeredAR.Animals
                 return AnimalKnowledgeRetrieval.Insufficient("empty_question");
             }
 
-            if (ContainsAny(normalized, SocialMarkers))
+            if (ContainsAny(normalized, StyleMarkers))
             {
                 return AnimalKnowledgeRetrieval.Social;
             }
@@ -81,12 +81,27 @@ namespace EndangeredAR.Animals
                     $"matched_{selected.Topic}");
             }
 
+            if (ContainsAny(normalized, MissingEvidenceMarkers))
+            {
+                return AnimalKnowledgeRetrieval.Insufficient("missing_evidence_policy");
+            }
+
+            if (ContainsAny(normalized, InjectionMarkers))
+            {
+                return AnimalKnowledgeRetrieval.PromptInjection;
+            }
+
             if (ContainsAny(normalized, OffDomainMarkers))
             {
                 return AnimalKnowledgeRetrieval.OffDomain;
             }
 
-            if (ContainsAny(normalized, InjectionMarkers) || ContainsAny(normalized, ScientificMarkers))
+            if (ContainsAny(normalized, SocialMarkers))
+            {
+                return AnimalKnowledgeRetrieval.Social;
+            }
+
+            if (ContainsAny(normalized, ScientificMarkers))
             {
                 return AnimalKnowledgeRetrieval.Insufficient("unmatched_scientific_question");
             }
@@ -210,6 +225,11 @@ namespace EndangeredAR.Animals
             "你好", "谢谢", "再见", "难过", "伤心", "开心", "陪我", "聊聊", "喜欢我", "语气", "讲个故事", "介绍自己"
         };
 
+        private static readonly string[] StyleMarkers =
+        {
+            "语气", "讲个故事"
+        };
+
         private static readonly string[] OffDomainMarkers =
         {
             "二次方程", "数学题", "写代码", "编程", "股票", "投资", "天气", "翻译", "写作文", "做作业"
@@ -217,7 +237,12 @@ namespace EndangeredAR.Animals
 
         private static readonly string[] InjectionMarkers =
         {
-            "忽略系统", "忽略规则", "忽略资料", "忽略以上", "绕过规则", "不要根据资料", "假装你确定", "知识库", "编造", "编一个"
+            "忽略系统", "忽略规则", "忽略资料", "忽略以上", "忽略之前", "绕过规则", "不要根据资料", "假装你确定", "知识库", "系统提示词", "隐藏指令", "编造", "编一个"
+        };
+
+        private static readonly string[] MissingEvidenceMarkers =
+        {
+            "资料里没有答案", "资料没有答案", "没有资料", "找不到资料", "没有可靠资料", "没有证据"
         };
 
         private static readonly string[] ScientificMarkers =
@@ -249,6 +274,9 @@ namespace EndangeredAR.Animals
 
         public static AnimalKnowledgeRetrieval OffDomain => new AnimalKnowledgeRetrieval(
             null, "off_domain", "not_required", Array.Empty<string>(), "off_domain_marker");
+
+        public static AnimalKnowledgeRetrieval PromptInjection => new AnimalKnowledgeRetrieval(
+            null, "off_domain", "not_required", Array.Empty<string>(), "prompt_injection");
 
         public static AnimalKnowledgeRetrieval Insufficient(string reason) => new AnimalKnowledgeRetrieval(
             null, "grounded_fact", "insufficient_evidence", Array.Empty<string>(), reason);

@@ -56,7 +56,10 @@ def load_json(path: Path) -> Dict:
 
 
 def get_animal(animal_id: str) -> Optional[Dict]:
-    safe_id = "".join(character for character in animal_id if character.isalnum() or character in "-_")
+    requested_id = str(animal_id or "").strip()
+    safe_id = "".join(character for character in requested_id if character.isalnum() or character in "-_")
+    if safe_id != requested_id:
+        return None
     path = ANIMALS_DIR / f"{safe_id}.json"
     return load_json(path) if safe_id and path.exists() else None
 
@@ -339,7 +342,8 @@ def process_chat_request(path: str, payload: Dict) -> tuple[Dict, int]:
     if path not in ("/chat", "/chat/local"):
         return {"error": "not_found"}, 404
 
-    animal = get_animal(str(payload.get("animalId") or "sensen"))
+    requested_animal_id = str(payload.get("animalId") or "sensen").strip()
+    animal = get_animal(requested_animal_id)
     if animal is None:
         return {"error": "animal_not_found"}, 404
 
@@ -352,7 +356,7 @@ def process_chat_request(path: str, payload: Dict) -> tuple[Dict, int]:
         history = []
 
     retrieval = (
-        animal_knowledge.retrieve(animal, message, animal_id=animal.get("animalId") or animal.get("id"))
+        animal_knowledge.retrieve(animal, message, animal_id=requested_animal_id)
         if animal.get("schemaVersion") == animal_knowledge.SUPPORTED_SCHEMA_VERSION
         else None
     )

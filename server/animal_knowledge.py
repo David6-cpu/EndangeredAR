@@ -14,6 +14,7 @@ SOCIAL_MARKERS = (
     "你好", "谢谢", "再见", "难过", "伤心", "开心", "陪我", "聊聊",
     "喜欢我", "语气", "讲个故事", "介绍自己",
 )
+STYLE_MARKERS = ("语气", "讲个故事")
 OFF_DOMAIN_MARKERS = (
     "二次方程", "数学题", "写代码", "编程", "股票", "投资", "天气",
     "翻译", "写作文", "做作业",
@@ -81,7 +82,7 @@ def retrieve(document: Dict, message: str, animal_id: Optional[str] = None) -> R
     normalized = normalize_text(message)
     if not normalized:
         return _insufficient(document, "empty_question")
-    if any(marker in normalized for marker in map(normalize_text, SOCIAL_MARKERS)):
+    if any(marker in normalized for marker in map(normalize_text, STYLE_MARKERS)):
         return RetrievalResult(
             "social_chat",
             "not_required",
@@ -134,6 +135,15 @@ def retrieve(document: Dict, message: str, animal_id: Optional[str] = None) -> R
             (),
             "我主要负责濒危动物科普，不能替你完成这个问题。要不要问问森森的家园或保护方法？",
             "off_domain_marker",
+        )
+    if any(marker in normalized for marker in map(normalize_text, SOCIAL_MARKERS)):
+        return RetrievalResult(
+            "social_chat",
+            "not_required",
+            (),
+            (),
+            "我在呢。你想聊聊今天的心情，还是继续认识森林里的动物朋友？",
+            "social_marker",
         )
     if (
         any(marker in normalized for marker in map(normalize_text, SCIENTIFIC_QUESTION_MARKERS))

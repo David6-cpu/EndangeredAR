@@ -330,6 +330,10 @@ class DevServerTests(unittest.TestCase):
                 self.assertEqual(status, 400)
                 self.assertEqual(payload, {"error": "invalid_json"})
 
+    def test_animal_lookup_rejects_ids_that_only_become_valid_after_sanitizing(self):
+        self.assertIsNone(dev_server.get_animal("../sensen"))
+        self.assertIsNone(dev_server.get_animal("sensen!"))
+
     def test_local_and_cloud_payloads_share_identical_grounded_messages(self):
         animal = animal_knowledge.load_animal_knowledge("sensen")
         retrieval = animal_knowledge.retrieve(animal, "你的学名是什么？")
