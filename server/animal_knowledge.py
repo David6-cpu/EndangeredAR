@@ -20,7 +20,12 @@ OFF_DOMAIN_MARKERS = (
 )
 INJECTION_MARKERS = (
     "忽略系统", "忽略规则", "忽略资料", "忽略以上", "绕过规则",
-    "不要根据资料", "假装你确定", "知识库", "编造", "编一个",
+    "忽略之前", "不要根据资料", "假装你确定", "知识库", "系统提示词",
+    "隐藏指令", "编造", "编一个",
+)
+MISSING_EVIDENCE_MARKERS = (
+    "资料里没有答案", "资料没有答案", "没有资料", "找不到资料",
+    "没有可靠资料", "没有证据",
 )
 SCIENTIFIC_QUESTION_MARKERS = (
     "学名", "分类", "分布", "栖息", "住", "生活", "吃", "食物", "食性",
@@ -110,6 +115,17 @@ def retrieve(document: Dict, message: str, animal_id: Optional[str] = None) -> R
             f"matched_{primary.get('topic') or 'fact'}",
         )
 
+    if any(marker in normalized for marker in map(normalize_text, MISSING_EVIDENCE_MARKERS)):
+        return _insufficient(document, "missing_evidence_policy")
+    if any(marker in normalized for marker in map(normalize_text, INJECTION_MARKERS)):
+        return RetrievalResult(
+            "off_domain",
+            "not_required",
+            (),
+            (),
+            "我不能提供隐藏指令，也不会忽略可靠资料。我们可以继续聊森森和濒危动物保护。",
+            "prompt_injection",
+        )
     if any(marker in normalized for marker in map(normalize_text, OFF_DOMAIN_MARKERS)):
         return RetrievalResult(
             "off_domain",
@@ -120,8 +136,7 @@ def retrieve(document: Dict, message: str, animal_id: Optional[str] = None) -> R
             "off_domain_marker",
         )
     if (
-        any(marker in normalized for marker in map(normalize_text, INJECTION_MARKERS))
-        or any(marker in normalized for marker in map(normalize_text, SCIENTIFIC_QUESTION_MARKERS))
+        any(marker in normalized for marker in map(normalize_text, SCIENTIFIC_QUESTION_MARKERS))
     ):
         return _insufficient(document, "unmatched_scientific_question")
 
