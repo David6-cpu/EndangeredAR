@@ -7,7 +7,9 @@ POST /chat/local -> llama.cpp-compatible HTTP server
 POST /chat       -> Moonshot -> existing Python rule fallback
 ```
 
-`/chat/local` never calls Moonshot and never substitutes the Python rule answer. Its failures are explicit non-2xx responses so Unity can decide whether to try Cloud. `/chat` preserves the pre-R1 behavior: Moonshot answers when configured and available; otherwise Python returns a short animal-specific rule answer with HTTP 200.
+`/chat/local` never calls Moonshot and never substitutes the Python rule answer. Its failures are explicit non-2xx responses so Unity can decide whether to try Cloud. `/chat` preserves the R1 provider behavior: Moonshot answers when configured and available; otherwise Python returns an application-owned fallback with HTTP 200.
+
+Before either provider runs, R2 classifies the question and retrieves evidence from `content/animals/<animalId>.json`. Scientific facts are returned from the approved canonical answer; Local and Cloud receive identical evidence and cannot replace it with model memory. Unsupported facts and known-unknown values are answered deterministically without calling either model.
 
 ## 1. Configuration
 
@@ -119,9 +121,28 @@ curl -sS -X POST http://127.0.0.1:8000/chat \
   -d '{"animalId":"sensen","message":"森森，你平时吃什么？","history":[]}'
 ```
 
-A successful response includes `reply`, `source`, and `routeReason`. Direct `/chat/local` success uses `source: local_llm`. Direct `/chat` uses `source: cloud_llm` when Moonshot answers or `source: server_rule` when its built-in fallback answers.
+A successful response includes `reply`, `source`, `routeReason`, `answerMode`, `evidenceStatus`, and `citations`. Direct `/chat/local` success uses `source: local_llm`. Direct `/chat` uses `source: cloud_llm` when Moonshot answers or `source: server_rule` when its built-in fallback answers. `citations` are resolved from canonical source metadata by application code; providers cannot create accepted source IDs or URLs.
 
-## 5. Unity routing
+## 5. Grounded knowledge contract
+
+The only hand-maintained Sensen knowledge document is `content/animals/sensen.json`. It contains:
+
+- reviewed identity and taxonomy;
+- facts with stable `factId`, topic, approved answer, aliases, evidence status, source IDs, confidence, and verification date;
+- source records with title, organization, source type, URL, source date, project verification date, and applicable fact IDs.
+
+Retrieval returns one of:
+
+| `answerMode` | `evidenceStatus` | Behavior |
+| --- | --- | --- |
+| `grounded_fact` | `evidence_found` | return the approved fact and canonical citations |
+| `grounded_fact` | `insufficient_evidence` | explain that reliable evidence is unavailable; never invent a number or behavior |
+| `social_chat` | `not_required` | allow short role conversation without fabricated citations |
+| `off_domain` | `not_required` | redirect unrelated or prompt-extraction requests |
+
+The Unity fallback profile is generated from the same JSON through `Endangered AR > Data > Rebuild Sensen Content`. Do not edit the generated knowledge asset as a separate source of truth.
+
+## 6. Unity routing
 
 Configure `EndangeredAR/Assets/Config/LocalAIConfig.asset`:
 
@@ -149,7 +170,7 @@ LocalApiConfig.baseUrl       = http://<MAC_LAN_IP>:8000
 
 On a phone, `127.0.0.1` is the phone itself, not the Mac. Keep the phone and Mac on the same network and allow incoming connections to Python. The Python process on the Mac can still use `LOCAL_LLM_BASE_URL=http://127.0.0.1:8080/v1` to reach llama.cpp on that Mac.
 
-## 6. Manual R1 cases
+## 7. Manual R1 cases
 
 - **Case A:** run llama.cpp and Python, configure Moonshot, choose `LocalFirstCloudFallback`. Ask “森森，你平时吃什么？”. Unity should log `source=local_llm` and `routeReason=local_first`.
 - **Case B:** stop llama.cpp but keep Python running. In `LocalFirstCloudFallback`, Unity should continue through `/chat`; the source is `cloud_llm` when Moonshot succeeds, otherwise `server_rule` by existing `/chat` behavior.
@@ -158,7 +179,7 @@ On a phone, `127.0.0.1` is the phone itself, not the Mac. Keep the phone and Mac
 
 Unity logs the selected `source` and `routeReason`; raw technical errors are not shown in the chat UI.
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 
 - `local_llm_not_configured` (503): set `LOCAL_LLM_BASE_URL` and restart Python.
 - `local_llm_invalid_configuration` (503): use an absolute `http://` or `https://` base URL with a valid host. Unity 的 `LocalAIConfig.localServerUrl` 还必须不带 query 或 fragment。
@@ -167,11 +188,13 @@ Unity logs the selected `source` and `routeReason`; raw technical errors are not
 - Phone cannot connect: replace phone-side localhost with the Mac LAN IP, use the same port 8000, confirm both devices are on the same network, and check the macOS firewall.
 - `/chat` returns `server_rule`: Moonshot is unconfigured or unavailable; this is the intended backwards-compatible fallback.
 
-R1 does not implement RAG, embeddings, vector databases, streaming responses, native mobile inference, fine-tuning, or AI-driven animation/task mutation.
+R2 deliberately does not implement vector databases, embeddings, streaming responses, native mobile inference, fine-tuning, or AI-driven animation/task mutation.
 
 The full real-GGUF baseline, quality findings, failure injection results, and merge gate are recorded in [the R1.5 acceptance report](../EndangeredAR/docs/verification/2026-08-21-r1.5-real-gguf-acceptance.md).
 
-## 8. Tests
+The grounded 20-question quality fixture is `content/quality/sensen-r1.5-questions.json`; its regression test verifies classifications, refusal behavior, canonical citation coverage, and Local/Cloud evidence consistency.
+
+## 9. Tests
 
 ```bash
 python3 -m unittest discover -s server/tests -v

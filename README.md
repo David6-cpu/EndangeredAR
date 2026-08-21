@@ -25,7 +25,7 @@
 | --- | --- |
 | 动物展示 | 森森 GLB 模型、材质加载、出现反馈、双指缩放和单指旋转 |
 | 扫描体验 | iOS 相机预览、扫描框、手动/模拟识别兜底；稳定版暂未启用 ARFoundation 图像追踪 |
-| AI 对话 | Unity 可切换 CloudOnly、LocalOnly、LocalFirstCloudFallback；Python 代理 Moonshot 与本机 llama.cpp，最终保留 Unity 角色知识兜底 |
+| AI 对话 | Unity 可切换 CloudOnly、LocalOnly、LocalFirstCloudFallback；科学事实先检索项目知识并携带真实引用，再由本机 llama.cpp 或 Moonshot 提供角色表达 |
 | 科普任务 | “帮森森寻找食物”选择任务，区分正确/错误反馈并避免重复发放奖励 |
 | 学习闭环 | 学习中心、动物解锁进度、徽章、图鉴、科普卡片 PNG |
 | 移动端适配 | Safe Area、Dynamic Island、Home Indicator、iPhone 竖屏布局 |
@@ -49,6 +49,7 @@ flowchart LR
     X --> M["GLB 模型加载与手势"]
     X --> P["本地解锁、任务与对话进度"]
     UI --> A["AIManager / AIRouter"]
+    UI --> R["Deterministic Knowledge Retrieval"]
     A --> LP["LocalLLMProvider"]
     A --> CP["CloudLLMProvider"]
     A --> UK["LocalKnowledgeProvider"]
@@ -58,10 +59,14 @@ flowchart LR
     CS --> L["Moonshot API"]
     CS --> F["Python rule fallback"]
     UK --> K["Unity animal knowledge"]
+    R --> J["content/animals/sensen.json"]
+    J --> LP
+    J --> CP
+    J --> UK
     C --> D["AnimalDefinition / Knowledge / Mission"]
 ```
 
-核心原则是：**Unity 只访问项目自己的 Python 代理；Moonshot 密钥永远不进入客户端和 Git 历史。** `/chat/local` 代理本机 llama.cpp-compatible 服务，`/chat` 保留原有 Moonshot → Python 规则回答行为。
+核心原则是：**Unity 只访问项目自己的 Python 代理；Moonshot 密钥永远不进入客户端和 Git 历史。** `/chat/local` 代理本机 llama.cpp-compatible 服务，`/chat` 保留 Moonshot 路径。两条 Provider 路径在科学事实问题上使用同一份确定性检索证据，模型不能决定事实正文或引用。
 
 ## 技术栈
 
@@ -89,7 +94,8 @@ flowchart LR
 │   │   └── Tests/              # EditMode / PlayMode 测试
 │   ├── Design/                 # 产品设计图
 │   └── docs/                   # 设计、实施计划与验收记录
-├── content/animals/            # 后端动物角色与科普数据
+├── content/animals/            # 唯一人工维护的动物知识 JSON
+├── content/quality/            # 固定质量回归问题集
 └── server/                     # 本地 AI 代理和 Python 测试
 ```
 
@@ -194,9 +200,12 @@ LOCAL_LLM_TIMEOUT=7
 - `LocalOnly`：Python `/chat/local` → llama.cpp；失败后直接使用 Unity 知识兜底，绝不访问 Cloud。
 - `LocalFirstCloudFallback`：先尝试本地模型，再使用剩余预算请求 `/chat`，最后使用 Unity 知识兜底。
 - `source` 标识实际答案来源（如 `local_llm`、`cloud_llm`、`server_rule`、`unity_knowledge`），`routeReason` 标识命中的路由路径。
+- `answerMode` 区分 `grounded_fact`、`social_chat` 和 `off_domain`；`evidenceStatus` 区分有证据、证据不足和无需证据。
+- `citations` 由应用根据检索结果生成，包含稳定 `sourceId`、标题、机构和 URL；模型输出中的伪造引用不会进入响应。
+- 森森唯一人工维护知识源是 [`content/animals/sensen.json`](content/animals/sensen.json)。Unity 的 `Sensen.asset` 与 `SensenKnowledge.asset` 由 `AnimalContentAssetBuilder` 从该文件生成，不应手工维护第二份事实。
 - 默认预算为本地 8 秒、整条 Provider 路由 38 秒；聊天 UI 另有 40 秒总保护，不会让 Local 与 Cloud 各自等待完整 40 秒。
 - 后端最多保留请求中最近 20 条受支持的用户/角色消息。
-- R1 没有实现 RAG、向量数据库、流式输出、移动端原生推理或 AI 动画/任务控制。
+- 当前 R2 使用小型确定性检索，不包含向量数据库、Embedding、流式输出、移动端原生推理或 AI 动画/任务控制。
 
 更完整的后端说明见 [`server/README.md`](server/README.md)。
 
@@ -233,9 +242,9 @@ UNITY="/Applications/Unity/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/MacOS/Uni
 
 | 验证项 | 结果 |
 | --- | ---: |
-| Unity EditMode | 124 / 124 passed |
+| Unity EditMode | 136 / 136 passed |
 | Unity PlayMode | 13 / 13 passed |
-| Python backend | 16 / 16 passed |
+| Python backend | 54 / 54 passed |
 | iOS 构建 | Unity 导出、Xcode 签名构建与真机安装成功 |
 | 真机目标 | iPhone 17 Pro Max，竖屏 Safe Area 验证 |
 
@@ -253,7 +262,7 @@ UNITY="/Applications/Unity/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/MacOS/Uni
 
 1. 完成第二动物的数据资产、独立任务、角色 Prompt 和模型验收。
 2. 将扫描解锁与图鉴入口扩展为真正的多动物选择闭环。
-3. 在 R2 评估本地动物知识库与 RAG，并保持现有 Provider 合约稳定。
+3. 为第二动物建立同一 Canonical Knowledge Schema，并先完成来源核验再录入事实。
 4. 部署公开 HTTPS AI 代理，移除局域网演示依赖。
 5. 在稳定包基线之上评估恢复 ARFoundation 图片追踪。
 6. 完成 App Store 图标、隐私清单、性能与长时间真机测试。
@@ -279,6 +288,7 @@ UNITY="/Applications/Unity/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/MacOS/Uni
 - [森森稳定基线](EndangeredAR/docs/verification/2026-07-19-sensen-baseline.md)
 - [iPhone 真机验收记录](EndangeredAR/docs/verification/2026-08-06-sensen-device-acceptance.md)
 - [R1 端云协同 AI 验收说明](EndangeredAR/docs/verification/2026-08-21-r1-hybrid-ai-routing.md)
+- [R2 Grounded Animal Knowledge 验收说明](EndangeredAR/docs/verification/2026-08-21-r2-grounded-animal-knowledge.md)
 - [UI Design System](EndangeredAR/DESIGN.md)
 
 ---

@@ -77,6 +77,29 @@ class SensenTwentyQuestionRegressionTests(unittest.TestCase):
                         self.assertNotIn(forbidden, local_payload["reply"])
                         self.assertNotIn(forbidden, cloud_payload["reply"])
 
+    def test_all_twenty_questions_complete_through_both_http_route_handlers(self):
+        with mock.patch("server.dev_server.get_animal", return_value=self.document), mock.patch(
+            "server.dev_server.call_local_llm",
+            return_value=dev_server.ProviderResult(reply="我在这里陪你聊聊。"),
+        ), mock.patch(
+            "server.dev_server.call_moonshot",
+            return_value="我在这里陪你聊聊。",
+        ):
+            for case in QUALITY_CASES:
+                with self.subTest(case_id=case["id"]):
+                    local_payload, local_status = dev_server.process_chat_request(
+                        "/chat/local", {"animalId": "sensen", "message": case["question"]}
+                    )
+                    cloud_payload, cloud_status = dev_server.process_chat_request(
+                        "/chat", {"animalId": "sensen", "message": case["question"]}
+                    )
+
+                    self.assertEqual((local_status, cloud_status), (200, 200))
+                    self.assertEqual(local_payload["answerMode"], case["answerMode"])
+                    self.assertEqual(cloud_payload["answerMode"], case["answerMode"])
+                    self.assertEqual(local_payload["evidenceStatus"], case["evidenceStatus"])
+                    self.assertEqual(cloud_payload["evidenceStatus"], case["evidenceStatus"])
+
 
 if __name__ == "__main__":
     unittest.main()
