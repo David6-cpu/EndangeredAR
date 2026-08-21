@@ -148,10 +148,11 @@ Final automated results:
 - Unity EditMode: 136/136
 - Unity compile/error scan: no C# compiler errors, unhandled exceptions, or `NullReferenceException`
 
-Whole-branch local review compared `f0df272d..HEAD`. Two blocking boundary defects were found and fixed with failing tests first:
+Whole-branch local review compared `f0df272d..HEAD`. Three blocking boundary defects were found and fixed with failing tests first:
 
 1. social markers previously preceded factual matching, so a greeting could bypass evidence;
 2. Python and Unity differed on prompt-extraction/missing-evidence classification, and the Python animal lookup accepted IDs that became valid only after sanitizing.
+3. a provider could insert unsupported scientific claims into an otherwise social reply; a conservative application-owned post-check now replaces those replies with the safe canonical social response.
 
 No unresolved blocking finding remains in the local review. No external independent reviewer was invoked for R2 because no separate code-disclosure authorization was provided for this branch.
 
