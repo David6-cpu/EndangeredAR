@@ -1,6 +1,7 @@
 import json
 import math
 import os
+import re
 import socket
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -24,6 +25,11 @@ DEFAULT_DEV_SERVER_HOST = "127.0.0.1"
 DEFAULT_LOCAL_LLM_TIMEOUT = 7.0
 MAX_LOCAL_LLM_TIMEOUT = 60.0
 MAX_HISTORY_MESSAGES = 20
+SOCIAL_FACT_MARKERS = (
+    "学名", "分布", "生活在", "住在", "栖息", "树洞", "野外", "还剩",
+    "数量", "种群", "iucn", "cites", "近危", "濒危等级", "食物", "吃",
+    "云南", "广西", "贵州", "印度", "斯里兰卡", "厘米", "千米", "公里",
+)
 
 
 @dataclass(frozen=True)
@@ -327,7 +333,18 @@ def select_provider_reply(
 ) -> str:
     if retrieval.answer_mode == "grounded_fact":
         return retrieval.approved_answer
+    if retrieval.answer_mode == "social_chat" and social_reply_has_scientific_claim(provider_reply):
+        return retrieval.approved_answer
     return provider_reply
+
+
+def social_reply_has_scientific_claim(reply: str) -> bool:
+    normalized = str(reply or "").lower()
+    if any(character.isdigit() for character in normalized):
+        return True
+    if any(marker in normalized for marker in SOCIAL_FACT_MARKERS):
+        return True
+    return re.search(r"\b[A-Z][a-z]{2,}\s+[a-z]{2,}\b", str(reply or "")) is not None
 
 
 def local_error_status(error_code: str) -> int:

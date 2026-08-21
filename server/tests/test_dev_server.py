@@ -463,6 +463,33 @@ class DevServerTests(unittest.TestCase):
         self.assertEqual(payload["evidenceStatus"], "not_required")
         self.assertEqual(payload["citations"], [])
 
+    def test_social_chat_rejects_provider_reply_that_invents_scientific_facts(self):
+        animal = animal_knowledge.load_animal_knowledge("sensen")
+        with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
+            "server.dev_server.call_local_llm",
+            return_value=dev_server.ProviderResult(
+                reply="我生活在云南的树洞里，野外还剩 300 只。"
+            ),
+        ), mock.patch(
+            "server.dev_server.call_moonshot",
+            return_value="我的学名是假的，IUCN 等级是濒危。",
+        ):
+            local_status, local_payload = self.invoke_post(
+                "/chat/local", {"animalId": "sensen", "message": "我今天有点难过"}
+            )
+            cloud_status, cloud_payload = self.invoke_post(
+                "/chat", {"animalId": "sensen", "message": "我今天有点难过"}
+            )
+
+        self.assertEqual((local_status, cloud_status), (200, 200))
+        self.assertEqual(local_payload["reply"], cloud_payload["reply"])
+        self.assertIn("我在呢", local_payload["reply"])
+        self.assertNotIn("云南", local_payload["reply"])
+        self.assertNotIn("300", local_payload["reply"])
+        self.assertNotIn("学名是假的", cloud_payload["reply"])
+        self.assertEqual(local_payload["citations"], [])
+        self.assertEqual(cloud_payload["citations"], [])
+
 
 if __name__ == "__main__":
     unittest.main()
