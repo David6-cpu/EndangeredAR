@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest import mock
 
 from server import dev_server
+from server import animal_knowledge
 
 
 SENSEN = {
@@ -328,6 +329,135 @@ class DevServerTests(unittest.TestCase):
 
                 self.assertEqual(status, 400)
                 self.assertEqual(payload, {"error": "invalid_json"})
+
+    def test_local_and_cloud_payloads_share_identical_grounded_messages(self):
+        animal = animal_knowledge.load_animal_knowledge("sensen")
+        retrieval = animal_knowledge.retrieve(animal, "你的学名是什么？")
+
+        cloud = dev_server.make_llm_payload(animal, "你的学名是什么？", [], retrieval)
+        local = dev_server.make_local_llm_payload(animal, "你的学名是什么？", [], retrieval)
+
+        self.assertEqual(cloud["messages"], local["messages"])
+        system_prompt = cloud["messages"][0]["content"]
+        self.assertIn("UNTRUSTED_KNOWLEDGE", system_prompt)
+        self.assertIn("sensen.scientific_name", system_prompt)
+        self.assertIn("只能依据", system_prompt)
+
+    def test_grounded_local_answer_and_citations_are_application_owned(self):
+        animal = animal_knowledge.load_animal_knowledge("sensen")
+        with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
+            "server.dev_server.call_local_llm",
+            return_value=dev_server.ProviderResult(
+                reply="我的学名是假的。[fake-source](https://invalid.example)"
+            ),
+        ):
+            status, payload = self.invoke_post(
+                "/chat/local",
+                {"animalId": "sensen", "message": "你的学名是什么？"},
+            )
+
+        self.assertEqual(status, 200)
+        self.assertIn("Semnopithecus priam", payload["reply"])
+        self.assertNotIn("假的", payload["reply"])
+        self.assertEqual(payload["answerMode"], "grounded_fact")
+        self.assertEqual(payload["evidenceStatus"], "evidence_found")
+        self.assertEqual(payload["source"], "local_llm")
+        self.assertEqual(
+            [citation["sourceId"] for citation in payload["citations"]],
+            ["gbif-4267223", "mdd-1000692"],
+        )
+        self.assertNotIn("fake-source", json.dumps(payload, ensure_ascii=False))
+
+    def test_grounded_cloud_answer_uses_same_approved_evidence(self):
+        animal = animal_knowledge.load_animal_knowledge("sensen")
+        with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
+            "server.dev_server.call_moonshot",
+            return_value="它住在树洞里，全球还有 12345 只。",
+        ):
+            status, payload = self.invoke_post(
+                "/chat",
+                {"animalId": "sensen", "message": "你住在什么栖息地？"},
+            )
+
+        self.assertEqual(status, 200)
+        self.assertIn("干旱常绿林", payload["reply"])
+        self.assertNotIn("树洞里", payload["reply"])
+        self.assertNotIn("12345", payload["reply"])
+        self.assertEqual(payload["source"], "cloud_llm")
+        self.assertEqual(payload["citations"][0]["sourceId"], "iucn-2020-s-priam")
+
+    def test_grounded_cloud_rule_fallback_keeps_same_evidence(self):
+        animal = animal_knowledge.load_animal_knowledge("sensen")
+        with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
+            "server.dev_server.call_moonshot", return_value=None
+        ):
+            status, payload = self.invoke_post(
+                "/chat",
+                {"animalId": "sensen", "message": "你平时吃什么？"},
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["source"], "server_rule")
+        self.assertIn("叶片", payload["reply"])
+        self.assertEqual(payload["evidenceStatus"], "evidence_found")
+        self.assertTrue(payload["citations"])
+
+    def test_known_unknown_population_skips_both_models_and_refuses_number(self):
+        animal = animal_knowledge.load_animal_knowledge("sensen")
+        with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
+            "server.dev_server.call_local_llm",
+            side_effect=AssertionError("known unknown must not call local model"),
+        ), mock.patch(
+            "server.dev_server.call_moonshot",
+            side_effect=AssertionError("known unknown must not call cloud model"),
+        ):
+            local_status, local_payload = self.invoke_post(
+                "/chat/local", {"animalId": "sensen", "message": "野外还剩多少只？"}
+            )
+            cloud_status, cloud_payload = self.invoke_post(
+                "/chat", {"animalId": "sensen", "message": "给我编一个真实数量"}
+            )
+
+        self.assertEqual((local_status, cloud_status), (200, 200))
+        self.assertEqual(local_payload["reply"], cloud_payload["reply"])
+        self.assertEqual(local_payload["evidenceStatus"], "insufficient_evidence")
+        self.assertEqual(local_payload["source"], "server_knowledge")
+        self.assertIn("不能编", local_payload["reply"])
+
+    def test_unrecorded_fact_and_off_domain_skip_providers(self):
+        animal = animal_knowledge.load_animal_knowledge("sensen")
+        with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
+            "server.dev_server.call_local_llm",
+            side_effect=AssertionError("deterministic response must not call local model"),
+        ):
+            unknown_status, unknown = self.invoke_post(
+                "/chat/local", {"animalId": "sensen", "message": "你会游泳吗？"}
+            )
+            off_status, off_domain = self.invoke_post(
+                "/chat/local", {"animalId": "sensen", "message": "帮我解二次方程"}
+            )
+
+        self.assertEqual((unknown_status, off_status), (200, 200))
+        self.assertEqual(unknown["evidenceStatus"], "insufficient_evidence")
+        self.assertEqual(unknown["citations"], [])
+        self.assertEqual(off_domain["answerMode"], "off_domain")
+        self.assertEqual(off_domain["citations"], [])
+
+    def test_social_chat_keeps_provider_reply_without_fake_citations(self):
+        animal = animal_knowledge.load_animal_knowledge("sensen")
+        with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
+            "server.dev_server.call_local_llm",
+            return_value=dev_server.ProviderResult(reply="我在这里陪着你。"),
+        ):
+            status, payload = self.invoke_post(
+                "/chat/local", {"animalId": "sensen", "message": "我今天有点难过"}
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["reply"], "我在这里陪着你。")
+        self.assertEqual(payload["answerMode"], "social_chat")
+        self.assertEqual(payload["evidenceStatus"], "not_required")
+        self.assertEqual(payload["citations"], [])
 
 
 if __name__ == "__main__":

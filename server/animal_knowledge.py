@@ -68,8 +68,8 @@ def get_fact(document: Dict, fact_id: str) -> Optional[Dict]:
 
 
 def retrieve(document: Dict, message: str, animal_id: Optional[str] = None) -> RetrievalResult:
-    requested_animal_id = str(animal_id or document.get("animalId") or "").strip()
-    document_animal_id = str(document.get("animalId") or "").strip()
+    requested_animal_id = str(animal_id or document.get("animalId") or document.get("id") or "").strip()
+    document_animal_id = str(document.get("animalId") or document.get("id") or "").strip()
     if not requested_animal_id or requested_animal_id != document_animal_id:
         return _insufficient(document, "animal_mismatch")
 
