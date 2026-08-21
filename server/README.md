@@ -37,16 +37,49 @@ Do not add any cloud API key to Unity assets, scenes, C# files, or Git.
 
 ## 2. Start a local GGUF model
 
-Install/build llama.cpp separately, then start its OpenAI-compatible server in terminal A:
+The verified R1.5 development baseline is:
+
+- [Qwen2.5-1.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF), official `Q4_K_M` quantization, Apache-2.0.
+- [llama.cpp server](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md), installed with `brew install llama.cpp` on macOS.
+- Model file: `.local-models/qwen2.5-1.5b-instruct-q4_k_m.gguf` (ignored by Git).
+- Local SHA-256: `6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e`.
+
+Download the GGUF from the official model repository, verify it, then start the OpenAI-compatible server in terminal A:
+
+```bash
+shasum -a 256 .local-models/qwen2.5-1.5b-instruct-q4_k_m.gguf
+```
 
 ```bash
 llama-server \
-  -m /absolute/path/to/model.gguf \
+  -m .local-models/qwen2.5-1.5b-instruct-q4_k_m.gguf \
+  --alias qwen2.5-1.5b-instruct-q4_k_m \
   --host 127.0.0.1 \
-  --port 8080
+  --port 8080 \
+  -c 4096 \
+  -np 1 \
+  -t 6 \
+  -tb 6 \
+  -ngl all \
+  -fa on \
+  --temp 0.7 \
+  --top-p 0.8 \
+  -n 220 \
+  --metrics \
+  --no-webui \
+  --offline \
+  --log-timestamps
 ```
 
 The GGUF path must exist. R1 does not embed llama.cpp or the model in Unity, iOS, Android, or the App package.
+
+The corresponding local environment values are:
+
+```dotenv
+LOCAL_LLM_BASE_URL=http://127.0.0.1:8080/v1
+LOCAL_LLM_MODEL=qwen2.5-1.5b-instruct-q4_k_m
+LOCAL_LLM_TIMEOUT=7
+```
 
 ## 3. Start the Python proxy
 
@@ -131,6 +164,8 @@ Unity logs the selected `source` and `routeReason`; raw technical errors are not
 - `/chat` returns `server_rule`: Moonshot is unconfigured or unavailable; this is the intended backwards-compatible fallback.
 
 R1 does not implement RAG, embeddings, vector databases, streaming responses, native mobile inference, fine-tuning, or AI-driven animation/task mutation.
+
+The full real-GGUF baseline, quality findings, failure injection results, and merge gate are recorded in [the R1.5 acceptance report](../EndangeredAR/docs/verification/2026-08-21-r1.5-real-gguf-acceptance.md).
 
 ## 8. Tests
 

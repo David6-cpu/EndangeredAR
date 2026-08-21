@@ -46,6 +46,20 @@ class FakeResponse:
         return json.dumps(self.payload, ensure_ascii=False).encode("utf-8")
 
 
+class RawResponse:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        return False
+
+    def read(self):
+        return self.payload
+
+
 class DevServerTests(unittest.TestCase):
     def invoke_post(self, path, payload):
         handler = InMemoryHandler(path, payload)
@@ -170,6 +184,31 @@ class DevServerTests(unittest.TestCase):
         ), mock.patch(
             "server.dev_server.request.urlopen", return_value=FakeResponse([])
         ):
+            result = dev_server.call_local_llm(SENSEN, "你好", [])
+
+        self.assertIsNone(result.reply)
+        self.assertEqual(result.error, "local_llm_invalid_response")
+
+    def test_call_local_llm_reports_invalid_json_response(self):
+        with mock.patch.dict(
+            os.environ,
+            {"LOCAL_LLM_BASE_URL": "http://127.0.0.1:8080/v1"},
+            clear=True,
+        ), mock.patch(
+            "server.dev_server.request.urlopen", return_value=RawResponse(b"not-json")
+        ):
+            result = dev_server.call_local_llm(SENSEN, "你好", [])
+
+        self.assertIsNone(result.reply)
+        self.assertEqual(result.error, "local_llm_invalid_response")
+
+    def test_call_local_llm_reports_empty_content(self):
+        response = FakeResponse({"choices": [{"message": {"content": "   "}}]})
+        with mock.patch.dict(
+            os.environ,
+            {"LOCAL_LLM_BASE_URL": "http://127.0.0.1:8080/v1"},
+            clear=True,
+        ), mock.patch("server.dev_server.request.urlopen", return_value=response):
             result = dev_server.call_local_llm(SENSEN, "你好", [])
 
         self.assertIsNone(result.reply)
