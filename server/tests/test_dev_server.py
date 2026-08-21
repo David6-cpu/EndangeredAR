@@ -321,6 +321,14 @@ class DevServerTests(unittest.TestCase):
         self.assertEqual(status, 404)
         self.assertEqual(payload, {"error": "not_found"})
 
+    def test_valid_non_object_json_is_rejected(self):
+        for body in ([], None, "text"):
+            with self.subTest(body=body):
+                status, payload = self.invoke_post("/chat", body)
+
+                self.assertEqual(status, 400)
+                self.assertEqual(payload, {"error": "invalid_json"})
+
 
 if __name__ == "__main__":
     unittest.main()

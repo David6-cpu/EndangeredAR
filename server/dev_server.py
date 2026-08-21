@@ -312,6 +312,10 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"error": "invalid_json"}, status=400)
             return
 
+        if not isinstance(payload, dict):
+            self.send_json({"error": "invalid_json"}, status=400)
+            return
+
         response, status = process_chat_request(path, payload)
         self.send_json(response, status=status)
 
