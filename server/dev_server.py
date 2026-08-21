@@ -1,6 +1,7 @@
 import json
 import math
 import os
+import socket
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -193,7 +194,7 @@ def call_local_llm(animal: Dict, message: str, history: List[Dict]) -> ProviderR
     try:
         with request.urlopen(http_request, timeout=get_local_llm_timeout()) as response:
             result = json.loads(response.read().decode("utf-8"))
-    except TimeoutError:
+    except (TimeoutError, socket.timeout):
         return ProviderResult(error="local_llm_timeout")
     except error.HTTPError:
         return ProviderResult(error="local_llm_provider_error")

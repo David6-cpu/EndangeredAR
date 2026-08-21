@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import socket
 import unittest
 from unittest import mock
 
@@ -128,6 +129,20 @@ class DevServerTests(unittest.TestCase):
             {"LOCAL_LLM_BASE_URL": "http://127.0.0.1:8080/v1"},
             clear=True,
         ), mock.patch("server.dev_server.request.urlopen", side_effect=TimeoutError):
+            result = dev_server.call_local_llm(SENSEN, "你好", [])
+
+        self.assertIsNone(result.reply)
+        self.assertEqual(result.error, "local_llm_timeout")
+
+    def test_call_local_llm_reports_socket_timeout_on_macos_python(self):
+        with mock.patch.dict(
+            os.environ,
+            {"LOCAL_LLM_BASE_URL": "http://127.0.0.1:8080/v1"},
+            clear=True,
+        ), mock.patch(
+            "server.dev_server.request.urlopen",
+            side_effect=socket.timeout("timed out"),
+        ):
             result = dev_server.call_local_llm(SENSEN, "你好", [])
 
         self.assertIsNone(result.reply)
