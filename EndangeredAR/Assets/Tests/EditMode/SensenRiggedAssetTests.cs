@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using EndangeredAR.Animals;
 using NUnit.Framework;
 using UnityEditor;
@@ -16,6 +17,8 @@ namespace EndangeredAR.Tests.EditMode
         private const string MaterialPath = "Assets/Art/Characters/Sensen/Rigged/Materials/SensenRigged.mat";
         private const string ControllerPath = "Assets/Animations/Sensen/SensenRigged.controller";
         private const string PrefabPath = "Assets/Prefabs/Animals/SensenRigged.prefab";
+        private const string DevelopmentBootstrapPath = "Assets/Scripts/Development/DevelopmentToolsBootstrap.cs";
+        private const string DevelopmentPanelPath = "Assets/Scripts/Development/AnimalAnimationDebugPanel.cs";
 
         [Test]
         public void ProductAssets_UseOnlyTheApprovedRuntimeCandidate()
@@ -156,6 +159,64 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(renderer.sharedMaterials, Has.Length.EqualTo(1));
             Assert.That(prefab.GetComponent<AnimalGestureController>(), Is.Null,
                 "Gesture ownership belongs to the outer animal experience host.");
+
+            var modelController = prefab.GetComponent<AnimalModelController>();
+            Assert.That(modelController, Is.Not.Null,
+                "The rigged prefab must own its safe, fixed-command animation gateway.");
+            var serializedController = new SerializedObject(modelController);
+            Assert.That(serializedController.FindProperty("animator").objectReferenceValue, Is.SameAs(animator));
+            Assert.That(serializedController.FindProperty("supportedAnimalId").stringValue, Is.EqualTo("sensen"));
+        }
+
+        [Test]
+        public void AnimalModelController_ExposesOnlyTheFixedTauntRequestContract()
+        {
+            var resultType = Type.GetType("EndangeredAR.Animals.TauntRequestResult, EndangeredAR.Runtime");
+            Assert.That(resultType, Is.Not.Null, "The Taunt request result contract must exist in the runtime assembly.");
+
+            var tryPlayTaunt = typeof(AnimalModelController).GetMethod(
+                "TryPlayTaunt",
+                BindingFlags.Instance | BindingFlags.Public,
+                null,
+                Type.EmptyTypes,
+                null);
+            Assert.That(tryPlayTaunt, Is.Not.Null);
+            Assert.That(tryPlayTaunt.ReturnType, Is.EqualTo(resultType));
+
+            var unsafeStringEntrypoints = typeof(AnimalModelController)
+                .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Where(method => method.GetParameters().Any(parameter => parameter.ParameterType == typeof(string)))
+                .ToArray();
+            Assert.That(unsafeStringEntrypoints, Is.Empty,
+                "Runtime animation control must not accept arbitrary state or parameter names.");
+            Assert.That(typeof(AnimalModelController).GetMethod("PlayIdle"), Is.Null);
+            Assert.That(typeof(AnimalModelController).GetMethod("PlayHappy"), Is.Null);
+            Assert.That(typeof(AnimalModelController).GetMethod("SetScale"), Is.Null,
+                "Scale remains owned by AnimalGestureController on the outer AR host.");
+        }
+
+        [Test]
+        public void DevelopmentAnimationTools_AreBuildConditionedAndBusinessIndependent()
+        {
+            Assert.That(File.Exists(DevelopmentBootstrapPath), Is.True);
+            Assert.That(File.Exists(DevelopmentPanelPath), Is.True);
+
+            var bootstrapSource = File.ReadAllText(DevelopmentBootstrapPath);
+            var panelSource = File.ReadAllText(DevelopmentPanelPath);
+            Assert.That(bootstrapSource.TrimStart(), Does.StartWith("#if UNITY_EDITOR || DEVELOPMENT_BUILD"));
+            Assert.That(panelSource.TrimStart(), Does.StartWith("#if UNITY_EDITOR || DEVELOPMENT_BUILD"));
+            Assert.That(Type.GetType("EndangeredAR.Development.DevelopmentToolsBootstrap, EndangeredAR.Runtime"), Is.Not.Null);
+            Assert.That(Type.GetType("EndangeredAR.Development.AnimalAnimationDebugPanel, EndangeredAR.Runtime"), Is.Not.Null);
+
+            var combinedSource = bootstrapSource + panelSource;
+            StringAssert.DoesNotContain("AIManager", combinedSource);
+            StringAssert.DoesNotContain("AIResponse", combinedSource);
+            StringAssert.DoesNotContain("MissionController", combinedSource);
+            StringAssert.DoesNotContain("AnimalProgress", combinedSource);
+            StringAssert.DoesNotContain("Chat", combinedSource);
+            StringAssert.DoesNotContain("FindObjectsOfType<Animator", combinedSource);
+            StringAssert.DoesNotContain("FindObjectsByType<Animator", combinedSource);
+            StringAssert.DoesNotContain("Resources.FindObjectsOfTypeAll", combinedSource);
         }
 
         [Test]

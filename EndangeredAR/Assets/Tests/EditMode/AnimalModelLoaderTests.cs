@@ -325,6 +325,19 @@ namespace EndangeredAR.Tests.EditMode
             StringAssert.Contains(gltfPbrShaderGuid, graphicsSettings);
         }
 
+        [Test]
+        public void RuntimeContract_ExposesCurrentModelControllerWithoutGlobalSearch()
+        {
+            var loaderType = Type.GetType(LoaderTypeName);
+            var method = loaderType?.GetMethod("TryGetCurrentModelController", BindingFlags.Instance | BindingFlags.Public);
+
+            Assert.That(method, Is.Not.Null);
+            Assert.That(method.ReturnType, Is.EqualTo(typeof(bool)));
+            Assert.That(method.GetParameters(), Has.Length.EqualTo(1));
+            Assert.That(method.GetParameters()[0].IsOut, Is.True);
+            Assert.That(method.GetParameters()[0].ParameterType, Is.EqualTo(typeof(AnimalModelController).MakeByRefType()));
+        }
+
         private static Component AddGenericLoader(GameObject host)
         {
             var loaderType = Type.GetType(LoaderTypeName);

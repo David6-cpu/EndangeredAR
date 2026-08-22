@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using EndangeredAR.API;
 using EndangeredAR.AR;
@@ -361,12 +362,219 @@ namespace EndangeredAR.Tests.PlayMode
             Assert.That(backButton.transform.parent, Is.EqualTo(cardPanel.transform));
         }
 
+        [UnityTest]
+        public IEnumerator RiggedSensen_TauntRejectsDuplicateRequestsAndReturnsToIdle()
+        {
+            yield return LoadDemoScene();
+
+            var scanner = FindSingle<ARImageScanController>();
+            var loader = FindSingle<AnimalModelLoader>();
+            scanner.SimulateMarkerDetected("sensen");
+            yield return null;
+            yield return null;
+
+            Assert.That(loader.TryGetCurrentModelController(out var controller), Is.True);
+            yield return WaitForAnimatorState(controller.Animator, "Idle", 2f);
+
+            var riggedRootPosition = controller.transform.localPosition;
+            var riggedRootRotation = controller.transform.localRotation;
+            var riggedRootScale = controller.transform.localScale;
+            Assert.That(controller.TryPlayTaunt(), Is.EqualTo(TauntRequestResult.Played));
+            Assert.That(controller.TryPlayTaunt(), Is.EqualTo(TauntRequestResult.Busy),
+                "A same-frame second click must not leave another Trigger queued.");
+
+            yield return WaitForAnimatorTransition(controller.Animator, 2f);
+            Assert.That(controller.TryPlayTaunt(), Is.EqualTo(TauntRequestResult.Busy));
+            yield return WaitForAnimatorState(controller.Animator, "Taunt", 2f);
+            Assert.That(controller.TryPlayTaunt(), Is.EqualTo(TauntRequestResult.Busy));
+            yield return WaitUntilNotBusy(controller, 5f);
+
+            Assert.That(controller.CurrentStateLabel, Is.EqualTo("Idle"));
+            Assert.That(Vector3.Distance(controller.transform.localPosition, riggedRootPosition), Is.LessThan(0.0001f));
+            Assert.That(Quaternion.Angle(controller.transform.localRotation, riggedRootRotation), Is.LessThan(0.01f));
+            Assert.That(Vector3.Distance(controller.transform.localScale, riggedRootScale), Is.LessThan(0.0001f));
+            Assert.That(controller.TryPlayTaunt(), Is.EqualTo(TauntRequestResult.Played),
+                "A fresh Taunt should be accepted after the previous action returns to Idle.");
+        }
+
+        [UnityTest]
+        public IEnumerator AnimationController_FailsSafelyForInactiveUnsupportedAndInvalidAnimators()
+        {
+            var root = new GameObject("Animation Controller Contract Test");
+            var controller = root.AddComponent<AnimalModelController>();
+            try
+            {
+                Assert.That(controller.TryPlayTaunt(), Is.EqualTo(TauntRequestResult.MissingAnimator));
+
+                root.SetActive(false);
+                Assert.That(controller.TryPlayTaunt(), Is.EqualTo(TauntRequestResult.Inactive));
+                root.SetActive(true);
+
+                var animator = root.AddComponent<Animator>();
+                SetPrivateField(controller, "animator", animator);
+                SetPrivateField(controller, "supportedAnimalId", "another-animal");
+                Assert.That(controller.TryPlayTaunt(), Is.EqualTo(TauntRequestResult.UnsupportedAnimal));
+
+                SetPrivateField(controller, "supportedAnimalId", "sensen");
+                Assert.That(controller.TryPlayTaunt(), Is.EqualTo(TauntRequestResult.InvalidControllerState));
+            }
+            finally
+            {
+                UnityEngine.Object.Destroy(root);
+            }
+
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator Loader_ReconfigurationNeverReturnsTheDeactivatedPreviousController()
+        {
+            yield return LoadDemoScene();
+
+            var scanner = FindSingle<ARImageScanController>();
+            var loader = FindSingle<AnimalModelLoader>();
+            scanner.SimulateMarkerDetected("sensen");
+            yield return null;
+            yield return null;
+            Assert.That(loader.TryGetCurrentModelController(out var previous), Is.True);
+
+            loader.Configure(sensenDefinition);
+            Assert.That(previous.gameObject.activeInHierarchy, Is.False,
+                "The replaced runtime Root must be deactivated before delayed destruction.");
+            Assert.That(loader.TryGetCurrentModelController(out var current), Is.True);
+            Assert.That(current, Is.Not.SameAs(previous));
+
+            yield return null;
+            Assert.That(loader.TryGetCurrentModelController(out current), Is.True);
+            Assert.That(current, Is.Not.SameAs(previous));
+        }
+
+        [UnityTest]
+        public IEnumerator Loader_GlbFallbackWithoutAnimationControllerFailsClosed()
+        {
+            yield return LoadDemoScene();
+
+            var loader = FindSingle<AnimalModelLoader>();
+            var modelPrefab = GetPrivateField(sensenDefinition, "modelPrefab");
+            try
+            {
+                SetPrivateField(sensenDefinition, "modelPrefab", null);
+                loader.Configure(sensenDefinition);
+                yield return null;
+
+                Assert.That(loader.TryGetCurrentModelController(out var controller), Is.False);
+                Assert.That(controller, Is.Null);
+            }
+            finally
+            {
+                SetPrivateField(sensenDefinition, "modelPrefab", modelPrefab);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator DevelopmentPanel_IsSingletonAndTauntHasNoBusinessSideEffects()
+        {
+            yield return LoadDemoScene();
+
+            var bootstrapType = Type.GetType("EndangeredAR.Development.DevelopmentToolsBootstrap, EndangeredAR.Runtime");
+            var panelType = Type.GetType("EndangeredAR.Development.AnimalAnimationDebugPanel, EndangeredAR.Runtime");
+            Assert.That(bootstrapType, Is.Not.Null);
+            Assert.That(panelType, Is.Not.Null);
+
+            var ensureInitialized = bootstrapType.GetMethod(
+                "EnsureInitialized",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(ensureInitialized, Is.Not.Null);
+            ensureInitialized.Invoke(null, null);
+            ensureInitialized.Invoke(null, null);
+
+            var panels = UnityEngine.Object.FindObjectsByType<MonoBehaviour>(
+                    FindObjectsInactive.Include,
+                    FindObjectsSortMode.None)
+                .Where(component => component != null && component.GetType() == panelType)
+                .ToArray();
+            Assert.That(panels, Has.Length.EqualTo(1));
+
+            var scanner = FindSingle<ARImageScanController>();
+            var loader = FindSingle<AnimalModelLoader>();
+            var appController = FindSingle<DemoAppController>();
+            scanner.SimulateMarkerDetected("sensen");
+            yield return null;
+            yield return null;
+            Assert.That(loader.TryGetCurrentModelController(out var animationController), Is.True);
+            yield return WaitForAnimatorState(animationController.Animator, "Idle", 2f);
+            yield return new WaitForSeconds(0.5f);
+
+            var transcriptBefore = (string)GetPrivateField(appController, "chatTranscript");
+            var progressBefore = File.Exists(repositoryPath) ? File.ReadAllText(repositoryPath) : string.Empty;
+            var tauntButton = panels[0].GetComponentsInChildren<Button>(true)
+                .Single(button => button.name == "Play Taunt");
+
+            tauntButton.onClick.Invoke();
+            tauntButton.onClick.Invoke();
+            Assert.That(animationController.IsBusy, Is.True);
+            yield return WaitUntilNotBusy(animationController, 5f);
+
+            Assert.That((string)GetPrivateField(appController, "chatTranscript"), Is.EqualTo(transcriptBefore));
+            Assert.That(File.Exists(repositoryPath) ? File.ReadAllText(repositoryPath) : string.Empty,
+                Is.EqualTo(progressBefore));
+            Assert.That(animationController.CurrentStateLabel, Is.EqualTo("Idle"));
+        }
+
         private IEnumerator LoadDemoScene()
         {
             var operation = SceneManager.LoadSceneAsync("DemoScene", LoadSceneMode.Single);
             Assert.That(operation, Is.Not.Null, "DemoScene must be included in the test player build settings.");
             yield return operation;
             yield return null;
+        }
+
+        private static IEnumerator WaitForAnimatorState(Animator animator, string stateName, float timeoutSeconds)
+        {
+            var deadline = Time.realtimeSinceStartup + timeoutSeconds;
+            while (Time.realtimeSinceStartup < deadline)
+            {
+                if (animator != null && !animator.IsInTransition(0) && animator.GetCurrentAnimatorStateInfo(0).IsName(stateName))
+                {
+                    yield break;
+                }
+
+                yield return null;
+            }
+
+            Assert.Fail($"Animator did not reach {stateName} within {timeoutSeconds:0.0} seconds.");
+        }
+
+        private static IEnumerator WaitUntilNotBusy(AnimalModelController controller, float timeoutSeconds)
+        {
+            var deadline = Time.realtimeSinceStartup + timeoutSeconds;
+            while (Time.realtimeSinceStartup < deadline)
+            {
+                if (controller != null && !controller.IsBusy)
+                {
+                    yield break;
+                }
+
+                yield return null;
+            }
+
+            Assert.Fail($"Taunt request stayed busy beyond {timeoutSeconds:0.0} seconds.");
+        }
+
+        private static IEnumerator WaitForAnimatorTransition(Animator animator, float timeoutSeconds)
+        {
+            var deadline = Time.realtimeSinceStartup + timeoutSeconds;
+            while (Time.realtimeSinceStartup < deadline)
+            {
+                if (animator != null && animator.IsInTransition(0))
+                {
+                    yield break;
+                }
+
+                yield return null;
+            }
+
+            Assert.Fail($"Animator did not enter a transition within {timeoutSeconds:0.0} seconds.");
         }
 
         private void AssertRepositoryIsIsolated(AnimalProgressService progress)
