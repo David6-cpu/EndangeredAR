@@ -13,6 +13,7 @@ namespace EndangeredAR.Editor
         private const string KnowledgePath = AnimalsFolder + "/SensenKnowledge.asset";
         private const string MissionPath = AnimalsFolder + "/SensenMission.asset";
         private const string DefinitionPath = AnimalsFolder + "/Sensen.asset";
+        private const string RiggedPrefabPath = "Assets/Prefabs/Animals/SensenRigged.prefab";
 
         [MenuItem("Endangered AR/Data/Rebuild Sensen Content")]
         public static void RebuildSensenContent()
@@ -89,6 +90,8 @@ namespace EndangeredAR.Editor
             serialized.FindProperty("markerName").stringValue = "sensen_marker";
             serialized.FindProperty("modelRelativePath").stringValue = "Models/Sensen/sensen.glb";
             serialized.FindProperty("baseColorTextureRelativePath").stringValue = "Models/Sensen/sensen_basecolor.png";
+            serialized.FindProperty("modelPrefab").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<GameObject>(RiggedPrefabPath);
             serialized.FindProperty("experiencePosition").vector3Value = new Vector3(-1.02f, -0.13f, 0f);
             serialized.FindProperty("modelLocalOffset").vector3Value = new Vector3(0f, 0.04f, 0f);
             serialized.FindProperty("modelEulerAngles").vector3Value = new Vector3(0f, 180f, 0f);

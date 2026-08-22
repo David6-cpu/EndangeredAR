@@ -19,6 +19,7 @@ MonoBehaviour:
   markerName: sensen_marker
   modelRelativePath: Models/Sensen/sensen.glb
   baseColorTextureRelativePath: Models/Sensen/sensen_basecolor.png
+  modelPrefab: {fileID: 7371378112475257232, guid: f7a1decd1ea5e41ae87b1cd702250e72, type: 3}
   experiencePosition: {x: -1.02, y: -0.13, z: 0}
   modelLocalOffset: {x: 0, y: 0.04, z: 0}
   modelEulerAngles: {x: 0, y: 180, z: 0}

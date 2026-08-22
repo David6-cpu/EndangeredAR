@@ -13,6 +13,7 @@ namespace EndangeredAR.Animals
         [SerializeField] private string markerName;
         [SerializeField] private string modelRelativePath;
         [SerializeField] private string baseColorTextureRelativePath;
+        [SerializeField] private GameObject modelPrefab;
         [SerializeField] private Vector3 experiencePosition;
         [SerializeField] private Vector3 modelLocalOffset;
         [SerializeField] private Vector3 modelEulerAngles;
@@ -31,6 +32,7 @@ namespace EndangeredAR.Animals
         public string MarkerName => markerName;
         public string ModelRelativePath => modelRelativePath;
         public string BaseColorTextureRelativePath => baseColorTextureRelativePath;
+        public GameObject ModelPrefab => modelPrefab;
         public Vector3 ExperiencePosition => experiencePosition;
         public Vector3 ModelLocalOffset => modelLocalOffset;
         public Vector3 ModelEulerAngles => modelEulerAngles;
@@ -60,7 +62,8 @@ namespace EndangeredAR.Animals
             Sprite configuredPortrait,
             Sprite configuredLockedSilhouette,
             AnimalKnowledgeProfile configuredKnowledge,
-            MissionDefinition configuredMission)
+            MissionDefinition configuredMission,
+            GameObject configuredModelPrefab = null)
         {
             animalId = configuredAnimalId;
             displayName = configuredDisplayName;
@@ -69,6 +72,7 @@ namespace EndangeredAR.Animals
             markerName = configuredMarkerName;
             modelRelativePath = configuredModelRelativePath;
             baseColorTextureRelativePath = configuredBaseColorTextureRelativePath;
+            modelPrefab = configuredModelPrefab;
             experiencePosition = configuredExperiencePosition;
             modelLocalOffset = configuredModelLocalOffset;
             modelEulerAngles = configuredModelEulerAngles;

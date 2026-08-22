@@ -11,6 +11,7 @@ namespace EndangeredAR.Models
     {
         [SerializeField] private string streamingAssetPath;
         [SerializeField] private string baseColorTexturePath;
+        [SerializeField] private GameObject modelPrefab;
         [SerializeField] private Vector3 modelLocalPosition;
         [SerializeField] private Vector3 modelLocalRotation;
         [SerializeField] private Vector3 modelLocalScale = Vector3.one;
@@ -21,6 +22,7 @@ namespace EndangeredAR.Models
         private Texture2D baseColorTexture;
         private Coroutine modelLoadRoutine;
         private string loadedModelPath;
+        private GameObject loadedModelPrefab;
         private string loadedAnimalId;
         private bool loadPending;
 
@@ -46,14 +48,17 @@ namespace EndangeredAR.Models
 
             if (definition == null)
             {
-                ApplyModelConfiguration(string.Empty, string.Empty);
+                ApplyModelConfiguration(string.Empty, string.Empty, null);
                 return;
             }
 
             modelLocalPosition = definition.ModelLocalOffset;
             modelLocalRotation = definition.ModelEulerAngles;
             modelLocalScale = definition.ModelScale;
-            ApplyModelConfiguration(definition.ModelRelativePath, definition.BaseColorTextureRelativePath);
+            ApplyModelConfiguration(
+                definition.ModelRelativePath,
+                definition.BaseColorTextureRelativePath,
+                definition.ModelPrefab);
         }
 
         [Obsolete("Use Configure(AnimalDefinition).")]
@@ -65,26 +70,29 @@ namespace EndangeredAR.Models
         [Obsolete("Use Configure(AnimalDefinition).")]
         public void ConfigureModel(string modelPath, string texturePath)
         {
-            ApplyModelConfiguration(modelPath, texturePath);
+            ApplyModelConfiguration(modelPath, texturePath, null);
         }
 
         public void Retry()
         {
             baseColorTexture = null;
             loadedModelPath = null;
+            loadedModelPrefab = null;
             StopCurrentLoad();
             ClearExistingModelRoot();
             ShowFallbackRenderers(true);
             BeginLoad();
         }
 
-        private void ApplyModelConfiguration(string modelPath, string texturePath)
+        private void ApplyModelConfiguration(string modelPath, string texturePath, GameObject configuredModelPrefab)
         {
             DisableLegacyDemoPlacement();
             streamingAssetPath = modelPath ?? string.Empty;
             baseColorTexturePath = texturePath ?? string.Empty;
+            modelPrefab = configuredModelPrefab;
             baseColorTexture = null;
             loadedModelPath = null;
+            loadedModelPrefab = null;
 
             StopCurrentLoad();
             ClearExistingModelRoot();
@@ -102,15 +110,14 @@ namespace EndangeredAR.Models
 
         private void BeginLoad()
         {
-            ShowFallbackRenderers(true);
-
             if (!Application.isPlaying || string.IsNullOrWhiteSpace(streamingAssetPath))
             {
                 loadPending = false;
                 return;
             }
 
-            if (string.Equals(loadedModelPath, streamingAssetPath, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(loadedModelPath, streamingAssetPath, StringComparison.OrdinalIgnoreCase) &&
+                loadedModelPrefab == modelPrefab)
             {
                 loadPending = false;
                 return;
@@ -123,7 +130,9 @@ namespace EndangeredAR.Models
             }
 
             loadPending = false;
+            ShowFallbackRenderers(true);
             loadedModelPath = streamingAssetPath;
+            loadedModelPrefab = modelPrefab;
             modelLoadRoutine = StartCoroutine(LoadModel());
         }
 
@@ -136,6 +145,12 @@ namespace EndangeredAR.Models
                 gameObject.AddComponent<AnimalGestureController>();
             }
 
+            if (TryInstantiateRiggedPrefab())
+            {
+                modelLoadRoutine = null;
+                yield break;
+            }
+
             if (!ModelFileExists(streamingAssetPath))
             {
                 ShowFallbackRenderers(true);
@@ -144,11 +159,7 @@ namespace EndangeredAR.Models
                 yield break;
             }
 
-            var modelRoot = new GameObject(ModelRootName);
-            modelRoot.transform.SetParent(transform, false);
-            modelRoot.transform.localPosition = modelLocalPosition;
-            modelRoot.transform.localEulerAngles = modelLocalRotation;
-            modelRoot.transform.localScale = modelLocalScale;
+            var modelRoot = CreateModelRoot();
 
             var gltfAsset = modelRoot.AddComponent<GltfAsset>();
             gltfAsset.StreamingAsset = true;
@@ -163,6 +174,91 @@ namespace EndangeredAR.Models
 
             yield return StartCoroutine(HideFallbackWhenModelHasRendered(modelRoot.transform));
             modelLoadRoutine = null;
+        }
+
+        private bool TryInstantiateRiggedPrefab()
+        {
+            if (modelPrefab == null)
+            {
+                return false;
+            }
+
+            if (!HasEnabledRenderer(modelPrefab.transform))
+            {
+                Debug.LogWarning($"AnimalModelLoader: Rigged prefab for '{DisplayAnimalId()}' has no enabled renderer. Falling back to the GLB model.");
+                return false;
+            }
+
+            var modelRoot = CreateModelRoot();
+            try
+            {
+                Instantiate(modelPrefab, modelRoot.transform, false);
+            }
+            catch (Exception exception)
+            {
+                DestroyOwnedObject(modelRoot);
+                Debug.LogWarning($"AnimalModelLoader: Rigged prefab for '{DisplayAnimalId()}' could not be instantiated ({exception.GetType().Name}). Falling back to the GLB model.");
+                return false;
+            }
+
+            if (!HasVisibleRenderer(modelRoot.transform))
+            {
+                DestroyOwnedObject(modelRoot);
+                Debug.LogWarning($"AnimalModelLoader: Rigged prefab for '{DisplayAnimalId()}' produced no visible renderer. Falling back to the GLB model.");
+                return false;
+            }
+
+            if (hideFallbackRendererWhenLoaderExists)
+            {
+                ShowFallbackRenderers(false);
+            }
+
+            return true;
+        }
+
+        private GameObject CreateModelRoot()
+        {
+            var modelRoot = new GameObject(ModelRootName);
+            modelRoot.transform.SetParent(transform, false);
+            modelRoot.transform.localPosition = modelLocalPosition;
+            modelRoot.transform.localEulerAngles = modelLocalRotation;
+            modelRoot.transform.localScale = modelLocalScale;
+            return modelRoot;
+        }
+
+        private static bool HasEnabledRenderer(Transform root)
+        {
+            if (root == null)
+            {
+                return false;
+            }
+
+            foreach (var rendererComponent in root.GetComponentsInChildren<Renderer>(true))
+            {
+                if (rendererComponent != null && rendererComponent.enabled)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static void DestroyOwnedObject(GameObject ownedObject)
+        {
+            if (ownedObject == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                Destroy(ownedObject);
+            }
+            else
+            {
+                DestroyImmediate(ownedObject);
+            }
         }
 
         private IEnumerator HideFallbackWhenModelHasRendered(Transform modelRoot)
@@ -221,6 +317,8 @@ namespace EndangeredAR.Models
 
                 if (Application.isPlaying)
                 {
+                    child.name = ModelRootName + " (Pending Destroy)";
+                    child.gameObject.SetActive(false);
                     Destroy(child.gameObject);
                 }
                 else
