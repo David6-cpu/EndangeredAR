@@ -25,8 +25,8 @@ Transform:
   m_GameObject: {fileID: 4021019420583115115}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.04082788, y: 0.2230721, z: -0.099638306}
-  m_LocalScale: {x: 89.27013, y: 89.27013, z: 89.27013}
+  m_LocalPosition: {x: 0.040827878, y: 0.22307211, z: -0.0996383}
+  m_LocalScale: {x: 89.27012, y: 89.27012, z: 89.27012}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 7284731206443689020}
@@ -41,6 +41,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2983181823912063501}
+  - component: {fileID: 5254901235286329243}
   m_Layer: 0
   m_Name: SensenRigged
   m_TagString: Untagged
@@ -64,6 +65,20 @@ Transform:
   - {fileID: 5481163621904706707}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5254901235286329243
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7371378112475257232}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b712a1cd849a54c6cbec7c047562f7f0, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  animator: {fileID: 3744950602060971590}
+  supportedAnimalId: sensen
 --- !u!1001 &7102784723276661719
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -113,7 +128,7 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -7811546481615063722, guid: cea7d820c0d8f463cbf19984de10d425, type: 3}
-      propertyPath: m_Materials.Array.data[0]
+      propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: ff0fc87c88de9457496e43599f7f8d67, type: 2}
     - target: {fileID: 919132149155446097, guid: cea7d820c0d8f463cbf19984de10d425, type: 3}
@@ -133,6 +148,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: cea7d820c0d8f463cbf19984de10d425, type: 3}
+--- !u!95 &3744950602060971590 stripped
+Animator:
+  m_CorrespondingSourceObject: {fileID: 5866666021909216657, guid: cea7d820c0d8f463cbf19984de10d425, type: 3}
+  m_PrefabInstance: {fileID: 7102784723276661719}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &7284731206443689020 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: cea7d820c0d8f463cbf19984de10d425, type: 3}

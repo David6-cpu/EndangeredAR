@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using EndangeredAR.Animals;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
@@ -262,6 +263,12 @@ namespace EndangeredAR.Editor
                         .OfType<Avatar>()
                         .FirstOrDefault(avatar => avatar.isValid);
                 }
+
+                var animationController = prefabRoot.AddComponent<AnimalModelController>();
+                var serializedAnimationController = new SerializedObject(animationController);
+                serializedAnimationController.FindProperty("animator").objectReferenceValue = animator;
+                serializedAnimationController.FindProperty("supportedAnimalId").stringValue = "sensen";
+                serializedAnimationController.ApplyModifiedPropertiesWithoutUndo();
 
                 var bounds = renderers[0].bounds;
                 if (bounds.size.y <= 0.0001f)

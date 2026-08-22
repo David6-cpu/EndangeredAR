@@ -28,6 +28,43 @@ namespace EndangeredAR.Models
 
         public string LoadedAnimalId => loadedAnimalId;
 
+        public bool TryGetCurrentModelController(out AnimalModelController controller)
+        {
+            controller = null;
+            if (string.IsNullOrWhiteSpace(loadedAnimalId))
+            {
+                return false;
+            }
+
+            var currentRoot = transform.Find(ModelRootName);
+            if (currentRoot == null ||
+                currentRoot.name != ModelRootName ||
+                !currentRoot.gameObject.activeInHierarchy)
+            {
+                return false;
+            }
+
+            var candidate = currentRoot.GetComponentInChildren<AnimalModelController>(false);
+            if (candidate == null ||
+                !candidate.gameObject.activeInHierarchy ||
+                !candidate.transform.IsChildOf(currentRoot) ||
+                !string.Equals(candidate.SupportedAnimalId, loadedAnimalId, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            var candidateAnimator = candidate.Animator;
+            if (candidateAnimator == null ||
+                !candidateAnimator.gameObject.activeInHierarchy ||
+                !candidateAnimator.transform.IsChildOf(currentRoot))
+            {
+                return false;
+            }
+
+            controller = candidate;
+            return true;
+        }
+
         private void Start()
         {
             DisableLegacyDemoPlacement();
