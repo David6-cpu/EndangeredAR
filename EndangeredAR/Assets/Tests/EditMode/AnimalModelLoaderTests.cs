@@ -76,6 +76,143 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
+        public void Configure_CopiesOptionalRiggedPrefabWithoutChangingTheHost()
+        {
+            var definition = CreateDefinition(
+                "sensen",
+                "Models/Sensen/sensen.glb",
+                "Models/Sensen/sensen_basecolor.png",
+                Vector3.zero,
+                Vector3.zero,
+                Vector3.one);
+            var riggedPrefab = new GameObject("Rigged Candidate");
+            var host = new GameObject("Animal Host");
+
+            try
+            {
+                SetDefinitionPrefab(definition, riggedPrefab);
+                var loader = AddGenericLoader(host);
+                Configure(loader, definition);
+
+                var serializedLoader = new SerializedObject(loader);
+                var modelPrefab = serializedLoader.FindProperty("modelPrefab");
+                Assert.That(modelPrefab, Is.Not.Null, "AnimalModelLoader needs an optional modelPrefab field.");
+                Assert.That(modelPrefab.objectReferenceValue, Is.SameAs(riggedPrefab));
+                Assert.That(host.transform.childCount, Is.Zero,
+                    "EditMode configuration must not instantiate product content before Play Mode.");
+            }
+            finally
+            {
+                Destroy(definition, riggedPrefab, host);
+            }
+        }
+
+        [Test]
+        public void LoadModel_ValidRiggedPrefabIsPreferredOverMissingGlb()
+        {
+            var definition = CreateDefinition(
+                "sensen",
+                "Models/Test/MissingAnimal.glb",
+                string.Empty,
+                Vector3.zero,
+                new Vector3(1f, 2f, 3f),
+                new Vector3(1.2f, 1.2f, 1.2f));
+            var riggedPrefab = new GameObject("Rigged Candidate");
+            riggedPrefab.AddComponent<MeshRenderer>();
+            var host = new GameObject("Animal Host");
+            var fallback = host.AddComponent<MeshRenderer>();
+
+            try
+            {
+                SetDefinitionPrefab(definition, riggedPrefab);
+                var loader = AddGenericLoader(host);
+                Configure(loader, definition);
+
+                var loadRoutine = InvokeLoadModel(loader);
+
+                Assert.That(loadRoutine.MoveNext(), Is.False);
+                var runtimeRoot = host.transform.Find("Animal GLB Runtime Root");
+                Assert.That(runtimeRoot, Is.Not.Null);
+                Assert.That(runtimeRoot.localPosition, Is.EqualTo(definition.ModelLocalOffset));
+                Assert.That(runtimeRoot.localScale, Is.EqualTo(definition.ModelScale));
+                Assert.That(runtimeRoot.Find("Rigged Candidate(Clone)"), Is.Not.Null);
+                Assert.That(fallback.enabled, Is.False);
+                Assert.That(host.GetComponent<AnimalGestureController>(), Is.Not.Null);
+            }
+            finally
+            {
+                Destroy(definition, riggedPrefab, host);
+            }
+        }
+
+        [Test]
+        public void BeginLoad_WhenRiggedPrefabIsAlreadyLoaded_DoesNotRestoreFallbackRenderer()
+        {
+            var definition = CreateDefinition(
+                "sensen",
+                "Models/Test/MissingAnimal.glb",
+                string.Empty,
+                Vector3.zero,
+                Vector3.zero,
+                Vector3.one);
+            var riggedPrefab = new GameObject("Rigged Candidate");
+            riggedPrefab.AddComponent<MeshRenderer>();
+            var host = new GameObject("Animal Host");
+            var fallback = host.AddComponent<MeshRenderer>();
+
+            try
+            {
+                SetDefinitionPrefab(definition, riggedPrefab);
+                var loader = AddGenericLoader(host);
+                Configure(loader, definition);
+                Assert.That(InvokeLoadModel(loader).MoveNext(), Is.False);
+                Assert.That(fallback.enabled, Is.False);
+
+                InvokePrivate(loader, "BeginLoad");
+
+                Assert.That(fallback.enabled, Is.False,
+                    "A redundant lifecycle load must not reveal the capsule after the rigged prefab is already visible.");
+            }
+            finally
+            {
+                Destroy(definition, riggedPrefab, host);
+            }
+        }
+
+        [Test]
+        public void LoadModel_RiggedPrefabWithoutRendererFallsBackToGlbPath()
+        {
+            var definition = CreateDefinition(
+                "sensen",
+                "Models/Test/MissingAnimal.glb",
+                string.Empty,
+                Vector3.zero,
+                Vector3.zero,
+                Vector3.one);
+            var invalidPrefab = new GameObject("Invalid Rigged Candidate");
+            var host = new GameObject("Animal Host");
+            var fallback = host.AddComponent<MeshRenderer>();
+            fallback.enabled = false;
+
+            try
+            {
+                SetDefinitionPrefab(definition, invalidPrefab);
+                var loader = AddGenericLoader(host);
+                Configure(loader, definition);
+
+                var loadRoutine = InvokeLoadModel(loader);
+
+                Assert.That(loadRoutine.MoveNext(), Is.False);
+                Assert.That(host.transform.Find("Animal GLB Runtime Root"), Is.Null);
+                Assert.That(fallback.enabled, Is.True);
+            }
+            finally
+            {
+                Destroy(definition, invalidPrefab, host);
+            }
+        }
+
+        [Test]
         public void Configure_MissingModelLeavesFallbackRendererEnabled()
         {
             var definition = CreateDefinition(
@@ -207,6 +344,29 @@ namespace EndangeredAR.Tests.EditMode
             var property = loader.GetType().GetProperty("LoadedAnimalId");
             Assert.That(property, Is.Not.Null, "AnimalModelLoader must expose LoadedAnimalId.");
             return (string)property.GetValue(loader);
+        }
+
+        private static IEnumerator InvokeLoadModel(Component loader)
+        {
+            var loadModel = loader.GetType().GetMethod("LoadModel", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(loadModel, Is.Not.Null, "AnimalModelLoader must retain its private load coroutine.");
+            return (IEnumerator)loadModel.Invoke(loader, null);
+        }
+
+        private static void InvokePrivate(Component component, string methodName)
+        {
+            var method = component.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null, $"AnimalModelLoader must retain its private {methodName} method.");
+            method.Invoke(component, null);
+        }
+
+        private static void SetDefinitionPrefab(AnimalDefinition definition, GameObject prefab)
+        {
+            var serializedDefinition = new SerializedObject(definition);
+            var modelPrefab = serializedDefinition.FindProperty("modelPrefab");
+            Assert.That(modelPrefab, Is.Not.Null, "AnimalDefinition needs an optional modelPrefab field.");
+            modelPrefab.objectReferenceValue = prefab;
+            serializedDefinition.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static void SetStreamingAssetPath(Component loader, string path)

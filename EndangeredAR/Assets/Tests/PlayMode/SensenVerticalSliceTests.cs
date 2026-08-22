@@ -191,6 +191,30 @@ namespace EndangeredAR.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator ManualScan_ReconfigurationKeepsRiggedRendererVisibleAndFallbackHidden()
+        {
+            yield return LoadDemoScene();
+
+            var scanner = FindSingle<ARImageScanController>();
+            var modelLoader = FindSingle<AnimalModelLoader>();
+            var fallback = modelLoader.GetComponent<Renderer>();
+
+            scanner.SimulateMarkerDetected("sensen");
+            yield return null;
+            yield return null;
+
+            var runtimeRoot = modelLoader.transform.Find("Animal GLB Runtime Root");
+            Assert.That(runtimeRoot, Is.Not.Null);
+            var riggedRenderer = runtimeRoot.GetComponentInChildren<SkinnedMeshRenderer>(true);
+            Assert.That(riggedRenderer, Is.Not.Null);
+            Assert.That(riggedRenderer.enabled, Is.True,
+                "The scan flow configures the selected animal twice; the second load must not disable the new rigged renderer.");
+            Assert.That(riggedRenderer.gameObject.activeInHierarchy, Is.True);
+            Assert.That(fallback, Is.Not.Null);
+            Assert.That(fallback.enabled, Is.False);
+        }
+
+        [UnityTest]
         public IEnumerator NetworkUnavailable_LocalFallbackStillReturnsAnswer()
         {
             yield return LoadDemoScene();
