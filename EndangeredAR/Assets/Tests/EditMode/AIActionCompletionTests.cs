@@ -7,6 +7,7 @@ using EndangeredAR.Models;
 using EndangeredAR.Progress;
 using EndangeredAR.UI;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace EndangeredAR.Tests.EditMode
@@ -70,7 +71,7 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
-        public void Completion_ResponseAnimalMismatchAcceptsReplyButNeverExposesAction()
+        public void Completion_ResponseAnimalMismatchIsFilteredByPolicyAndNeverExposesAction()
         {
             var state = new ChatRequestState();
             var ticket = state.Begin("sensen");
@@ -80,7 +81,7 @@ namespace EndangeredAR.Tests.EditMode
 
             Assert.That(Resolve(state, ticket, true, loader, response, out _, out var action, out var validation), Is.True);
             Assert.That(action, Is.Null);
-            Assert.That(validation, Is.EqualTo(AIInteractionValidationResult.WrongAnimal));
+            Assert.That(validation, Is.EqualTo(AIInteractionValidationResult.NoAction));
         }
 
         [Test]
@@ -108,7 +109,7 @@ namespace EndangeredAR.Tests.EditMode
             var state = new ChatRequestState();
             var ticket = state.Begin("sensen");
             var loader = CreateLoader(out var controller);
-            SetPrivateField(controller, "requestPending", true);
+            SetPrivateField(controller, "pendingAction", AIAction.Taunt);
 
             Assert.That(Resolve(state, ticket, true, loader, TauntResponse(), out _, out var action, out var validation), Is.True);
             Assert.That(action, Is.Null);
@@ -153,7 +154,21 @@ namespace EndangeredAR.Tests.EditMode
                 out var action,
                 out var validation), Is.True);
             Assert.That(action, Is.Null);
-            Assert.That(validation, Is.EqualTo(AIInteractionValidationResult.InvalidIntent));
+            Assert.That(validation, Is.EqualTo(AIInteractionValidationResult.NoAction));
+        }
+
+        [Test]
+        public void Completion_UserIntentWithoutProviderSuggestionDoesNotCreateAnAction()
+        {
+            var state = new ChatRequestState();
+            var ticket = state.Begin("sensen");
+            var loader = CreateLoader(out _);
+            var response = TauntResponse();
+            response.ActionSuggestion = AIAction.None;
+
+            Assert.That(Resolve(state, ticket, true, loader, response, out _, out var action, out var validation), Is.True);
+            Assert.That(action, Is.Null);
+            Assert.That(validation, Is.EqualTo(AIInteractionValidationResult.NoAction));
         }
 
         [Test]
@@ -196,12 +211,18 @@ namespace EndangeredAR.Tests.EditMode
             loaderObject = new GameObject("Loader");
             var loader = loaderObject.AddComponent<AnimalModelLoader>();
             SetPrivateField(loader, "loadedAnimalId", "sensen");
+            SetPrivateField(
+                loader,
+                "loadedCapabilities",
+                AssetDatabase.LoadAssetAtPath<CharacterCapabilityProfile>("Assets/Resources/Animals/SensenCapabilities.asset"));
 
             modelRoot = new GameObject("Animal GLB Runtime Root");
             modelRoot.transform.SetParent(loader.transform, false);
             var model = new GameObject("Rigged Sensen");
             model.transform.SetParent(modelRoot.transform, false);
             var animator = model.AddComponent<Animator>();
+            animator.runtimeAnimatorController = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(
+                "Assets/Animations/Sensen/SensenRigged.controller");
             controller = model.AddComponent<AnimalModelController>();
             SetPrivateField(controller, "animator", animator);
             return loader;

@@ -25,6 +25,45 @@ namespace EndangeredAR.AI
 
     internal static class AIActionPolicy
     {
+        public static AIAction SelectDeterministicIntent(string userMessage, string animalId)
+        {
+            var action = AIActionIntent.Resolve(userMessage);
+            if (!AIActionProtocol.IsExecutable(action))
+            {
+                return AIAction.None;
+            }
+
+            return Select(
+                new[]
+                {
+                    new AIActionCandidate(action, AIActionCandidateSource.DeterministicUserIntent, animalId)
+                },
+                animalId);
+        }
+
+        public static AIAction SelectProviderSuggestion(
+            AIAction suggestedAction,
+            string originalUserMessage,
+            string responseAnimalId,
+            string currentAnimalId)
+        {
+            var deterministicAction = AIActionIntent.Resolve(originalUserMessage);
+            if (suggestedAction != deterministicAction || !AIActionProtocol.IsExecutable(suggestedAction))
+            {
+                return AIAction.None;
+            }
+
+            return Select(
+                new[]
+                {
+                    new AIActionCandidate(
+                        suggestedAction,
+                        AIActionCandidateSource.DeterministicUserIntent,
+                        responseAnimalId)
+                },
+                currentAnimalId);
+        }
+
         public static AIAction Select(IReadOnlyList<AIActionCandidate> candidates, string expectedAnimalId)
         {
             if (candidates == null || string.IsNullOrWhiteSpace(expectedAnimalId))

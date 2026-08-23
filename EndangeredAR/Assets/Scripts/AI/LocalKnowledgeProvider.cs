@@ -38,7 +38,9 @@ namespace EndangeredAR.AI
                 suggestedQuestions = answer.SuggestedQuestions,
                 answerMode = answer.AnswerMode,
                 evidenceStatus = answer.EvidenceStatus,
-                ActionSuggestion = AIActionIntent.Resolve(request == null ? null : request.message),
+                ActionSuggestion = AIActionPolicy.SelectDeterministicIntent(
+                    request == null ? null : request.message,
+                    request == null ? null : request.animalId),
                 citations = ResolveCitations(request == null ? null : request.knowledgeProfile, answer.SourceIds)
             });
         }

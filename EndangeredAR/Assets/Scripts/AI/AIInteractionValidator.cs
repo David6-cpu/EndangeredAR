@@ -10,7 +10,6 @@ namespace EndangeredAR.AI
         Allowed,
         NoAction,
         UnsupportedAction,
-        InvalidIntent,
         MissingCapabilityProfile,
         CapabilityDenied,
         ControllerUnsupported,
@@ -26,7 +25,6 @@ namespace EndangeredAR.AI
     {
         public static AIInteractionValidationResult Validate(
             AIAction action,
-            string originalUserMessage,
             string responseAnimalId,
             string currentAnimalId,
             ChatRequestState requestState,
@@ -44,11 +42,6 @@ namespace EndangeredAR.AI
             if (!AIActionProtocol.IsExecutable(action))
             {
                 return AIInteractionValidationResult.UnsupportedAction;
-            }
-
-            if (AIActionIntent.Resolve(originalUserMessage) != action)
-            {
-                return AIInteractionValidationResult.InvalidIntent;
             }
 
             if (requestState == null || !requestState.CanComplete(requestTicket, currentAnimalId))

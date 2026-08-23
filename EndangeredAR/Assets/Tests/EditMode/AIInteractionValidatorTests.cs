@@ -35,7 +35,6 @@ namespace EndangeredAR.Tests.EditMode
 
             var result = AIInteractionValidator.Validate(
                 AIAction.Taunt,
-                "森森，给我表演一下",
                 "sensen",
                 "sensen",
                 state,
@@ -57,9 +56,9 @@ namespace EndangeredAR.Tests.EditMode
             var ticket = state.Begin("sensen");
             var loader = CreateLoaderWithController(out _);
 
-            Assert.That(Validate(AIAction.None, "做个动作", state, ticket, loader),
+            Assert.That(Validate(AIAction.None, state, ticket, loader),
                 Is.EqualTo(AIInteractionValidationResult.NoAction));
-            Assert.That(Validate((AIAction)999, "做个动作", state, ticket, loader),
+            Assert.That(Validate((AIAction)999, state, ticket, loader),
                 Is.EqualTo(AIInteractionValidationResult.UnsupportedAction));
         }
 
@@ -71,7 +70,7 @@ namespace EndangeredAR.Tests.EditMode
             var loader = CreateLoaderWithController(out _);
             SetPrivateField(loader, "loadedCapabilities", null);
 
-            var result = Validate(AIAction.Taunt, "做个动作", state, ticket, loader);
+            var result = Validate(AIAction.Taunt, state, ticket, loader);
 
             Assert.That(result, Is.EqualTo(AIInteractionValidationResult.MissingCapabilityProfile));
         }
@@ -85,7 +84,7 @@ namespace EndangeredAR.Tests.EditMode
             SetPrivateField(loader, "loadedCapabilities", CreateProfile());
 
             Assert.That(controller.SupportsAction(AIAction.Taunt), Is.True);
-            var result = Validate(AIAction.Taunt, "做个动作", state, ticket, loader);
+            var result = Validate(AIAction.Taunt, state, ticket, loader);
 
             Assert.That(result, Is.EqualTo(AIInteractionValidationResult.CapabilityDenied));
         }
@@ -102,7 +101,7 @@ namespace EndangeredAR.Tests.EditMode
 
             Assert.That(loader.LoadedCapabilities.Supports(AIAction.Taunt), Is.True);
             Assert.That(controller.SupportsAction(AIAction.Taunt), Is.False);
-            var result = Validate(AIAction.Taunt, "做个动作", state, ticket, loader);
+            var result = Validate(AIAction.Taunt, state, ticket, loader);
 
             Assert.That(result, Is.EqualTo(AIInteractionValidationResult.ControllerUnsupported));
         }
@@ -115,7 +114,7 @@ namespace EndangeredAR.Tests.EditMode
             state.Invalidate();
             var loader = CreateLoaderWithController(out _);
 
-            var result = Validate(AIAction.Taunt, "做个动作", state, ticket, loader);
+            var result = Validate(AIAction.Taunt, state, ticket, loader);
 
             Assert.That(result, Is.EqualTo(AIInteractionValidationResult.StaleRequest));
         }
@@ -129,7 +128,6 @@ namespace EndangeredAR.Tests.EditMode
 
             var result = AIInteractionValidator.Validate(
                 AIAction.Taunt,
-                "做个动作",
                 "other-animal",
                 "sensen",
                 state,
@@ -150,7 +148,6 @@ namespace EndangeredAR.Tests.EditMode
 
             var result = AIInteractionValidator.Validate(
                 AIAction.Taunt,
-                "做个动作",
                 "red-panda",
                 "red-panda",
                 state,
@@ -171,7 +168,6 @@ namespace EndangeredAR.Tests.EditMode
 
             var result = AIInteractionValidator.Validate(
                 AIAction.Taunt,
-                "做个动作",
                 "sensen",
                 "sensen",
                 state,
@@ -196,7 +192,7 @@ namespace EndangeredAR.Tests.EditMode
             createdObjects.Add(root);
             root.transform.SetParent(loader.transform, false);
 
-            var result = Validate(AIAction.Taunt, "做个动作", state, ticket, loader);
+            var result = Validate(AIAction.Taunt, state, ticket, loader);
 
             Assert.That(result, Is.EqualTo(AIInteractionValidationResult.NoActiveModel));
         }
@@ -209,7 +205,7 @@ namespace EndangeredAR.Tests.EditMode
             var loader = CreateLoaderWithController(out var controller);
             SetPrivateField(controller, "pendingAction", AIAction.Taunt);
 
-            var result = Validate(AIAction.Taunt, "做个动作", state, ticket, loader);
+            var result = Validate(AIAction.Taunt, state, ticket, loader);
 
             Assert.That(result, Is.EqualTo(AIInteractionValidationResult.Busy));
             Assert.That(controller.IsBusy, Is.True);
@@ -217,14 +213,12 @@ namespace EndangeredAR.Tests.EditMode
 
         private AIInteractionValidationResult Validate(
             AIAction action,
-            string message,
             ChatRequestState state,
             ChatRequestTicket ticket,
             AnimalModelLoader loader)
         {
             return AIInteractionValidator.Validate(
                 action,
-                message,
                 "sensen",
                 "sensen",
                 state,

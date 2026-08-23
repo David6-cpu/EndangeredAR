@@ -1845,9 +1845,13 @@ namespace EndangeredAR.UI
             out ValidatedAIAction validatedAction,
             out AIInteractionValidationResult validationResult)
         {
-            validationResult = AIInteractionValidator.Validate(
+            var selectedAction = AIActionPolicy.SelectProviderSuggestion(
                 response == null ? AIAction.None : response.ActionSuggestion,
                 userMessage,
+                response?.animalId,
+                currentAnimalId);
+            validationResult = AIInteractionValidator.Validate(
+                selectedAction,
                 response?.animalId,
                 currentAnimalId,
                 requestState,
@@ -1871,7 +1875,7 @@ namespace EndangeredAR.UI
 
             if (validationResult == AIInteractionValidationResult.Allowed && animationController != null)
             {
-                validatedAction = new ValidatedAIAction(response.ActionSuggestion, animationController);
+                validatedAction = new ValidatedAIAction(selectedAction, animationController);
             }
 
             return true;
