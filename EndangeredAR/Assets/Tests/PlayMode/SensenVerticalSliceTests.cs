@@ -495,6 +495,33 @@ namespace EndangeredAR.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator AICompletion_WrongAnimalResponseNeverTriggersCurrentAnimal()
+        {
+            yield return LoadDemoScene();
+
+            var scanner = FindSingle<ARImageScanController>();
+            var loader = FindSingle<AnimalModelLoader>();
+            var appController = FindSingle<DemoAppController>();
+            scanner.SimulateMarkerDetected("sensen");
+            yield return null;
+            yield return null;
+            InvokePrivate(appController, "EnterModelView");
+            Assert.That(loader.TryGetCurrentModelController(out var animationController), Is.True);
+
+            var requestState = (ChatRequestState)GetPrivateField(appController, "chatRequestState");
+            var history = (System.Collections.Generic.List<ChatMessage>)GetPrivateField(appController, "chatHistory");
+            var historyCount = history.Count;
+            var ticket = requestState.Begin("sensen");
+            var response = TauntResponse();
+            response.animalId = "other-animal";
+            InvokePrivate(appController, "FinishCloudAnswer", ticket, "做个动作", response);
+
+            Assert.That(animationController.IsBusy, Is.False);
+            Assert.That(history, Has.Count.EqualTo(historyCount + 2),
+                "An action mismatch must not turn a valid chat completion into a UI failure.");
+        }
+
+        [UnityTest]
         public IEnumerator AICompletion_BusyTauntAcceptsReplyWithoutQueuingSecondAction()
         {
             yield return LoadDemoScene();
