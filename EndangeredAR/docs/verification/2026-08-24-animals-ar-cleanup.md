@@ -85,7 +85,7 @@ The current product chain is:
 
 | Metric | Before | After |
 | --- | ---: | ---: |
-| Git tracked files | 469 | 365 |
+| Git tracked files | 469 | 367 including cleanup docs |
 | `EndangeredAR/Assets` file count | 406 | 302 |
 | C# script count | 51 | 51 |
 | Unity scene count | 1 | 1 |
@@ -124,18 +124,150 @@ The current product chain is:
 - `git check-ignore -v .env.local .local-models/qwen2.5-1.5b-instruct-q4_k_m.gguf .DS_Store`
   - Result: `.env.local`, `.local-models`, and `.DS_Store` are ignored by `.gitignore`.
 
-### Unity Environment
+### Unity Environment and Batch Validation
 
-- Attempted command:
-  - `/Applications/Unity/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/MacOS/Unity -batchmode -nographics -projectPath /Users/yuanweijie/Documents/animalsAR/EndangeredAR -runTests -testPlatform EditMode -testResults /tmp/endangeredar-cleanup-baseline-editmode.xml -logFile /tmp/endangeredar-cleanup-baseline-editmode.log`
-- Result:
-  - Failed before project load: Unity executable was not present at that path.
-- Follow-up checks:
-  - `find /Applications/Unity/Hub/Editor -maxdepth 4 -type f -name Unity -print`
-  - `mdfind 'kMDItemFSName == "Unity" && kMDItemContentType == "public.unix-executable"'`
-  - Result: no Unity executable found in this environment.
+- Required Unity version: `2022.3.62f3c1`
+- Found executable: `/Applications/Unity-2022.3.72f1/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/MacOS/Unity`
+- Version check: `/Applications/Unity-2022.3.72f1/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/MacOS/Unity -version`
+  - Result: `2022.3.62f3c1`
+- Other installed Unity versions were found but were not used:
+  - `/Applications/Unity-2022.3.72f1/Unity.app/Contents/MacOS/Unity` -> `2022.3.72f1`
+  - `/Applications/Unity/Unity.app/Contents/MacOS/Unity` -> `6000.0.76f1`
 
-Because Unity Editor is unavailable here, C# compilation, Unity Console, EditMode, PlayMode, Build Settings import validation, missing-script UI inspection, material/Animator inspection, and iOS build validation must be performed in Unity on a machine with Unity `2022.3.62f3c1` installed.
+#### Pre-Validation State
+
+- `git branch --show-current`
+  - Result: `codex/animals-ar-project-cleanup`
+- `git rev-parse HEAD`
+  - Result: `e10053877ec0c213a012d5c74a573dffa3c8785b`
+- `git status --short --branch`
+  - Result: clean branch tracking `origin/codex/animals-ar-project-cleanup`
+- `git diff --stat`
+  - Result: no diff
+- `ProjectVersion.txt`
+  - Result: `2022.3.62f3c1 (1623fc0bbb97)`
+- `manifest.json` dependency count
+  - Result: 38
+
+#### First Import Attempt
+
+Command:
+
+```bash
+/Applications/Unity-2022.3.72f1/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/MacOS/Unity \
+  -batchmode -nographics -quit \
+  -projectPath /Users/yuanweijie/Documents/animalsAR/EndangeredAR \
+  -logFile /tmp/endangeredar-cleanup-import.log
+```
+
+Result:
+
+- Exit code: 199
+- Failure stage: before project import, Unity LicensingClient IPC timeout.
+- Key log line: `IPC channel to LicensingClient doesn't exist; aborting`
+
+#### Escalated Import Attempt
+
+Command:
+
+```bash
+/Applications/Unity-2022.3.72f1/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/MacOS/Unity \
+  -batchmode -nographics -quit \
+  -projectPath /Users/yuanweijie/Documents/animalsAR/EndangeredAR \
+  -logFile /tmp/endangeredar-cleanup-import-escalated.log
+```
+
+Result:
+
+- Exit code: 1
+- Licensing succeeded after escalation.
+- Package Manager resolved packages in 3.90 seconds and registered 45 packages.
+- Unity rebuilt `Library` because it had been removed as ignored generated data.
+- C# compilation failed before scene/test execution.
+- Error count from `rg -c "error CS"`: 1770.
+- Warning count from `rg -c "warning|Warning"`: 2.
+
+Representative errors:
+
+- `Assets/Scripts/Models/AnimalModelLoader.cs(5,7): error CS0246: The type or namespace name 'GLTFast' could not be found`
+- `Library/PackageCache/com.unity.visualscripting@1.9.4/...: error CS0246`
+- `Library/PackageCache/com.unity.collections@1.2.4/...: error CS0246`
+
+#### Import Retry
+
+Command:
+
+```bash
+/Applications/Unity-2022.3.72f1/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/MacOS/Unity \
+  -batchmode -nographics -quit \
+  -projectPath /Users/yuanweijie/Documents/animalsAR/EndangeredAR \
+  -logFile /tmp/endangeredar-cleanup-import-retry.log
+```
+
+Result:
+
+- Exit code: 1
+- C# compilation still failed.
+- Error count from `rg -c "error CS"`: 1515.
+- Warning count from `rg -c "warning|Warning"`: 2.
+- The compile failures are package/reference failures in `Library/PackageCache` plus the project reference to `GLTFast`. They do not reference deleted `Assets/Art`, `Animal02`, `Animal03`, `SensenImageLibrary`, or the non-Resources marker.
+
+#### EditMode and PlayMode
+
+EditMode and PlayMode tests were not executed because the import/compile gate failed first with `Scripts have compiler errors.` No XML test result files were produced for this Unity validation phase.
+
+#### Console and Reference Checks
+
+- Package resolution: completed; 45 packages registered.
+- C# compile: failed.
+- `DemoScene` static missing-script scan:
+  - `rg -n "m_Script: \\{fileID: 0|The referenced script|associated script cannot be loaded" EndangeredAR/Assets/Scenes/DemoScene.unity`
+  - Result: no matches in `DemoScene`.
+- Broader static scan:
+  - Matches exist only in XR Simulation package-backed assets:
+    - `Assets/XR/UserSimulationSettings/Resources/XRSimulationPreferences.asset`
+    - `Assets/XR/UserSimulationSettings/SimulationEnvironmentAssetsManager.asset`
+    - `Assets/XR/Resources/XRSimulationRuntimeSettings.asset`
+- Deleted-resource runtime reference scan:
+  - `rg -n "Animal02|animal_02|Assets/Art|SensenImageLibrary|Assets/Markers" EndangeredAR/Assets README.md || true`
+  - Result: no matches.
+- Required Sensen files exist:
+  - `Assets/Resources/Animals/Sensen.asset`
+  - `Assets/Resources/Animals/SensenKnowledge.asset`
+  - `Assets/Resources/Animals/SensenMission.asset`
+  - `Assets/StreamingAssets/Models/Sensen/sensen.glb`
+  - `Assets/StreamingAssets/Models/Sensen/sensen_basecolor.png`
+  - `Assets/Config/SensenPlaceholder.mat`
+  - `Assets/Resources/Markers/sensen_marker.png`
+  - `Assets/Resources/UI/**`: 43 PNGs
+
+#### Smoke Test Status
+
+Editor smoke tests were not run because Unity cannot enter Play Mode while scripts have compiler errors. The following remain unverified in Editor:
+
+- Main page load
+- Bottom navigation
+- Scan page entry
+- Camera fallback behavior
+- Simulated Sensen recognition
+- GLB render/material result
+- Rotation and zoom interactions
+- AI chat page and local knowledge fallback
+- Mission page
+- Learning content
+- User center
+- Share card / PNG generation
+
+#### Manual Device Items
+
+Still require iOS/device validation after Unity compilation is restored:
+
+- Real iOS camera permissions and aspect/orientation
+- Real touch rotation and pinch
+- Sensen material/texture rendering on device
+- Save/share PNG path
+- Relaunch persistence
+- Device Console cleanliness
 
 ### Independent Review
 
@@ -152,11 +284,15 @@ No packages were removed or upgraded. `manifest.json` remains at 38 dependencies
 
 - `340fbf81 chore: remove obsolete animals ar assets`
   - Deletes high-confidence obsolete/duplicate assets and updates README current boundary.
-- Documentation commit: created after this report is committed.
+- `e1005387 docs: document animals ar cleanup`
+  - Documents cleanup scope, verification gates, and merge constraints.
+- Unity validation report update: created after this report is committed.
 
 ## Merge Recommendation
 
-This branch is suitable for review after Unity Editor validation is run on a Unity-installed machine. Merge only after:
+Do not merge yet. The cleanup branch has not passed Unity import/compile, EditMode, PlayMode, scene reference, or MVP smoke validation in this phase. The observed failure is not tied to the deleted cleanup assets, but the branch still needs a successful Unity validation gate before PR/merge.
+
+Create a PR only after:
 
 1. Unity `2022.3.62f3c1` opens `EndangeredAR/` without new Console errors.
 2. EditMode tests pass.
