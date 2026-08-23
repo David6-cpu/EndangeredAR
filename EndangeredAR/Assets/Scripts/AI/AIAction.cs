@@ -12,6 +12,11 @@ namespace EndangeredAR.AI
 
     internal static class AIActionProtocol
     {
+        public static bool IsExecutable(AIAction action)
+        {
+            return action == AIAction.Taunt;
+        }
+
         public static AIAction Parse(string rawValue)
         {
             return string.Equals(rawValue, "taunt", StringComparison.Ordinal)
