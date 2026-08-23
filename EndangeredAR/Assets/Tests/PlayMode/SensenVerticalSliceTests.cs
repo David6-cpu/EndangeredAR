@@ -382,21 +382,23 @@ namespace EndangeredAR.Tests.PlayMode
             var riggedRootPosition = controller.transform.localPosition;
             var riggedRootRotation = controller.transform.localRotation;
             var riggedRootScale = controller.transform.localScale;
-            Assert.That(controller.TryPlayTaunt(), Is.EqualTo(TauntRequestResult.Played));
-            Assert.That(controller.TryPlayTaunt(), Is.EqualTo(TauntRequestResult.Busy),
+            Assert.That(controller.TryPlayAction(AIAction.Taunt), Is.EqualTo(ActionRequestResult.Played));
+            Assert.That(controller.CurrentAction, Is.EqualTo(AIAction.Taunt));
+            Assert.That(controller.TryPlayAction(AIAction.Taunt), Is.EqualTo(ActionRequestResult.Busy),
                 "A same-frame second click must not leave another Trigger queued.");
 
             yield return WaitForAnimatorTransition(animator, 2f);
-            Assert.That(controller.TryPlayTaunt(), Is.EqualTo(TauntRequestResult.Busy));
+            Assert.That(controller.TryPlayAction(AIAction.Taunt), Is.EqualTo(ActionRequestResult.Busy));
             yield return WaitForAnimatorState(animator, "Taunt", 2f);
-            Assert.That(controller.TryPlayTaunt(), Is.EqualTo(TauntRequestResult.Busy));
+            Assert.That(controller.TryPlayAction(AIAction.Taunt), Is.EqualTo(ActionRequestResult.Busy));
             yield return WaitUntilNotBusy(controller, 5f);
 
             Assert.That(controller.CurrentStateLabel, Is.EqualTo("Idle"));
+            Assert.That(controller.CurrentAction, Is.EqualTo(AIAction.None));
             Assert.That(Vector3.Distance(controller.transform.localPosition, riggedRootPosition), Is.LessThan(0.0001f));
             Assert.That(Quaternion.Angle(controller.transform.localRotation, riggedRootRotation), Is.LessThan(0.01f));
             Assert.That(Vector3.Distance(controller.transform.localScale, riggedRootScale), Is.LessThan(0.0001f));
-            Assert.That(controller.TryPlayTaunt(), Is.EqualTo(TauntRequestResult.Played),
+            Assert.That(controller.TryPlayTaunt(), Is.EqualTo(ActionRequestResult.Played),
                 "A fresh Taunt should be accepted after the previous action returns to Idle.");
         }
 
@@ -536,7 +538,7 @@ namespace EndangeredAR.Tests.PlayMode
             Assert.That(loader.TryGetCurrentModelController(out var animationController), Is.True);
             var animator = animationController.GetComponentInChildren<Animator>(true);
             yield return WaitForAnimatorState(animator, "Idle", 2f);
-            Assert.That(animationController.TryPlayTaunt(), Is.EqualTo(TauntRequestResult.Played));
+            Assert.That(animationController.TryPlayAction(AIAction.Taunt), Is.EqualTo(ActionRequestResult.Played));
 
             var history = (System.Collections.Generic.List<ChatMessage>)GetPrivateField(appController, "chatHistory");
             var historyCount = history.Count;
@@ -584,19 +586,21 @@ namespace EndangeredAR.Tests.PlayMode
             var controller = root.AddComponent<AnimalModelController>();
             try
             {
-                Assert.That(controller.TryPlayTaunt(), Is.EqualTo(TauntRequestResult.MissingAnimator));
+                Assert.That(controller.TryPlayAction(AIAction.None), Is.EqualTo(ActionRequestResult.UnsupportedAction));
+                Assert.That(controller.TryPlayAction((AIAction)999), Is.EqualTo(ActionRequestResult.UnsupportedAction));
+                Assert.That(controller.TryPlayAction(AIAction.Taunt), Is.EqualTo(ActionRequestResult.MissingAnimator));
 
                 root.SetActive(false);
-                Assert.That(controller.TryPlayTaunt(), Is.EqualTo(TauntRequestResult.Inactive));
+                Assert.That(controller.TryPlayAction(AIAction.Taunt), Is.EqualTo(ActionRequestResult.Inactive));
                 root.SetActive(true);
 
                 var animator = root.AddComponent<Animator>();
                 SetPrivateField(controller, "animator", animator);
                 SetPrivateField(controller, "supportedAnimalId", "another-animal");
-                Assert.That(controller.TryPlayTaunt(), Is.EqualTo(TauntRequestResult.UnsupportedAnimal));
+                Assert.That(controller.TryPlayAction(AIAction.Taunt), Is.EqualTo(ActionRequestResult.UnsupportedAnimal));
 
                 SetPrivateField(controller, "supportedAnimalId", "sensen");
-                Assert.That(controller.TryPlayTaunt(), Is.EqualTo(TauntRequestResult.InvalidControllerState));
+                Assert.That(controller.TryPlayAction(AIAction.Taunt), Is.EqualTo(ActionRequestResult.InvalidControllerState));
             }
             finally
             {

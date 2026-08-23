@@ -1,4 +1,5 @@
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
+using EndangeredAR.AI;
 using EndangeredAR.Animals;
 using EndangeredAR.Models;
 using EndangeredAR.UI;
@@ -96,7 +97,7 @@ namespace EndangeredAR.Development
                 return;
             }
 
-            var result = controller.TryPlayTaunt();
+            var result = controller.TryPlayAction(AIAction.Taunt);
             resultText.text = "Result: " + result;
             RefreshStatus();
         }
@@ -109,7 +110,7 @@ namespace EndangeredAR.Development
             if (loader != null && loader.TryGetCurrentModelController(out var controller))
             {
                 animatorText.text = "Animator: " + controller.CurrentStateLabel;
-                tauntButton.interactable = controller.CanRequestTaunt;
+                tauntButton.interactable = controller.CanRequestAction(AIAction.Taunt);
                 return;
             }
 

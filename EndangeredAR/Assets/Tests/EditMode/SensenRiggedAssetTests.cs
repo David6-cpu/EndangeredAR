@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using EndangeredAR.AI;
 using EndangeredAR.Animals;
 using NUnit.Framework;
 using UnityEditor;
@@ -169,10 +170,34 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
-        public void AnimalModelController_ExposesOnlyTheFixedTauntRequestContract()
+        public void AnimalModelController_ExposesOnlyTheStronglyTypedActionContract()
         {
-            var resultType = Type.GetType("EndangeredAR.Animals.TauntRequestResult, EndangeredAR.Runtime");
-            Assert.That(resultType, Is.Not.Null, "The Taunt request result contract must exist in the runtime assembly.");
+            var resultType = Type.GetType("EndangeredAR.Animals.ActionRequestResult, EndangeredAR.Runtime");
+            Assert.That(resultType, Is.Not.Null, "The action request result contract must exist in the runtime assembly.");
+
+            var supportsAction = typeof(AnimalModelController).GetMethod(
+                "SupportsAction",
+                BindingFlags.Instance | BindingFlags.Public,
+                null,
+                new[] { typeof(AIAction) },
+                null);
+            Assert.That(supportsAction, Is.Not.Null);
+            Assert.That(supportsAction.ReturnType, Is.EqualTo(typeof(bool)));
+
+            var tryPlayAction = typeof(AnimalModelController).GetMethod(
+                "TryPlayAction",
+                BindingFlags.Instance | BindingFlags.Public,
+                null,
+                new[] { typeof(AIAction) },
+                null);
+            Assert.That(tryPlayAction, Is.Not.Null);
+            Assert.That(tryPlayAction.ReturnType, Is.EqualTo(resultType));
+
+            var currentAction = typeof(AnimalModelController).GetProperty(
+                "CurrentAction",
+                BindingFlags.Instance | BindingFlags.Public);
+            Assert.That(currentAction, Is.Not.Null);
+            Assert.That(currentAction.PropertyType, Is.EqualTo(typeof(AIAction)));
 
             var tryPlayTaunt = typeof(AnimalModelController).GetMethod(
                 "TryPlayTaunt",
@@ -203,6 +228,19 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(typeof(AnimalModelController).GetMethod("PlayHappy"), Is.Null);
             Assert.That(typeof(AnimalModelController).GetMethod("SetScale"), Is.Null,
                 "Scale remains owned by AnimalGestureController on the outer AR host.");
+        }
+
+        [Test]
+        public void RiggedPrefab_ControllerSupportsOnlyTheCurrentlyImplementedAction()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+            var controller = prefab.GetComponent<AnimalModelController>();
+
+            Assert.That(controller, Is.Not.Null);
+            Assert.That(controller.SupportsAction(AIAction.Taunt), Is.True);
+            Assert.That(controller.SupportsAction(AIAction.None), Is.False);
+            Assert.That(controller.SupportsAction((AIAction)999), Is.False);
+            Assert.That(controller.CurrentAction, Is.EqualTo(AIAction.None));
         }
 
         [Test]

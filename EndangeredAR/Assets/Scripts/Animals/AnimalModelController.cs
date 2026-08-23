@@ -1,13 +1,15 @@
+using EndangeredAR.AI;
 using UnityEngine;
 
 namespace EndangeredAR.Animals
 {
-    public enum TauntRequestResult
+    public enum ActionRequestResult
     {
         Played,
         Busy,
         Inactive,
         UnsupportedAnimal,
+        UnsupportedAction,
         MissingAnimator,
         InvalidControllerState
     }
@@ -23,12 +25,30 @@ namespace EndangeredAR.Animals
         private const float EnterTauntTimeoutSeconds = 1f;
         private const float TauntSafetyTimeoutSeconds = 6f;
 
-        private bool requestPending;
-        private bool observedTaunt;
+        private AIAction pendingAction;
+        private bool observedAction;
         private float requestStartedAt;
 
         public string SupportedAnimalId => supportedAnimalId;
-        public bool IsBusy => requestPending;
+        public bool IsBusy => pendingAction != AIAction.None;
+        public AIAction CurrentAction
+        {
+            get
+            {
+                if (IsBusy)
+                {
+                    return pendingAction;
+                }
+
+                if (CanInspectAnimator() &&
+                    animator.GetCurrentAnimatorStateInfo(0).fullPathHash == TauntStateHash)
+                {
+                    return AIAction.Taunt;
+                }
+
+                return AIAction.None;
+            }
+        }
 
         public bool IsAnimatorOwnedBy(Transform modelRoot)
         {
@@ -38,22 +58,29 @@ namespace EndangeredAR.Animals
                    animator.transform.IsChildOf(modelRoot);
         }
 
-        public bool CanRequestTaunt
-        {
-            get
-            {
-                if (!gameObject.activeInHierarchy ||
-                    !string.Equals(supportedAnimalId, "sensen", System.StringComparison.OrdinalIgnoreCase) ||
-                    requestPending ||
-                    !CanInspectAnimator() ||
-                    !HasTauntTrigger() ||
-                    animator.IsInTransition(0))
-                {
-                    return false;
-                }
+        public bool CanRequestTaunt => CanRequestAction(AIAction.Taunt);
 
-                return animator.GetCurrentAnimatorStateInfo(0).fullPathHash == IdleStateHash;
+        public bool SupportsAction(AIAction action)
+        {
+            return TryGetActionSpec(action, out var triggerHash, out _) &&
+                   string.Equals(supportedAnimalId, "sensen", System.StringComparison.OrdinalIgnoreCase) &&
+                   animator != null &&
+                   animator.runtimeAnimatorController != null &&
+                   HasTrigger(triggerHash);
+        }
+
+        public bool CanRequestAction(AIAction action)
+        {
+            if (!gameObject.activeInHierarchy ||
+                !SupportsAction(action) ||
+                IsBusy ||
+                !CanInspectAnimator() ||
+                animator.IsInTransition(0))
+            {
+                return false;
             }
+
+            return animator.GetCurrentAnimatorStateInfo(0).fullPathHash == IdleStateHash;
         }
 
         public string CurrentStateLabel
@@ -67,7 +94,7 @@ namespace EndangeredAR.Animals
 
                 if (animator.IsInTransition(0))
                 {
-                    return requestPending ? "Transition (Busy)" : "Transition";
+                    return IsBusy ? "Transition (Busy)" : "Transition";
                 }
 
                 var state = animator.GetCurrentAnimatorStateInfo(0);
@@ -78,62 +105,72 @@ namespace EndangeredAR.Animals
 
                 if (state.fullPathHash == IdleStateHash)
                 {
-                    return requestPending ? "Idle (Pending)" : "Idle";
+                    return IsBusy ? "Idle (Pending)" : "Idle";
                 }
 
                 return "Unknown";
             }
         }
 
-        public TauntRequestResult TryPlayTaunt()
+        public ActionRequestResult TryPlayTaunt()
         {
+            return TryPlayAction(AIAction.Taunt);
+        }
+
+        public ActionRequestResult TryPlayAction(AIAction action)
+        {
+            if (!TryGetActionSpec(action, out var triggerHash, out var stateHash))
+            {
+                return ActionRequestResult.UnsupportedAction;
+            }
+
             if (!gameObject.activeInHierarchy)
             {
-                return TauntRequestResult.Inactive;
+                return ActionRequestResult.Inactive;
             }
 
             if (!string.Equals(supportedAnimalId, "sensen", System.StringComparison.OrdinalIgnoreCase))
             {
-                return TauntRequestResult.UnsupportedAnimal;
+                return ActionRequestResult.UnsupportedAnimal;
             }
 
             if (animator == null)
             {
-                return TauntRequestResult.MissingAnimator;
+                return ActionRequestResult.MissingAnimator;
             }
 
-            if (!CanInspectAnimator() || !HasTauntTrigger())
+            if (!CanInspectAnimator() || !HasTrigger(triggerHash))
             {
-                return TauntRequestResult.InvalidControllerState;
+                return ActionRequestResult.InvalidControllerState;
             }
 
-            if (requestPending || animator.IsInTransition(0))
+            if (IsBusy || animator.IsInTransition(0))
             {
-                return TauntRequestResult.Busy;
+                return ActionRequestResult.Busy;
             }
 
             var state = animator.GetCurrentAnimatorStateInfo(0);
-            if (state.fullPathHash == TauntStateHash)
+            if (state.fullPathHash == stateHash)
             {
-                return TauntRequestResult.Busy;
+                return ActionRequestResult.Busy;
             }
 
             if (state.fullPathHash != IdleStateHash)
             {
-                return TauntRequestResult.InvalidControllerState;
+                return ActionRequestResult.InvalidControllerState;
             }
 
-            animator.ResetTrigger(TauntTriggerHash);
-            animator.SetTrigger(TauntTriggerHash);
-            requestPending = true;
-            observedTaunt = false;
+            animator.ResetTrigger(triggerHash);
+            animator.SetTrigger(triggerHash);
+            pendingAction = action;
+            observedAction = false;
             requestStartedAt = Time.unscaledTime;
-            return TauntRequestResult.Played;
+            return ActionRequestResult.Played;
         }
 
         private void Update()
         {
-            if (!requestPending)
+            if (!IsBusy)
             {
                 return;
             }
@@ -144,22 +181,28 @@ namespace EndangeredAR.Animals
                 return;
             }
 
-            var state = animator.GetCurrentAnimatorStateInfo(0);
-            if (state.fullPathHash == TauntStateHash)
+            if (!TryGetActionSpec(pendingAction, out var triggerHash, out var stateHash))
             {
-                observedTaunt = true;
+                ClearPendingRequest();
+                return;
             }
 
-            if (observedTaunt && !animator.IsInTransition(0) && state.fullPathHash == IdleStateHash)
+            var state = animator.GetCurrentAnimatorStateInfo(0);
+            if (state.fullPathHash == stateHash)
+            {
+                observedAction = true;
+            }
+
+            if (observedAction && !animator.IsInTransition(0) && state.fullPathHash == IdleStateHash)
             {
                 ClearPendingRequest();
                 return;
             }
 
             var elapsed = Time.unscaledTime - requestStartedAt;
-            if ((!observedTaunt && elapsed >= EnterTauntTimeoutSeconds) || elapsed >= TauntSafetyTimeoutSeconds)
+            if ((!observedAction && elapsed >= EnterTauntTimeoutSeconds) || elapsed >= TauntSafetyTimeoutSeconds)
             {
-                animator.ResetTrigger(TauntTriggerHash);
+                animator.ResetTrigger(triggerHash);
                 ClearPendingRequest();
             }
         }
@@ -183,11 +226,11 @@ namespace EndangeredAR.Animals
                    !animator.applyRootMotion;
         }
 
-        private bool HasTauntTrigger()
+        private bool HasTrigger(int triggerHash)
         {
             foreach (var parameter in animator.parameters)
             {
-                if (parameter.nameHash == TauntTriggerHash && parameter.type == AnimatorControllerParameterType.Trigger)
+                if (parameter.nameHash == triggerHash && parameter.type == AnimatorControllerParameterType.Trigger)
                 {
                     return true;
                 }
@@ -196,10 +239,25 @@ namespace EndangeredAR.Animals
             return false;
         }
 
+        private static bool TryGetActionSpec(AIAction action, out int triggerHash, out int stateHash)
+        {
+            switch (action)
+            {
+                case AIAction.Taunt:
+                    triggerHash = TauntTriggerHash;
+                    stateHash = TauntStateHash;
+                    return true;
+                default:
+                    triggerHash = 0;
+                    stateHash = 0;
+                    return false;
+            }
+        }
+
         private void ClearPendingRequest()
         {
-            requestPending = false;
-            observedTaunt = false;
+            pendingAction = AIAction.None;
+            observedAction = false;
             requestStartedAt = 0f;
         }
     }

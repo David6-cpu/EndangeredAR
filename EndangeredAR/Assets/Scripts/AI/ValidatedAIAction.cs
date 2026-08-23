@@ -15,10 +15,10 @@ namespace EndangeredAR.AI
 
         public AIAction Action { get; }
 
-        public bool TryExecute(out TauntRequestResult result)
+        public bool TryExecute(out ActionRequestResult result)
         {
-            result = TauntRequestResult.InvalidControllerState;
-            if (consumed || Action != AIAction.Taunt || controller == null)
+            result = ActionRequestResult.InvalidControllerState;
+            if (consumed || !AIActionProtocol.IsExecutable(Action) || controller == null)
             {
                 return false;
             }
@@ -26,7 +26,7 @@ namespace EndangeredAR.AI
             consumed = true;
             var currentController = controller;
             controller = null;
-            result = currentController.TryPlayTaunt();
+            result = currentController.TryPlayAction(Action);
             return true;
         }
     }
