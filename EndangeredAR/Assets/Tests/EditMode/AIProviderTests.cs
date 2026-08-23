@@ -117,6 +117,25 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(response.citations[0].sourceId, Is.EqualTo("iucn-2020-s-priam"));
         }
 
+        [TestCase("taunt", AIAction.Taunt)]
+        [TestCase("none", AIAction.None)]
+        [TestCase(null, AIAction.None)]
+        [TestCase("TAUNT", AIAction.None)]
+        [TestCase(" taunt", AIAction.None)]
+        [TestCase("taunt ", AIAction.None)]
+        [TestCase("taunt;delete", AIAction.None)]
+        public void CloudProvider_MapsTransportActionWithStrictParser(string raw, AIAction expected)
+        {
+            var response = CloudLLMProvider.ToAIResponse(new ChatResponse
+            {
+                animalId = "sensen",
+                reply = "Reply.",
+                actionSuggestion = raw
+            });
+
+            Assert.That(response.ActionSuggestion, Is.EqualTo(expected));
+        }
+
         [Test]
         public void CloudProvider_ClassifiesTimeoutErrors()
         {
@@ -211,6 +230,21 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(response.answerMode, Is.Null);
             Assert.That(response.evidenceStatus, Is.Null);
             Assert.That(response.citations, Is.Empty);
+            Assert.That(response.ActionSuggestion, Is.EqualTo(AIAction.None));
+        }
+
+        [TestCase("taunt", AIAction.Taunt)]
+        [TestCase("none", AIAction.None)]
+        [TestCase("TAUNT", AIAction.None)]
+        [TestCase("taunt ", AIAction.None)]
+        [TestCase("taunt_now", AIAction.None)]
+        public void LocalProvider_MapsTransportActionWithSameStrictParser(string raw, AIAction expected)
+        {
+            AIResponse response;
+            var json = $"{{\"animalId\":\"sensen\",\"reply\":\"Reply.\",\"actionSuggestion\":\"{raw}\"}}";
+
+            Assert.That(LocalLLMProvider.TryParseResponse(Request(), json, out response), Is.True);
+            Assert.That(response.ActionSuggestion, Is.EqualTo(expected));
         }
 
         [TestCase("local_llm_not_configured", false)]
@@ -257,6 +291,22 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(response.routeReason, Is.Null);
             Assert.That(response.reply, Is.EqualTo(ChatAnswer.GenericFallback.Reply));
             Assert.That(response.citations, Is.Empty);
+            Assert.That(response.ActionSuggestion, Is.EqualTo(AIAction.None));
+        }
+
+        [Test]
+        public void LocalKnowledgeProvider_ComputesTypedActionFromOriginalRequestOnly()
+        {
+            var gameObject = new GameObject("LocalKnowledgeActionTests");
+            createdObjects.Add(gameObject);
+            var provider = new LocalKnowledgeProvider(gameObject.AddComponent<LocalKnowledgeChatService>());
+            var request = Request();
+            request.message = "森森，给我表演一下";
+            AIResponse response = null;
+
+            RunProviderStrict(provider.Send(request, 0f, value => response = value, Fail));
+
+            Assert.That(response.ActionSuggestion, Is.EqualTo(AIAction.Taunt));
         }
 
         [Test]

@@ -11,8 +11,9 @@ from urllib import error, request
 from urllib.parse import urlparse
 
 try:
-    from server import animal_knowledge
+    from server import action_intent, animal_knowledge
 except ImportError:
+    import action_intent
     import animal_knowledge
 
 
@@ -305,11 +306,18 @@ def make_chat_response(
     reply: str,
     source: str,
     route_reason: str,
+    user_message: str,
     retrieval: Optional[animal_knowledge.RetrievalResult] = None,
 ) -> Dict:
     nickname = animal_value(animal, "nickname", "identity", "nickname", "动物朋友")
     presentation = animal.get("presentation") if isinstance(animal.get("presentation"), dict) else {}
     suggestions = presentation.get("defaultSuggestions") or ["你平时吃什么？", "你为什么会濒危？", "我可以怎样保护你？"]
+    answer_mode = retrieval.answer_mode if retrieval else "social_chat"
+    action_suggestion = (
+        action_intent.resolve_action_suggestion(user_message)
+        if answer_mode == "social_chat"
+        else action_intent.NONE
+    )
     return {
         "animalId": animal.get("animalId") or animal.get("id"),
         "reply": reply,
@@ -317,8 +325,9 @@ def make_chat_response(
         "missionHint": f"可以去完成“帮{nickname}寻找食物”任务。",
         "source": source,
         "routeReason": route_reason,
-        "answerMode": retrieval.answer_mode if retrieval else "social_chat",
+        "answerMode": answer_mode,
         "evidenceStatus": retrieval.evidence_status if retrieval else "not_required",
+        "actionSuggestion": action_suggestion,
         "citations": list(retrieval.citations) if retrieval else [],
     }
 
@@ -383,6 +392,7 @@ def process_chat_request(path: str, payload: Dict) -> tuple[Dict, int]:
             retrieval.approved_answer,
             "server_knowledge",
             f"deterministic_{retrieval.evidence_status if retrieval.answer_mode == 'grounded_fact' else retrieval.answer_mode}",
+            message,
             retrieval,
         ), 200
 
@@ -395,6 +405,7 @@ def process_chat_request(path: str, payload: Dict) -> tuple[Dict, int]:
             select_provider_reply(retrieval, local_result.reply) if retrieval else local_result.reply,
             "local_llm",
             "local_provider_succeeded",
+            message,
             retrieval,
         ), 200
 
@@ -406,6 +417,7 @@ def process_chat_request(path: str, payload: Dict) -> tuple[Dict, int]:
                 select_provider_reply(retrieval, reply) if retrieval else reply,
                 "cloud_llm",
                 "cloud_provider_succeeded",
+                message,
                 retrieval,
             ), 200
         return make_chat_response(
@@ -413,6 +425,7 @@ def process_chat_request(path: str, payload: Dict) -> tuple[Dict, int]:
             retrieval.approved_answer if retrieval and retrieval.answer_mode == "grounded_fact" else make_rule_reply(animal, message),
             "server_rule",
             "cloud_provider_unavailable_server_rule_fallback",
+            message,
             retrieval,
         ), 200
 

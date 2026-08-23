@@ -123,6 +123,7 @@ namespace EndangeredAR.AI
                 missionHint = response == null ? null : response.missionHint,
                 answerMode = response == null ? null : response.answerMode,
                 evidenceStatus = response == null ? null : response.evidenceStatus,
+                ActionSuggestion = AIActionProtocol.Parse(response == null ? null : response.actionSuggestion),
                 citations = MapCitations(response == null ? null : response.citations)
             };
         }

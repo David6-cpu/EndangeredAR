@@ -33,7 +33,7 @@ namespace EndangeredAR.AI
         public string missionHint;
         public string answerMode;
         public string evidenceStatus;
-        public string action;
+        public AIAction ActionSuggestion;
         public string emotion;
         public AICitation[] citations = Array.Empty<AICitation>();
     }

@@ -166,6 +166,7 @@ namespace EndangeredAR.AI
                     missionHint = parsed.missionHint,
                     answerMode = parsed.answerMode,
                     evidenceStatus = parsed.evidenceStatus,
+                    ActionSuggestion = AIActionProtocol.Parse(parsed.actionSuggestion),
                     citations = CloudLLMProvider.MapCitations(parsed.citations)
                 };
                 return true;
