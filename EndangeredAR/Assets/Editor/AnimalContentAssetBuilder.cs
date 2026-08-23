@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using EndangeredAR.AI;
 using EndangeredAR.Animals;
 using EndangeredAR.Missions;
 using UnityEditor;
@@ -12,6 +13,7 @@ namespace EndangeredAR.Editor
         private const string AnimalsFolder = "Assets/Resources/Animals";
         private const string KnowledgePath = AnimalsFolder + "/SensenKnowledge.asset";
         private const string MissionPath = AnimalsFolder + "/SensenMission.asset";
+        private const string CapabilityPath = AnimalsFolder + "/SensenCapabilities.asset";
         private const string DefinitionPath = AnimalsFolder + "/Sensen.asset";
         private const string RiggedPrefabPath = "Assets/Prefabs/Animals/SensenRigged.prefab";
 
@@ -21,14 +23,17 @@ namespace EndangeredAR.Editor
             var document = LoadCanonicalDocument();
             var knowledge = LoadOrCreate<AnimalKnowledgeProfile>(KnowledgePath);
             var mission = LoadOrCreate<MissionDefinition>(MissionPath);
+            var capabilities = LoadOrCreate<CharacterCapabilityProfile>(CapabilityPath);
             var definition = LoadOrCreate<AnimalDefinition>(DefinitionPath);
 
             ConfigureKnowledge(knowledge, document);
             ConfigureMission(mission);
-            ConfigureDefinition(definition, knowledge, mission, document);
+            ConfigureCapabilities(capabilities);
+            ConfigureDefinition(definition, knowledge, mission, capabilities, document);
 
             EditorUtility.SetDirty(knowledge);
             EditorUtility.SetDirty(mission);
+            EditorUtility.SetDirty(capabilities);
             EditorUtility.SetDirty(definition);
             AssetDatabase.SaveAssets();
 
@@ -76,10 +81,20 @@ namespace EndangeredAR.Editor
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
+        private static void ConfigureCapabilities(CharacterCapabilityProfile capabilities)
+        {
+            var serialized = new SerializedObject(capabilities);
+            var actions = serialized.FindProperty("supportedActions");
+            actions.arraySize = 1;
+            actions.GetArrayElementAtIndex(0).enumValueIndex = (int)AIAction.Taunt;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
         private static void ConfigureDefinition(
             AnimalDefinition definition,
             AnimalKnowledgeProfile knowledge,
             MissionDefinition mission,
+            CharacterCapabilityProfile capabilities,
             CanonicalAnimalDocument document)
         {
             var serialized = new SerializedObject(definition);
@@ -102,6 +117,7 @@ namespace EndangeredAR.Editor
             serialized.FindProperty("lockedSilhouette").objectReferenceValue = null;
             serialized.FindProperty("knowledge").objectReferenceValue = knowledge;
             serialized.FindProperty("mission").objectReferenceValue = mission;
+            serialized.FindProperty("capabilities").objectReferenceValue = capabilities;
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 

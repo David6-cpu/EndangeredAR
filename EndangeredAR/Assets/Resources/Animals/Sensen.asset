@@ -30,3 +30,4 @@ MonoBehaviour:
   lockedSilhouette: {fileID: 0}
   knowledge: {fileID: 11400000, guid: 2e28ef70248c047f294d84826fc1e9f6, type: 2}
   mission: {fileID: 11400000, guid: 9428d6c1565e24ca5b916f449b99617a, type: 2}
+  capabilities: {fileID: 11400000, guid: 79d7e57e6a3b740b3ac67ef21cbfd1e6, type: 2}

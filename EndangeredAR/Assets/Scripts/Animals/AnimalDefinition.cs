@@ -24,6 +24,7 @@ namespace EndangeredAR.Animals
         [SerializeField] private Sprite lockedSilhouette;
         [SerializeField] private AnimalKnowledgeProfile knowledge;
         [SerializeField] private MissionDefinition mission;
+        [SerializeField] private CharacterCapabilityProfile capabilities;
 
         public string AnimalId => animalId?.Trim();
         public string DisplayName => displayName;
@@ -43,6 +44,7 @@ namespace EndangeredAR.Animals
         public Sprite LockedSilhouette => lockedSilhouette;
         public AnimalKnowledgeProfile Knowledge => knowledge;
         public MissionDefinition Mission => mission;
+        public CharacterCapabilityProfile Capabilities => capabilities;
         public bool IsConfigured => !string.IsNullOrWhiteSpace(AnimalId) && knowledge != null && mission != null;
 
         internal void Configure(
@@ -63,7 +65,8 @@ namespace EndangeredAR.Animals
             Sprite configuredLockedSilhouette,
             AnimalKnowledgeProfile configuredKnowledge,
             MissionDefinition configuredMission,
-            GameObject configuredModelPrefab = null)
+            GameObject configuredModelPrefab = null,
+            CharacterCapabilityProfile configuredCapabilities = null)
         {
             animalId = configuredAnimalId;
             displayName = configuredDisplayName;
@@ -83,6 +86,7 @@ namespace EndangeredAR.Animals
             lockedSilhouette = configuredLockedSilhouette;
             knowledge = configuredKnowledge;
             mission = configuredMission;
+            capabilities = configuredCapabilities;
         }
     }
 }
