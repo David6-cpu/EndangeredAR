@@ -1715,14 +1715,24 @@ namespace EndangeredAR.UI
 
         private void FinishCloudAnswer(ChatRequestTicket request, string userMessage, AIResponse response)
         {
-            if (!TryResolveAICompletion(
+            var modelLoader = animalPlaceholder == null
+                ? null
+                : animalPlaceholder.GetComponent<AnimalModelLoader>();
+            var isInteractionPageActive = isModelView &&
+                                          animalPlaceholder != null &&
+                                          animalPlaceholder.activeInHierarchy;
+            if (!TryResolveAICompletionWithAction(
                     chatRequestState,
                     request,
                     CurrentAnimalId,
+                    isInteractionPageActive,
+                    modelLoader,
                     response,
                     userMessage,
                     BuildFallbackReply,
-                    out var reply))
+                    out var reply,
+                    out var validatedAction,
+                    out var validationResult))
             {
                 return;
             }
@@ -1739,6 +1749,21 @@ namespace EndangeredAR.UI
             SetChatInputEnabled(true);
             ScrollChatToBottom();
             PulseModel();
+
+            if (validatedAction != null && validatedAction.TryExecute(out var actionResult))
+            {
+                Debug.Log(
+                    $"AI action={validatedAction.Action} validation={validationResult} execution={actionResult} " +
+                    $"source={response?.source ?? "unknown"}",
+                    this);
+            }
+            else if (response != null && response.ActionSuggestion != AIAction.None)
+            {
+                Debug.Log(
+                    $"AI action={response.ActionSuggestion} validation={validationResult} execution=Skipped " +
+                    $"source={response.source ?? "unknown"}",
+                    this);
+            }
         }
 
         internal static AIRequest BuildAIRequest(
@@ -1804,6 +1829,51 @@ namespace EndangeredAR.UI
             }
 
             displayReply = reply;
+            return true;
+        }
+
+        internal static bool TryResolveAICompletionWithAction(
+            ChatRequestState requestState,
+            ChatRequestTicket request,
+            string currentAnimalId,
+            bool isInteractionPageActive,
+            AnimalModelLoader modelLoader,
+            AIResponse response,
+            string userMessage,
+            Func<string, string> fallbackReply,
+            out string displayReply,
+            out ValidatedAIAction validatedAction,
+            out AIInteractionValidationResult validationResult)
+        {
+            validationResult = AIInteractionValidator.Validate(
+                response == null ? AIAction.None : response.ActionSuggestion,
+                userMessage,
+                response?.animalId,
+                currentAnimalId,
+                requestState,
+                request,
+                isInteractionPageActive,
+                modelLoader,
+                out var animationController);
+
+            validatedAction = null;
+            if (!TryResolveAICompletion(
+                    requestState,
+                    request,
+                    currentAnimalId,
+                    response,
+                    userMessage,
+                    fallbackReply,
+                    out displayReply))
+            {
+                return false;
+            }
+
+            if (validationResult == AIInteractionValidationResult.Allowed && animationController != null)
+            {
+                validatedAction = new ValidatedAIAction(response.ActionSuggestion, animationController);
+            }
+
             return true;
         }
 

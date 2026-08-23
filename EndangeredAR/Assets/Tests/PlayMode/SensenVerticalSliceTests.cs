@@ -3,6 +3,7 @@ using System.Collections;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using EndangeredAR.AI;
 using EndangeredAR.API;
 using EndangeredAR.AR;
 using EndangeredAR.Animals;
@@ -400,6 +401,156 @@ namespace EndangeredAR.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator AICompletion_ExplicitTauntWritesHistoryOnceAndExecutesOnce()
+        {
+            yield return LoadDemoScene();
+
+            var scanner = FindSingle<ARImageScanController>();
+            var loader = FindSingle<AnimalModelLoader>();
+            var appController = FindSingle<DemoAppController>();
+            scanner.SimulateMarkerDetected("sensen");
+            yield return null;
+            yield return null;
+            InvokePrivate(appController, "EnterModelView");
+            Assert.That(loader.TryGetCurrentModelController(out var animationController), Is.True);
+            var animator = animationController.GetComponentInChildren<Animator>(true);
+            yield return WaitForAnimatorState(animator, "Idle", 2f);
+
+            var requestState = (ChatRequestState)GetPrivateField(appController, "chatRequestState");
+            var history = (System.Collections.Generic.List<ChatMessage>)GetPrivateField(appController, "chatHistory");
+            var historyCount = history.Count;
+            var ticket = requestState.Begin("sensen");
+            var response = new AIResponse
+            {
+                animalId = "sensen",
+                reply = "好呀，看我的！",
+                answerMode = "social_chat",
+                ActionSuggestion = AIAction.Taunt
+            };
+
+            InvokePrivate(appController, "FinishCloudAnswer", ticket, "森森，给我表演一下", response);
+            Assert.That(animationController.IsBusy, Is.True);
+            Assert.That(history, Has.Count.EqualTo(historyCount + 2));
+            Assert.That(history[^2].role, Is.EqualTo("user"));
+            Assert.That(history[^2].content, Is.EqualTo("森森，给我表演一下"));
+            Assert.That(history[^1].role, Is.EqualTo("assistant"));
+
+            InvokePrivate(appController, "FinishCloudAnswer", ticket, "森森，给我表演一下", response);
+            Assert.That(history, Has.Count.EqualTo(historyCount + 2), "A duplicate provider callback must not duplicate history.");
+            yield return WaitUntilNotBusy(animationController, 5f);
+            Assert.That(animationController.CurrentStateLabel, Is.EqualTo("Idle"));
+        }
+
+        [UnityTest]
+        public IEnumerator AICompletion_GroundedFactDoesNotTriggerTaunt()
+        {
+            yield return LoadDemoScene();
+
+            var scanner = FindSingle<ARImageScanController>();
+            var loader = FindSingle<AnimalModelLoader>();
+            var appController = FindSingle<DemoAppController>();
+            scanner.SimulateMarkerDetected("sensen");
+            yield return null;
+            yield return null;
+            InvokePrivate(appController, "EnterModelView");
+            Assert.That(loader.TryGetCurrentModelController(out var animationController), Is.True);
+
+            var requestState = (ChatRequestState)GetPrivateField(appController, "chatRequestState");
+            var ticket = requestState.Begin("sensen");
+            InvokePrivate(appController, "FinishCloudAnswer", ticket, "你的学名是什么？", new AIResponse
+            {
+                animalId = "sensen",
+                reply = "我的学名是 Semnopithecus priam。",
+                answerMode = "grounded_fact",
+                ActionSuggestion = AIAction.None
+            });
+
+            Assert.That(animationController.IsBusy, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator AICompletion_HiddenPageAndStaleResponseNeverTriggerTaunt()
+        {
+            yield return LoadDemoScene();
+
+            var scanner = FindSingle<ARImageScanController>();
+            var loader = FindSingle<AnimalModelLoader>();
+            var appController = FindSingle<DemoAppController>();
+            scanner.SimulateMarkerDetected("sensen");
+            yield return null;
+            yield return null;
+            Assert.That(loader.TryGetCurrentModelController(out var animationController), Is.True);
+
+            var requestState = (ChatRequestState)GetPrivateField(appController, "chatRequestState");
+            var hiddenTicket = requestState.Begin("sensen");
+            SetPrivateField(appController, "isModelView", false);
+            InvokePrivate(appController, "FinishCloudAnswer", hiddenTicket, "做个动作", TauntResponse());
+            Assert.That(animationController.IsBusy, Is.False);
+
+            var staleTicket = requestState.Begin("sensen");
+            requestState.Invalidate();
+            SetPrivateField(appController, "isModelView", true);
+            InvokePrivate(appController, "FinishCloudAnswer", staleTicket, "做个动作", TauntResponse());
+            Assert.That(animationController.IsBusy, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator AICompletion_BusyTauntAcceptsReplyWithoutQueuingSecondAction()
+        {
+            yield return LoadDemoScene();
+
+            var scanner = FindSingle<ARImageScanController>();
+            var loader = FindSingle<AnimalModelLoader>();
+            var appController = FindSingle<DemoAppController>();
+            scanner.SimulateMarkerDetected("sensen");
+            yield return null;
+            yield return null;
+            InvokePrivate(appController, "EnterModelView");
+            Assert.That(loader.TryGetCurrentModelController(out var animationController), Is.True);
+            var animator = animationController.GetComponentInChildren<Animator>(true);
+            yield return WaitForAnimatorState(animator, "Idle", 2f);
+            Assert.That(animationController.TryPlayTaunt(), Is.EqualTo(TauntRequestResult.Played));
+
+            var history = (System.Collections.Generic.List<ChatMessage>)GetPrivateField(appController, "chatHistory");
+            var historyCount = history.Count;
+            var requestState = (ChatRequestState)GetPrivateField(appController, "chatRequestState");
+            var ticket = requestState.Begin("sensen");
+            InvokePrivate(appController, "FinishCloudAnswer", ticket, "做个动作", TauntResponse());
+            Assert.That(history, Has.Count.EqualTo(historyCount + 2), "The reply should still complete while the Animator is busy.");
+
+            yield return WaitUntilNotBusy(animationController, 5f);
+            yield return new WaitForSeconds(0.3f);
+            Assert.That(animationController.CurrentStateLabel, Is.EqualTo("Idle"), "No second Taunt may remain queued.");
+        }
+
+        [UnityTest]
+        public IEnumerator RestoringConversationTextNeverReplaysAIAction()
+        {
+            yield return LoadDemoScene();
+
+            var scanner = FindSingle<ARImageScanController>();
+            var loader = FindSingle<AnimalModelLoader>();
+            var progress = FindSingle<AnimalProgressService>();
+            var appController = FindSingle<DemoAppController>();
+            scanner.SimulateMarkerDetected("sensen");
+            yield return null;
+            yield return null;
+            Assert.That(loader.TryGetCurrentModelController(out var animationController), Is.True);
+
+            progress.ReplaceConversation("sensen", new[]
+            {
+                new ConversationRecord { role = "user", content = "森森，给我表演一下" },
+                new ConversationRecord { role = "assistant", content = "好呀，看我的！" }
+            });
+            InvokePrivate(appController, "RestoreConversation", sensenDefinition);
+            yield return null;
+
+            Assert.That(animationController.IsBusy, Is.False);
+            var history = (System.Collections.Generic.List<ChatMessage>)GetPrivateField(appController, "chatHistory");
+            Assert.That(history, Has.Count.EqualTo(2));
+        }
+
+        [UnityTest]
         public IEnumerator AnimationController_FailsSafelyForInactiveUnsupportedAndInvalidAnimators()
         {
             var root = new GameObject("Animation Controller Contract Test");
@@ -639,11 +790,22 @@ namespace EndangeredAR.Tests.PlayMode
             field.SetValue(target, value);
         }
 
-        private static void InvokePrivate(object target, string methodName)
+        private static void InvokePrivate(object target, string methodName, params object[] arguments)
         {
             var method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(method, Is.Not.Null, $"Missing private method: {methodName}.");
-            method.Invoke(target, null);
+            method.Invoke(target, arguments);
+        }
+
+        private static AIResponse TauntResponse()
+        {
+            return new AIResponse
+            {
+                animalId = "sensen",
+                reply = "好呀，看我的！",
+                answerMode = "social_chat",
+                ActionSuggestion = AIAction.Taunt
+            };
         }
     }
 }
