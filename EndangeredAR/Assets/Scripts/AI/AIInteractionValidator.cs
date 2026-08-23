@@ -11,6 +11,9 @@ namespace EndangeredAR.AI
         NoAction,
         UnsupportedAction,
         InvalidIntent,
+        MissingCapabilityProfile,
+        CapabilityDenied,
+        ControllerUnsupported,
         StaleRequest,
         WrongAnimal,
         UnsupportedAnimal,
@@ -38,7 +41,7 @@ namespace EndangeredAR.AI
                 return AIInteractionValidationResult.NoAction;
             }
 
-            if (action != AIAction.Taunt)
+            if (!AIActionProtocol.IsExecutable(action))
             {
                 return AIInteractionValidationResult.UnsupportedAction;
             }
@@ -59,20 +62,22 @@ namespace EndangeredAR.AI
                 return AIInteractionValidationResult.WrongAnimal;
             }
 
-            if (!string.Equals(currentAnimalId, "sensen", StringComparison.OrdinalIgnoreCase))
-            {
-                return AIInteractionValidationResult.UnsupportedAnimal;
-            }
-
             if (!isInteractionPageActive)
             {
                 return AIInteractionValidationResult.InactivePage;
             }
 
-            if (modelLoader == null ||
-                !modelLoader.gameObject.activeInHierarchy ||
-                !string.Equals(modelLoader.LoadedAnimalId, currentAnimalId, StringComparison.OrdinalIgnoreCase) ||
-                !modelLoader.TryGetCurrentModelController(out controller))
+            if (modelLoader == null || !modelLoader.gameObject.activeInHierarchy)
+            {
+                return AIInteractionValidationResult.NoActiveModel;
+            }
+
+            if (!string.Equals(modelLoader.LoadedAnimalId, currentAnimalId, StringComparison.OrdinalIgnoreCase))
+            {
+                return AIInteractionValidationResult.UnsupportedAnimal;
+            }
+
+            if (!modelLoader.TryGetCurrentModelController(out controller))
             {
                 controller = null;
                 return AIInteractionValidationResult.NoActiveModel;
@@ -82,6 +87,24 @@ namespace EndangeredAR.AI
             {
                 controller = null;
                 return AIInteractionValidationResult.UnsupportedAnimal;
+            }
+
+            if (modelLoader.LoadedCapabilities == null)
+            {
+                controller = null;
+                return AIInteractionValidationResult.MissingCapabilityProfile;
+            }
+
+            if (!modelLoader.LoadedCapabilities.Supports(action))
+            {
+                controller = null;
+                return AIInteractionValidationResult.CapabilityDenied;
+            }
+
+            if (!controller.SupportsAction(action))
+            {
+                controller = null;
+                return AIInteractionValidationResult.ControllerUnsupported;
             }
 
             if (controller.IsBusy)

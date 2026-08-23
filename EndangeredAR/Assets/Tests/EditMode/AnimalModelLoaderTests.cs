@@ -24,9 +24,13 @@ namespace EndangeredAR.Tests.EditMode
                 new Vector3(4f, 5f, 6f),
                 new Vector3(1.2f, 1.3f, 1.4f));
             var host = new GameObject("Animal Host");
+            var capabilities = ScriptableObject.CreateInstance<CharacterCapabilityProfile>();
 
             try
             {
+                var serializedDefinition = new SerializedObject(definition);
+                serializedDefinition.FindProperty("capabilities").objectReferenceValue = capabilities;
+                serializedDefinition.ApplyModifiedPropertiesWithoutUndo();
                 var loader = AddGenericLoader(host);
                 Configure(loader, definition);
 
@@ -37,10 +41,11 @@ namespace EndangeredAR.Tests.EditMode
                 Assert.That(serializedLoader.FindProperty("modelLocalRotation").vector3Value, Is.EqualTo(definition.ModelEulerAngles));
                 Assert.That(serializedLoader.FindProperty("modelLocalScale").vector3Value, Is.EqualTo(definition.ModelScale));
                 Assert.That(ReadLoadedAnimalId(loader), Is.EqualTo(definition.AnimalId));
+                Assert.That(ReadLoadedCapabilities(loader), Is.SameAs(capabilities));
             }
             finally
             {
-                Destroy(definition, host);
+                Destroy(definition, capabilities, host);
             }
         }
 
@@ -357,6 +362,13 @@ namespace EndangeredAR.Tests.EditMode
             var property = loader.GetType().GetProperty("LoadedAnimalId");
             Assert.That(property, Is.Not.Null, "AnimalModelLoader must expose LoadedAnimalId.");
             return (string)property.GetValue(loader);
+        }
+
+        private static CharacterCapabilityProfile ReadLoadedCapabilities(Component loader)
+        {
+            var property = loader.GetType().GetProperty("LoadedCapabilities");
+            Assert.That(property, Is.Not.Null, "AnimalModelLoader must expose the active definition capability profile.");
+            return property.GetValue(loader) as CharacterCapabilityProfile;
         }
 
         private static IEnumerator InvokeLoadModel(Component loader)

@@ -24,9 +24,11 @@ namespace EndangeredAR.Models
         private string loadedModelPath;
         private GameObject loadedModelPrefab;
         private string loadedAnimalId;
+        private CharacterCapabilityProfile loadedCapabilities;
         private bool loadPending;
 
         public string LoadedAnimalId => loadedAnimalId;
+        public CharacterCapabilityProfile LoadedCapabilities => loadedCapabilities;
 
         public bool TryGetCurrentModelController(out AnimalModelController controller)
         {
@@ -79,6 +81,7 @@ namespace EndangeredAR.Models
         public void Configure(AnimalDefinition definition)
         {
             loadedAnimalId = definition == null ? null : definition.AnimalId;
+            loadedCapabilities = definition == null ? null : definition.Capabilities;
 
             if (definition == null)
             {
