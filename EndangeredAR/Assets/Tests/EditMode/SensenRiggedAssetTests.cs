@@ -183,6 +183,16 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(tryPlayTaunt, Is.Not.Null);
             Assert.That(tryPlayTaunt.ReturnType, Is.EqualTo(resultType));
 
+            var mutableAnimatorEscapeHatches = typeof(AnimalModelController)
+                .GetMembers(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Where(member =>
+                    member is FieldInfo field && field.FieldType == typeof(Animator) ||
+                    member is PropertyInfo property && property.PropertyType == typeof(Animator) ||
+                    member is MethodInfo method && method.ReturnType == typeof(Animator))
+                .ToArray();
+            Assert.That(mutableAnimatorEscapeHatches, Is.Empty,
+                "The safe animation gateway must not expose its mutable Animator to callers.");
+
             var unsafeStringEntrypoints = typeof(AnimalModelController)
                 .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
                 .Where(method => method.GetParameters().Any(parameter => parameter.ParameterType == typeof(string)))

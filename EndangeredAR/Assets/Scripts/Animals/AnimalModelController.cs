@@ -27,9 +27,17 @@ namespace EndangeredAR.Animals
         private bool observedTaunt;
         private float requestStartedAt;
 
-        public Animator Animator => animator;
         public string SupportedAnimalId => supportedAnimalId;
         public bool IsBusy => requestPending;
+
+        public bool IsAnimatorOwnedBy(Transform modelRoot)
+        {
+            return modelRoot != null &&
+                   animator != null &&
+                   animator.gameObject.activeInHierarchy &&
+                   animator.transform.IsChildOf(modelRoot);
+        }
+
         public bool CanRequestTaunt
         {
             get

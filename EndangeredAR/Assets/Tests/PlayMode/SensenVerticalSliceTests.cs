@@ -374,7 +374,9 @@ namespace EndangeredAR.Tests.PlayMode
             yield return null;
 
             Assert.That(loader.TryGetCurrentModelController(out var controller), Is.True);
-            yield return WaitForAnimatorState(controller.Animator, "Idle", 2f);
+            var animator = controller.GetComponentInChildren<Animator>(true);
+            Assert.That(animator, Is.Not.Null);
+            yield return WaitForAnimatorState(animator, "Idle", 2f);
 
             var riggedRootPosition = controller.transform.localPosition;
             var riggedRootRotation = controller.transform.localRotation;
@@ -383,9 +385,9 @@ namespace EndangeredAR.Tests.PlayMode
             Assert.That(controller.TryPlayTaunt(), Is.EqualTo(TauntRequestResult.Busy),
                 "A same-frame second click must not leave another Trigger queued.");
 
-            yield return WaitForAnimatorTransition(controller.Animator, 2f);
+            yield return WaitForAnimatorTransition(animator, 2f);
             Assert.That(controller.TryPlayTaunt(), Is.EqualTo(TauntRequestResult.Busy));
-            yield return WaitForAnimatorState(controller.Animator, "Taunt", 2f);
+            yield return WaitForAnimatorState(animator, "Taunt", 2f);
             Assert.That(controller.TryPlayTaunt(), Is.EqualTo(TauntRequestResult.Busy));
             yield return WaitUntilNotBusy(controller, 5f);
 
@@ -427,26 +429,40 @@ namespace EndangeredAR.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator Loader_ReconfigurationNeverReturnsTheDeactivatedPreviousController()
+        public IEnumerator Loader_AnimalSwitchNeverReturnsTheDeactivatedPreviousController()
         {
             yield return LoadDemoScene();
 
             var scanner = FindSingle<ARImageScanController>();
             var loader = FindSingle<AnimalModelLoader>();
+            var alternateDefinition = ScriptableObject.CreateInstance<AnimalDefinition>();
             scanner.SimulateMarkerDetected("sensen");
             yield return null;
             yield return null;
             Assert.That(loader.TryGetCurrentModelController(out var previous), Is.True);
 
-            loader.Configure(sensenDefinition);
-            Assert.That(previous.gameObject.activeInHierarchy, Is.False,
-                "The replaced runtime Root must be deactivated before delayed destruction.");
-            Assert.That(loader.TryGetCurrentModelController(out var current), Is.True);
-            Assert.That(current, Is.Not.SameAs(previous));
+            try
+            {
+                SetPrivateField(alternateDefinition, "animalId", "animal-02");
+                SetPrivateField(alternateDefinition, "modelRelativePath", "Models/__headless_test_missing__.glb");
+                SetPrivateField(alternateDefinition, "modelPrefab", sensenDefinition.ModelPrefab);
 
-            yield return null;
-            Assert.That(loader.TryGetCurrentModelController(out current), Is.True);
-            Assert.That(current, Is.Not.SameAs(previous));
+                loader.Configure(alternateDefinition);
+                Assert.That(previous.gameObject.activeInHierarchy, Is.False,
+                    "The previous animal Root must be deactivated before delayed destruction.");
+                Assert.That(loader.LoadedAnimalId, Is.EqualTo("animal-02"));
+                Assert.That(loader.TryGetCurrentModelController(out var current), Is.False,
+                    "A Sensen-only controller must not be returned after switching animals.");
+                Assert.That(current, Is.Null);
+
+                yield return null;
+                Assert.That(loader.TryGetCurrentModelController(out current), Is.False);
+                Assert.That(current, Is.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.Destroy(alternateDefinition);
+            }
         }
 
         [UnityTest]
@@ -456,11 +472,18 @@ namespace EndangeredAR.Tests.PlayMode
 
             var loader = FindSingle<AnimalModelLoader>();
             var modelPrefab = GetPrivateField(sensenDefinition, "modelPrefab");
+            GameObject fallbackRoot = null;
+            GameObject unrelatedControllerRoot = null;
             try
             {
                 SetPrivateField(sensenDefinition, "modelPrefab", null);
                 loader.Configure(sensenDefinition);
                 yield return null;
+
+                fallbackRoot = new GameObject("Animal GLB Runtime Root");
+                fallbackRoot.transform.SetParent(loader.transform, false);
+                unrelatedControllerRoot = new GameObject("Unrelated Animation Controller");
+                unrelatedControllerRoot.AddComponent<AnimalModelController>();
 
                 Assert.That(loader.TryGetCurrentModelController(out var controller), Is.False);
                 Assert.That(controller, Is.Null);
@@ -468,7 +491,18 @@ namespace EndangeredAR.Tests.PlayMode
             finally
             {
                 SetPrivateField(sensenDefinition, "modelPrefab", modelPrefab);
+                if (fallbackRoot != null)
+                {
+                    UnityEngine.Object.Destroy(fallbackRoot);
+                }
+
+                if (unrelatedControllerRoot != null)
+                {
+                    UnityEngine.Object.Destroy(unrelatedControllerRoot);
+                }
             }
+
+            yield return null;
         }
 
         [UnityTest]
@@ -502,7 +536,9 @@ namespace EndangeredAR.Tests.PlayMode
             yield return null;
             yield return null;
             Assert.That(loader.TryGetCurrentModelController(out var animationController), Is.True);
-            yield return WaitForAnimatorState(animationController.Animator, "Idle", 2f);
+            var animator = animationController.GetComponentInChildren<Animator>(true);
+            Assert.That(animator, Is.Not.Null);
+            yield return WaitForAnimatorState(animator, "Idle", 2f);
             yield return new WaitForSeconds(0.5f);
 
             var transcriptBefore = (string)GetPrivateField(appController, "chatTranscript");

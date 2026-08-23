@@ -53,10 +53,7 @@ namespace EndangeredAR.Models
                 return false;
             }
 
-            var candidateAnimator = candidate.Animator;
-            if (candidateAnimator == null ||
-                !candidateAnimator.gameObject.activeInHierarchy ||
-                !candidateAnimator.transform.IsChildOf(currentRoot))
+            if (!candidate.IsAnimatorOwnedBy(currentRoot))
             {
                 return false;
             }
