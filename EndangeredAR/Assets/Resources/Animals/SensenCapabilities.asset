@@ -12,4 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d8e0222c235c94b9f97354663c8f2430, type: 3}
   m_Name: SensenCapabilities
   m_EditorClassIdentifier: 
-  supportedActions: 01000000
+  supportedActions: 0100000002000000

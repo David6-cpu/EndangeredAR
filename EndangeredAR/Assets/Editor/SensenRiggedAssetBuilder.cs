@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using EndangeredAR.AI;
 using EndangeredAR.Animals;
 using UnityEditor;
 using UnityEditor.Animations;
@@ -13,8 +14,10 @@ namespace EndangeredAR.Editor
         public const string TexturePath = "Assets/Art/Characters/Sensen/Rigged/Textures/sensen_basecolor_1024.png";
         public const string MaterialPath = "Assets/Art/Characters/Sensen/Rigged/Materials/SensenRigged.mat";
         public const string ControllerPath = "Assets/Animations/Sensen/SensenRigged.controller";
+        public const string EatAnimationPath = "Assets/Animations/Sensen/Clips/sensen_eat_expressive.fbx";
         public const string PrefabPath = "Assets/Prefabs/Animals/SensenRigged.prefab";
         private const string DefinitionPath = "Assets/Resources/Animals/Sensen.asset";
+        private const string CapabilityPath = "Assets/Resources/Animals/SensenCapabilities.asset";
         private const float TargetCharacterHeight = 1.15f;
 
         [MenuItem("Endangered AR/Characters/Rebuild Rigged Sensen")]
@@ -22,12 +25,15 @@ namespace EndangeredAR.Editor
         {
             RequireAsset(ModelPath);
             RequireAsset(TexturePath);
+            RequireAsset(EatAnimationPath);
             EnsureParentFolders(MaterialPath);
             EnsureParentFolders(ControllerPath);
             EnsureParentFolders(PrefabPath);
 
             ConfigureTextureImporter();
             ConfigureModelImporter();
+            ConfigureEatAnimationImporter();
+            ConfigureCapabilities();
 
             var material = CreateOrUpdateMaterial();
             var controller = CreateOrUpdateController();
@@ -141,6 +147,68 @@ namespace EndangeredAR.Editor
                    (!string.IsNullOrEmpty(clip.takeName) && clip.takeName.EndsWith(suffix, StringComparison.OrdinalIgnoreCase));
         }
 
+        private static void ConfigureEatAnimationImporter()
+        {
+            var importer = AssetImporter.GetAtPath(EatAnimationPath) as ModelImporter;
+            if (importer == null)
+            {
+                throw new InvalidOperationException($"ModelImporter was not found for '{EatAnimationPath}'.");
+            }
+
+            var sourceAvatar = AssetDatabase.LoadAllAssetsAtPath(ModelPath)
+                .OfType<Avatar>()
+                .SingleOrDefault(avatar => avatar.isValid);
+            if (sourceAvatar == null)
+            {
+                throw new InvalidOperationException("The formal Sensen Generic Avatar is unavailable.");
+            }
+
+            importer.animationType = ModelImporterAnimationType.Generic;
+            importer.avatarSetup = ModelImporterAvatarSetup.CopyFromOther;
+            importer.sourceAvatar = sourceAvatar;
+            importer.importAnimation = true;
+            importer.importCameras = false;
+            importer.importLights = false;
+            importer.importBlendShapes = false;
+            importer.importConstraints = false;
+            importer.materialImportMode = ModelImporterMaterialImportMode.None;
+            importer.animationCompression = ModelImporterAnimationCompression.Optimal;
+
+            var source = importer.clipAnimations != null && importer.clipAnimations.Length > 0
+                ? importer.clipAnimations
+                : importer.defaultClipAnimations;
+            if (source == null || source.Length != 1)
+            {
+                throw new InvalidOperationException("The approved Eat FBX must contain exactly one animation take.");
+            }
+
+            var clip = source[0];
+            clip.name = "Sensen_Eat";
+            clip.loopTime = false;
+            clip.loopPose = false;
+            clip.lockRootHeightY = true;
+            clip.lockRootPositionXZ = true;
+            clip.lockRootRotation = true;
+            clip.keepOriginalPositionY = true;
+            clip.keepOriginalPositionXZ = true;
+            clip.keepOriginalOrientation = true;
+            clip.events = Array.Empty<AnimationEvent>();
+            importer.clipAnimations = new[] { clip };
+            importer.SaveAndReimport();
+        }
+
+        private static void ConfigureCapabilities()
+        {
+            var profile = AssetDatabase.LoadAssetAtPath<CharacterCapabilityProfile>(CapabilityPath);
+            if (profile == null)
+            {
+                throw new InvalidOperationException("Sensen capability profile was not found.");
+            }
+
+            AnimalContentAssetBuilder.ConfigureCapabilities(profile);
+            EditorUtility.SetDirty(profile);
+        }
+
         private static Material CreateOrUpdateMaterial()
         {
             var shader = Shader.Find("Standard");
@@ -179,8 +247,12 @@ namespace EndangeredAR.Editor
             var clips = AssetDatabase.LoadAllAssetsAtPath(ModelPath).OfType<AnimationClip>().ToArray();
             var idleClip = FindClip(clips, "Idle");
             var tauntClip = FindClip(clips, "Taunt");
+            var eatClip = FindClip(
+                AssetDatabase.LoadAllAssetsAtPath(EatAnimationPath).OfType<AnimationClip>().ToArray(),
+                "Sensen_Eat");
             controller.parameters = Array.Empty<AnimatorControllerParameter>();
             controller.AddParameter("Taunt", AnimatorControllerParameterType.Trigger);
+            controller.AddParameter("Eat", AnimatorControllerParameterType.Trigger);
 
             if (controller.layers.Length == 0)
             {
@@ -202,6 +274,8 @@ namespace EndangeredAR.Editor
             idle.motion = idleClip;
             var taunt = stateMachine.AddState("Taunt");
             taunt.motion = tauntClip;
+            var eat = stateMachine.AddState("Eat");
+            eat.motion = eatClip;
             stateMachine.defaultState = idle;
 
             var toTaunt = idle.AddTransition(taunt);
@@ -215,6 +289,18 @@ namespace EndangeredAR.Editor
             toIdle.exitTime = 0.95f;
             toIdle.duration = 0.12f;
             toIdle.canTransitionToSelf = false;
+
+            var toEat = idle.AddTransition(eat);
+            toEat.hasExitTime = false;
+            toEat.duration = 0.1f;
+            toEat.canTransitionToSelf = false;
+            toEat.AddCondition(AnimatorConditionMode.If, 0f, "Eat");
+
+            var eatToIdle = eat.AddTransition(idle);
+            eatToIdle.hasExitTime = true;
+            eatToIdle.exitTime = 0.95f;
+            eatToIdle.duration = 0.12f;
+            eatToIdle.canTransitionToSelf = false;
 
             EditorUtility.SetDirty(controller);
             return controller;

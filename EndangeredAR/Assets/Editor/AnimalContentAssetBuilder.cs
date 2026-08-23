@@ -81,12 +81,13 @@ namespace EndangeredAR.Editor
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static void ConfigureCapabilities(CharacterCapabilityProfile capabilities)
+        internal static void ConfigureCapabilities(CharacterCapabilityProfile capabilities)
         {
             var serialized = new SerializedObject(capabilities);
             var actions = serialized.FindProperty("supportedActions");
-            actions.arraySize = 1;
+            actions.arraySize = 2;
             actions.GetArrayElementAtIndex(0).enumValueIndex = (int)AIAction.Taunt;
+            actions.GetArrayElementAtIndex(1).enumValueIndex = (int)AIAction.Eat;
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 

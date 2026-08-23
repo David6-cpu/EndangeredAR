@@ -20,10 +20,10 @@ namespace EndangeredAR.Animals
         [SerializeField] private string supportedAnimalId = "sensen";
 
         private static readonly int TauntTriggerHash = Animator.StringToHash("Taunt");
+        private static readonly int EatTriggerHash = Animator.StringToHash("Eat");
         private static readonly int IdleStateHash = Animator.StringToHash("Base Layer.Idle");
         private static readonly int TauntStateHash = Animator.StringToHash("Base Layer.Taunt");
-        private const float EnterTauntTimeoutSeconds = 1f;
-        private const float TauntSafetyTimeoutSeconds = 6f;
+        private static readonly int EatStateHash = Animator.StringToHash("Base Layer.Eat");
 
         private AIAction pendingAction;
         private bool observedAction;
@@ -40,10 +40,18 @@ namespace EndangeredAR.Animals
                     return pendingAction;
                 }
 
-                if (CanInspectAnimator() &&
-                    animator.GetCurrentAnimatorStateInfo(0).fullPathHash == TauntStateHash)
+                if (CanInspectAnimator())
                 {
-                    return AIAction.Taunt;
+                    var stateHash = animator.GetCurrentAnimatorStateInfo(0).fullPathHash;
+                    if (stateHash == TauntStateHash)
+                    {
+                        return AIAction.Taunt;
+                    }
+
+                    if (stateHash == EatStateHash)
+                    {
+                        return AIAction.Eat;
+                    }
                 }
 
                 return AIAction.None;
@@ -62,11 +70,14 @@ namespace EndangeredAR.Animals
 
         public bool SupportsAction(AIAction action)
         {
-            return TryGetActionSpec(action, out var triggerHash, out _) &&
+            return TryGetActionSpec(action, out var spec) &&
                    string.Equals(supportedAnimalId, "sensen", System.StringComparison.OrdinalIgnoreCase) &&
                    animator != null &&
                    animator.runtimeAnimatorController != null &&
-                   HasTrigger(triggerHash);
+                   animator.layerCount > 0 &&
+                   HasTrigger(spec.TriggerHash) &&
+                   animator.HasState(0, spec.StateHash) &&
+                   HasExpectedClip(spec.ClipName);
         }
 
         public bool CanRequestAction(AIAction action)
@@ -103,6 +114,11 @@ namespace EndangeredAR.Animals
                     return "Taunt";
                 }
 
+                if (state.fullPathHash == EatStateHash)
+                {
+                    return "Eat";
+                }
+
                 if (state.fullPathHash == IdleStateHash)
                 {
                     return IsBusy ? "Idle (Pending)" : "Idle";
@@ -119,7 +135,7 @@ namespace EndangeredAR.Animals
 
         public ActionRequestResult TryPlayAction(AIAction action)
         {
-            if (!TryGetActionSpec(action, out var triggerHash, out var stateHash))
+            if (!TryGetActionSpec(action, out var spec))
             {
                 return ActionRequestResult.UnsupportedAction;
             }
@@ -139,7 +155,7 @@ namespace EndangeredAR.Animals
                 return ActionRequestResult.MissingAnimator;
             }
 
-            if (!CanInspectAnimator() || !HasTrigger(triggerHash))
+            if (!CanInspectAnimator() || !SupportsAction(action))
             {
                 return ActionRequestResult.InvalidControllerState;
             }
@@ -150,7 +166,7 @@ namespace EndangeredAR.Animals
             }
 
             var state = animator.GetCurrentAnimatorStateInfo(0);
-            if (state.fullPathHash == stateHash)
+            if (state.fullPathHash == spec.StateHash)
             {
                 return ActionRequestResult.Busy;
             }
@@ -160,8 +176,8 @@ namespace EndangeredAR.Animals
                 return ActionRequestResult.InvalidControllerState;
             }
 
-            animator.ResetTrigger(triggerHash);
-            animator.SetTrigger(triggerHash);
+            animator.ResetTrigger(spec.TriggerHash);
+            animator.SetTrigger(spec.TriggerHash);
             pendingAction = action;
             observedAction = false;
             requestStartedAt = Time.unscaledTime;
@@ -181,14 +197,14 @@ namespace EndangeredAR.Animals
                 return;
             }
 
-            if (!TryGetActionSpec(pendingAction, out var triggerHash, out var stateHash))
+            if (!TryGetActionSpec(pendingAction, out var spec))
             {
                 ClearPendingRequest();
                 return;
             }
 
             var state = animator.GetCurrentAnimatorStateInfo(0);
-            if (state.fullPathHash == stateHash)
+            if (state.fullPathHash == spec.StateHash)
             {
                 observedAction = true;
             }
@@ -200,9 +216,9 @@ namespace EndangeredAR.Animals
             }
 
             var elapsed = Time.unscaledTime - requestStartedAt;
-            if ((!observedAction && elapsed >= EnterTauntTimeoutSeconds) || elapsed >= TauntSafetyTimeoutSeconds)
+            if ((!observedAction && elapsed >= spec.EnterTimeoutSeconds) || elapsed >= spec.SafetyTimeoutSeconds)
             {
-                animator.ResetTrigger(triggerHash);
+                animator.ResetTrigger(spec.TriggerHash);
                 ClearPendingRequest();
             }
         }
@@ -212,6 +228,7 @@ namespace EndangeredAR.Animals
             if (animator != null)
             {
                 animator.ResetTrigger(TauntTriggerHash);
+                animator.ResetTrigger(EatTriggerHash);
             }
 
             ClearPendingRequest();
@@ -239,19 +256,56 @@ namespace EndangeredAR.Animals
             return false;
         }
 
-        private static bool TryGetActionSpec(AIAction action, out int triggerHash, out int stateHash)
+        private bool HasExpectedClip(string clipName)
+        {
+            foreach (var clip in animator.runtimeAnimatorController.animationClips)
+            {
+                if (clip != null && string.Equals(clip.name, clipName, System.StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryGetActionSpec(AIAction action, out ActionSpec spec)
         {
             switch (action)
             {
                 case AIAction.Taunt:
-                    triggerHash = TauntTriggerHash;
-                    stateHash = TauntStateHash;
+                    spec = new ActionSpec(TauntTriggerHash, TauntStateHash, "Taunt", 1f, 6f);
+                    return true;
+                case AIAction.Eat:
+                    spec = new ActionSpec(EatTriggerHash, EatStateHash, "Sensen_Eat", 1f, 7f);
                     return true;
                 default:
-                    triggerHash = 0;
-                    stateHash = 0;
+                    spec = default;
                     return false;
             }
+        }
+
+        private readonly struct ActionSpec
+        {
+            public ActionSpec(
+                int triggerHash,
+                int stateHash,
+                string clipName,
+                float enterTimeoutSeconds,
+                float safetyTimeoutSeconds)
+            {
+                TriggerHash = triggerHash;
+                StateHash = stateHash;
+                ClipName = clipName;
+                EnterTimeoutSeconds = enterTimeoutSeconds;
+                SafetyTimeoutSeconds = safetyTimeoutSeconds;
+            }
+
+            public int TriggerHash { get; }
+            public int StateHash { get; }
+            public string ClipName { get; }
+            public float EnterTimeoutSeconds { get; }
+            public float SafetyTimeoutSeconds { get; }
         }
 
         private void ClearPendingRequest()

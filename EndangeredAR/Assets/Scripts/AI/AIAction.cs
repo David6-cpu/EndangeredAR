@@ -7,14 +7,15 @@ namespace EndangeredAR.AI
     public enum AIAction
     {
         None,
-        Taunt
+        Taunt,
+        Eat
     }
 
     internal static class AIActionProtocol
     {
         public static bool IsExecutable(AIAction action)
         {
-            return action == AIAction.Taunt;
+            return action == AIAction.Taunt || action == AIAction.Eat;
         }
 
         public static AIAction Parse(string rawValue)
