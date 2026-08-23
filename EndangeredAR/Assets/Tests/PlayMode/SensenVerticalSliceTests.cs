@@ -403,6 +403,41 @@ namespace EndangeredAR.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator RiggedSensen_EatRejectsDuplicateAndConflictingRequestsThenReturnsToIdle()
+        {
+            yield return LoadDemoScene();
+
+            var scanner = FindSingle<ARImageScanController>();
+            var loader = FindSingle<AnimalModelLoader>();
+            scanner.SimulateMarkerDetected("sensen");
+            yield return null;
+            yield return null;
+
+            Assert.That(loader.TryGetCurrentModelController(out var controller), Is.True);
+            var animator = controller.GetComponentInChildren<Animator>(true);
+            yield return WaitForAnimatorState(animator, "Idle", 2f);
+
+            var rootPosition = controller.transform.localPosition;
+            var rootRotation = controller.transform.localRotation;
+            var rootScale = controller.transform.localScale;
+            Assert.That(controller.TryPlayAction(AIAction.Eat), Is.EqualTo(ActionRequestResult.Played));
+            Assert.That(controller.CurrentAction, Is.EqualTo(AIAction.Eat));
+            Assert.That(controller.TryPlayAction(AIAction.Eat), Is.EqualTo(ActionRequestResult.Busy));
+            Assert.That(controller.TryPlayAction(AIAction.Taunt), Is.EqualTo(ActionRequestResult.Busy));
+
+            yield return WaitForAnimatorState(animator, "Eat", 2f);
+            Assert.That(controller.TryPlayAction(AIAction.Taunt), Is.EqualTo(ActionRequestResult.Busy));
+            yield return WaitUntilNotBusy(controller, 6f);
+
+            Assert.That(controller.CurrentStateLabel, Is.EqualTo("Idle"));
+            Assert.That(controller.CurrentAction, Is.EqualTo(AIAction.None));
+            Assert.That(Vector3.Distance(controller.transform.localPosition, rootPosition), Is.LessThan(0.0001f));
+            Assert.That(Quaternion.Angle(controller.transform.localRotation, rootRotation), Is.LessThan(0.01f));
+            Assert.That(Vector3.Distance(controller.transform.localScale, rootScale), Is.LessThan(0.0001f));
+            Assert.That(controller.TryPlayAction(AIAction.Eat), Is.EqualTo(ActionRequestResult.Played));
+        }
+
+        [UnityTest]
         public IEnumerator AICompletion_ExplicitTauntWritesHistoryOnceAndExecutesOnce()
         {
             yield return LoadDemoScene();
@@ -444,7 +479,7 @@ namespace EndangeredAR.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator AICompletion_GroundedFactDoesNotTriggerTaunt()
+        public IEnumerator AICompletion_GroundedDietFactDoesNotTriggerEatEvenIfSuggested()
         {
             yield return LoadDemoScene();
 
@@ -459,12 +494,12 @@ namespace EndangeredAR.Tests.PlayMode
 
             var requestState = (ChatRequestState)GetPrivateField(appController, "chatRequestState");
             var ticket = requestState.Begin("sensen");
-            InvokePrivate(appController, "FinishCloudAnswer", ticket, "你的学名是什么？", new AIResponse
+            InvokePrivate(appController, "FinishCloudAnswer", ticket, "森森，你平时吃什么？", new AIResponse
             {
                 animalId = "sensen",
-                reply = "我的学名是 Semnopithecus priam。",
+                reply = "我的可靠资料记录了嫩叶、花朵和部分果实。",
                 answerMode = "grounded_fact",
-                ActionSuggestion = AIAction.None
+                ActionSuggestion = AIAction.Eat
             });
 
             Assert.That(animationController.IsBusy, Is.False);
@@ -688,7 +723,7 @@ namespace EndangeredAR.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator DevelopmentPanel_IsSingletonAndTauntHasNoBusinessSideEffects()
+        public IEnumerator DevelopmentPanel_IsSingletonAndManualActionsHaveNoBusinessSideEffects()
         {
             yield return LoadDemoScene();
 
@@ -727,11 +762,18 @@ namespace EndangeredAR.Tests.PlayMode
             var progressBefore = File.Exists(repositoryPath) ? File.ReadAllText(repositoryPath) : string.Empty;
             var tauntButton = panels[0].GetComponentsInChildren<Button>(true)
                 .Single(button => button.name == "Play Taunt");
+            var eatButton = panels[0].GetComponentsInChildren<Button>(true)
+                .Single(button => button.name == "Play Eat");
 
             tauntButton.onClick.Invoke();
             tauntButton.onClick.Invoke();
             Assert.That(animationController.IsBusy, Is.True);
             yield return WaitUntilNotBusy(animationController, 5f);
+
+            eatButton.onClick.Invoke();
+            eatButton.onClick.Invoke();
+            Assert.That(animationController.IsBusy, Is.True);
+            yield return WaitUntilNotBusy(animationController, 6f);
 
             Assert.That((string)GetPrivateField(appController, "chatTranscript"), Is.EqualTo(transcriptBefore));
             Assert.That(File.Exists(repositoryPath) ? File.ReadAllText(repositoryPath) : string.Empty,
@@ -776,7 +818,7 @@ namespace EndangeredAR.Tests.PlayMode
                 yield return null;
             }
 
-            Assert.Fail($"Taunt request stayed busy beyond {timeoutSeconds:0.0} seconds.");
+            Assert.Fail($"Animation request stayed busy beyond {timeoutSeconds:0.0} seconds.");
         }
 
         private static IEnumerator WaitForAnimatorTransition(Animator animator, float timeoutSeconds)

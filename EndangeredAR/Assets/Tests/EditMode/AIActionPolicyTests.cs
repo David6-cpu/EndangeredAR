@@ -36,6 +36,29 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
+        public void Select_WithOneHandConstructedEat_ReturnsEat()
+        {
+            var candidates = new[]
+            {
+                new AIActionCandidate(AIAction.Eat, AIActionCandidateSource.DeterministicUserIntent, "sensen")
+            };
+
+            Assert.That(AIActionPolicy.Select(candidates, "sensen"), Is.EqualTo(AIAction.Eat));
+        }
+
+        [Test]
+        public void Select_WithConflictingTauntAndEat_FailsClosed()
+        {
+            var candidates = new[]
+            {
+                new AIActionCandidate(AIAction.Taunt, AIActionCandidateSource.DeterministicUserIntent, "sensen"),
+                new AIActionCandidate(AIAction.Eat, AIActionCandidateSource.DeterministicUserIntent, "sensen")
+            };
+
+            Assert.That(AIActionPolicy.Select(candidates, "sensen"), Is.EqualTo(AIAction.None));
+        }
+
+        [Test]
         public void Select_RejectsUnsupportedSourcesAndActions()
         {
             var candidates = new[]
@@ -91,6 +114,22 @@ namespace EndangeredAR.Tests.EditMode
                     AIAction.Taunt,
                     "森森，给我表演一下",
                     "other-animal",
+                    "sensen"),
+                Is.EqualTo(AIAction.None));
+        }
+
+        [Test]
+        public void ProductIntentAndProviderPaths_DoNotAuthorizeEatYet()
+        {
+            Assert.That(AIActionIntent.Resolve("森森，吃一个给我看"), Is.EqualTo(AIAction.None));
+            Assert.That(
+                AIActionPolicy.SelectDeterministicIntent("森森，吃一个给我看", "sensen"),
+                Is.EqualTo(AIAction.None));
+            Assert.That(
+                AIActionPolicy.SelectProviderSuggestion(
+                    AIAction.Eat,
+                    "森森，吃一个给我看",
+                    "sensen",
                     "sensen"),
                 Is.EqualTo(AIAction.None));
         }

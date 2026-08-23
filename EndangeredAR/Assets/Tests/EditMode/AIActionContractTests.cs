@@ -9,9 +9,9 @@ namespace EndangeredAR.Tests.EditMode
     public class AIActionContractTests
     {
         [Test]
-        public void AIAction_ContainsOnlyMvpValues()
+        public void AIAction_ContainsOnlyImplementedInternalValues()
         {
-            Assert.That(Enum.GetNames(typeof(AIAction)), Is.EqualTo(new[] { "None", "Taunt" }));
+            Assert.That(Enum.GetNames(typeof(AIAction)), Is.EqualTo(new[] { "None", "Taunt", "Eat" }));
         }
 
         [TestCase(null, AIAction.None)]
@@ -27,6 +27,9 @@ namespace EndangeredAR.Tests.EditMode
         [TestCase("Animator.SetTrigger", AIAction.None)]
         [TestCase("delete_user_data", AIAction.None)]
         [TestCase("future_action", AIAction.None)]
+        [TestCase("eat", AIAction.None)]
+        [TestCase("Eat", AIAction.None)]
+        [TestCase("EAT", AIAction.None)]
         public void ProtocolParser_FailsClosedUnlessValueIsExactTaunt(string raw, AIAction expected)
         {
             Assert.That(AIActionProtocol.Parse(raw), Is.EqualTo(expected));

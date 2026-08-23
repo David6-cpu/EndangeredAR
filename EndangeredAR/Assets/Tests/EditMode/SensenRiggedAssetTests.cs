@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography;
 using EndangeredAR.AI;
 using EndangeredAR.Animals;
 using NUnit.Framework;
@@ -17,9 +18,11 @@ namespace EndangeredAR.Tests.EditMode
         private const string TexturePath = "Assets/Art/Characters/Sensen/Rigged/Textures/sensen_basecolor_1024.png";
         private const string MaterialPath = "Assets/Art/Characters/Sensen/Rigged/Materials/SensenRigged.mat";
         private const string ControllerPath = "Assets/Animations/Sensen/SensenRigged.controller";
+        private const string EatAnimationPath = "Assets/Animations/Sensen/Clips/sensen_eat_expressive.fbx";
         private const string PrefabPath = "Assets/Prefabs/Animals/SensenRigged.prefab";
         private const string DevelopmentBootstrapPath = "Assets/Scripts/Development/DevelopmentToolsBootstrap.cs";
         private const string DevelopmentPanelPath = "Assets/Scripts/Development/AnimalAnimationDebugPanel.cs";
+        private const string GameViewAcceptancePath = "Assets/Editor/SensenRiggedGameViewAcceptance.cs";
 
         [Test]
         public void ProductAssets_UseOnlyTheApprovedRuntimeCandidate()
@@ -28,6 +31,7 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(File.Exists(TexturePath), Is.True, "The approved 1024 base color must be present.");
             Assert.That(File.Exists(MaterialPath), Is.True);
             Assert.That(File.Exists(ControllerPath), Is.True);
+            Assert.That(File.Exists(EatAnimationPath), Is.True, "Only the approved Expressive Eat animation may enter product Assets.");
             Assert.That(File.Exists(PrefabPath), Is.True);
 
             var prohibited = AssetDatabase.GetAllAssetPaths()
@@ -40,6 +44,19 @@ namespace EndangeredAR.Tests.EditMode
                 .ToArray();
 
             Assert.That(prohibited, Is.Empty, "Backup and source-quality candidates must remain outside product Assets.");
+
+            var productEatFbxAssets = AssetDatabase.GetAllAssetPaths()
+                .Where(path => path.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase))
+                .Where(path => path.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase))
+                .Where(path => path.IndexOf("eat", StringComparison.OrdinalIgnoreCase) >= 0)
+                .ToArray();
+            Assert.That(productEatFbxAssets, Is.EqualTo(new[] { EatAnimationPath }));
+            using (var stream = File.OpenRead(EatAnimationPath))
+            using (var sha256 = SHA256.Create())
+            {
+                var digest = string.Concat(sha256.ComputeHash(stream).Select(value => value.ToString("x2")));
+                Assert.That(digest, Is.EqualTo("66c6d474f3ac2053732a9af23b53e0d67621ee8b74dac9a4e062de15d48ffdcb"));
+            }
         }
 
         [Test]
@@ -119,25 +136,114 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
+        public void EatAnimation_UsesTheFormalAvatarAndSafeImporterContract()
+        {
+            var importer = AssetImporter.GetAtPath(EatAnimationPath) as ModelImporter;
+            var sourceAvatar = AssetDatabase.LoadAllAssetsAtPath(ModelPath)
+                .OfType<Avatar>()
+                .Single(avatar => avatar.isValid);
+
+            Assert.That(importer, Is.Not.Null);
+            Assert.That(importer.animationType, Is.EqualTo(ModelImporterAnimationType.Generic));
+            Assert.That(importer.avatarSetup, Is.EqualTo(ModelImporterAvatarSetup.CopyFromOther));
+            Assert.That(importer.sourceAvatar, Is.SameAs(sourceAvatar));
+            Assert.That(importer.importAnimation, Is.True);
+            Assert.That(importer.importCameras, Is.False);
+            Assert.That(importer.importLights, Is.False);
+            Assert.That(importer.clipAnimations, Has.Length.EqualTo(1));
+            Assert.That(importer.clipAnimations[0].name, Is.EqualTo("Sensen_Eat"));
+            Assert.That(importer.clipAnimations[0].loopTime, Is.False);
+            Assert.That(importer.clipAnimations[0].lockRootHeightY, Is.True);
+            Assert.That(importer.clipAnimations[0].lockRootPositionXZ, Is.True);
+            Assert.That(importer.clipAnimations[0].lockRootRotation, Is.True);
+        }
+
+        [Test]
+        public void EatAnimation_HasValidatedBindingsAndNoRootDriftOrEvents()
+        {
+            var clip = FindClip(
+                AssetDatabase.LoadAllAssetsAtPath(EatAnimationPath).OfType<AnimationClip>().ToArray(),
+                "Sensen_Eat");
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+            var instance = PrefabUtility.InstantiatePrefab(prefab) as GameObject;
+
+            Assert.That(clip.length, Is.EqualTo(3.5f).Within(0.02f));
+            Assert.That(clip.frameRate, Is.EqualTo(30f).Within(0.01f));
+            Assert.That(AnimationUtility.GetAnimationClipSettings(clip).loopTime, Is.False);
+            Assert.That(AnimationUtility.GetAnimationEvents(clip), Is.Empty);
+
+            var bindings = AnimationUtility.GetCurveBindings(clip);
+            Assert.That(bindings, Has.Length.EqualTo(350));
+            var animatedPaths = bindings.Select(binding => binding.path).Distinct().ToArray();
+            var drivenPaths = bindings
+                .GroupBy(binding => binding.path)
+                .Where(group => group.Any(binding => HasChangingCurve(clip, binding)))
+                .Select(group => group.Key)
+                .ToArray();
+            Assert.That(drivenPaths, Has.Length.EqualTo(9));
+            Assert.That(drivenPaths, Has.Some.EndsWith("mixamorig:Head"));
+            Assert.That(drivenPaths, Has.Some.EndsWith("mixamorig:LeftHand"));
+
+            try
+            {
+                var animator = instance.GetComponentInChildren<Animator>(true);
+                Assert.That(animator, Is.Not.Null);
+                foreach (var binding in bindings)
+                {
+                    Assert.That(animator.transform.Find(binding.path), Is.Not.Null, binding.path);
+                }
+
+                var startRootPosition = instance.transform.localPosition;
+                var startRootRotation = instance.transform.localRotation;
+                clip.SampleAnimation(animator.gameObject, 0f);
+                var poseAtStart = CaptureBonePose(animator.transform, animatedPaths);
+                clip.SampleAnimation(animator.gameObject, clip.length);
+                var poseAtEnd = CaptureBonePose(animator.transform, animatedPaths);
+                Assert.That(Vector3.Distance(instance.transform.localPosition, startRootPosition), Is.LessThan(0.0001f));
+                Assert.That(Quaternion.Angle(instance.transform.localRotation, startRootRotation), Is.LessThan(0.01f));
+                Assert.That(MaxPoseDelta(poseAtStart, poseAtEnd), Is.LessThan(0.01f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+        }
+
+        [Test]
         public void AnimatorController_DefaultsToIdleAndReturnsAfterTaunt()
         {
             var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(ControllerPath);
             Assert.That(controller, Is.Not.Null);
             Assert.That(controller.parameters, Has.Exactly(1).Matches<AnimatorControllerParameter>(parameter =>
                 parameter.name == "Taunt" && parameter.type == AnimatorControllerParameterType.Trigger));
+            Assert.That(controller.parameters, Has.Exactly(1).Matches<AnimatorControllerParameter>(parameter =>
+                parameter.name == "Eat" && parameter.type == AnimatorControllerParameterType.Trigger));
 
             var stateMachine = controller.layers.Single().stateMachine;
             var idle = stateMachine.states.Single(child => child.state.name == "Idle").state;
             var taunt = stateMachine.states.Single(child => child.state.name == "Taunt").state;
+            var eat = stateMachine.states.Single(child => child.state.name == "Eat").state;
             Assert.That(stateMachine.defaultState, Is.SameAs(idle));
             Assert.That(idle.motion, Is.TypeOf<AnimationClip>());
             Assert.That(taunt.motion, Is.TypeOf<AnimationClip>());
+            Assert.That(eat.motion, Is.TypeOf<AnimationClip>());
+            Assert.That(((AnimationClip)eat.motion).name, Is.EqualTo("Sensen_Eat"));
+            Assert.That(AnimationUtility.GetAnimationClipSettings((AnimationClip)eat.motion).loopTime, Is.False);
             Assert.That(idle.transitions, Has.Exactly(1).Matches<AnimatorStateTransition>(transition =>
                 transition.destinationState == taunt &&
                 transition.conditions.Any(condition => condition.parameter == "Taunt" &&
                                                       condition.mode == AnimatorConditionMode.If)));
+            Assert.That(idle.transitions, Has.Exactly(1).Matches<AnimatorStateTransition>(transition =>
+                transition.destinationState == eat &&
+                transition.conditions.Any(condition => condition.parameter == "Eat" &&
+                                                      condition.mode == AnimatorConditionMode.If)));
             Assert.That(taunt.transitions, Has.Exactly(1).Matches<AnimatorStateTransition>(transition =>
                 transition.destinationState == idle && transition.hasExitTime));
+            Assert.That(eat.transitions, Has.Exactly(1).Matches<AnimatorStateTransition>(transition =>
+                transition.destinationState == idle && transition.hasExitTime));
+            Assert.That(stateMachine.anyStateTransitions, Is.Empty);
+            Assert.That(taunt.transitions.Any(transition => transition.destinationState == eat), Is.False);
+            Assert.That(eat.transitions.Any(transition => transition.destinationState == taunt), Is.False);
         }
 
         [Test]
@@ -231,16 +337,27 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
-        public void RiggedPrefab_ControllerSupportsOnlyTheCurrentlyImplementedAction()
+        public void RiggedPrefab_ControllerSupportsOnlyTheImplementedManualActions()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
-            var controller = prefab.GetComponent<AnimalModelController>();
+            var instance = PrefabUtility.InstantiatePrefab(prefab) as GameObject;
+            try
+            {
+                var controller = instance.GetComponent<AnimalModelController>();
+                var animator = instance.GetComponentInChildren<Animator>(true);
+                animator.Update(0f);
 
-            Assert.That(controller, Is.Not.Null);
-            Assert.That(controller.SupportsAction(AIAction.Taunt), Is.True);
-            Assert.That(controller.SupportsAction(AIAction.None), Is.False);
-            Assert.That(controller.SupportsAction((AIAction)999), Is.False);
-            Assert.That(controller.CurrentAction, Is.EqualTo(AIAction.None));
+                Assert.That(controller, Is.Not.Null);
+                Assert.That(controller.SupportsAction(AIAction.Taunt), Is.True);
+                Assert.That(controller.SupportsAction(AIAction.Eat), Is.True);
+                Assert.That(controller.SupportsAction(AIAction.None), Is.False);
+                Assert.That(controller.SupportsAction((AIAction)999), Is.False);
+                Assert.That(controller.CurrentAction, Is.EqualTo(AIAction.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
         }
 
         [Test]
@@ -339,6 +456,16 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(modelPrefab.objectReferenceValue, Is.SameAs(AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath)));
         }
 
+        [Test]
+        public void EatGameViewAcceptance_UsesTheRiggedScanPath()
+        {
+            var source = File.ReadAllText(GameViewAcceptancePath);
+
+            StringAssert.Contains("if (UsesRiggedModel(mode))", source);
+            StringAssert.Contains("return mode == RiggedMode || mode == EatMode;", source,
+                "Eat acceptance must load the rigged prefab rather than forcing the legacy GLB fallback.");
+        }
+
         private static AnimationClip FindClip(AnimationClip[] clips, string suffix)
         {
             var clip = clips.SingleOrDefault(value => value.name.Equals(suffix, StringComparison.Ordinal));
@@ -360,6 +487,32 @@ namespace EndangeredAR.Tests.EditMode
             var found = root.GetComponentsInChildren<Transform>(true).FirstOrDefault(child => child.name == name);
             Assert.That(found, Is.Not.Null, $"Expected descendant '{name}'.");
             return found;
+        }
+
+        private static System.Collections.Generic.Dictionary<string, Quaternion> CaptureBonePose(
+            Transform root,
+            string[] paths)
+        {
+            return paths.ToDictionary(path => path, path => root.Find(path).localRotation);
+        }
+
+        private static float MaxPoseDelta(
+            System.Collections.Generic.Dictionary<string, Quaternion> first,
+            System.Collections.Generic.Dictionary<string, Quaternion> second)
+        {
+            return first.Keys.Max(path => Quaternion.Angle(first[path], second[path]));
+        }
+
+        private static bool HasChangingCurve(AnimationClip clip, EditorCurveBinding binding)
+        {
+            var curve = AnimationUtility.GetEditorCurve(clip, binding);
+            if (curve == null || curve.keys.Length < 2)
+            {
+                return false;
+            }
+
+            var first = curve.keys[0].value;
+            return curve.keys.Any(key => Mathf.Abs(key.value - first) > 0.00001f);
         }
     }
 }

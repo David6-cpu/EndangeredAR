@@ -124,6 +124,9 @@ namespace EndangeredAR.Tests.EditMode
         [TestCase(" taunt", AIAction.None)]
         [TestCase("taunt ", AIAction.None)]
         [TestCase("taunt;delete", AIAction.None)]
+        [TestCase("eat", AIAction.None)]
+        [TestCase("Eat", AIAction.None)]
+        [TestCase("EAT", AIAction.None)]
         public void CloudProvider_MapsTransportActionWithStrictParser(string raw, AIAction expected)
         {
             var response = CloudLLMProvider.ToAIResponse(new ChatResponse
@@ -238,6 +241,9 @@ namespace EndangeredAR.Tests.EditMode
         [TestCase("TAUNT", AIAction.None)]
         [TestCase("taunt ", AIAction.None)]
         [TestCase("taunt_now", AIAction.None)]
+        [TestCase("eat", AIAction.None)]
+        [TestCase("Eat", AIAction.None)]
+        [TestCase("EAT", AIAction.None)]
         public void LocalProvider_MapsTransportActionWithSameStrictParser(string raw, AIAction expected)
         {
             AIResponse response;
@@ -307,6 +313,23 @@ namespace EndangeredAR.Tests.EditMode
             RunProviderStrict(provider.Send(request, 0f, value => response = value, Fail));
 
             Assert.That(response.ActionSuggestion, Is.EqualTo(AIAction.Taunt));
+        }
+
+        [Test]
+        public void LocalKnowledgeProvider_DietQuestionDoesNotGenerateEatBeforeR32C()
+        {
+            var gameObject = new GameObject("LocalKnowledgeDietActionTests");
+            createdObjects.Add(gameObject);
+            var provider = new LocalKnowledgeProvider(gameObject.AddComponent<LocalKnowledgeChatService>());
+            var request = Request();
+            request.message = "森森，你平时吃什么？";
+            request.knowledgeProfile = Resources.Load<EndangeredAR.Animals.AnimalKnowledgeProfile>("Animals/SensenKnowledge");
+            AIResponse response = null;
+
+            RunProviderStrict(provider.Send(request, 0f, value => response = value, Fail));
+
+            Assert.That(response.answerMode, Is.EqualTo("grounded_fact"));
+            Assert.That(response.ActionSuggestion, Is.EqualTo(AIAction.None));
         }
 
         [Test]

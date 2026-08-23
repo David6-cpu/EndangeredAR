@@ -50,6 +50,28 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
+        public void Validate_AllowsHandConstructedEatOnlyWhenCapabilityAndControllerSupportIt()
+        {
+            var state = new ChatRequestState();
+            var ticket = state.Begin("sensen");
+            var loader = CreateLoaderWithController(out var expectedController);
+
+            var result = AIInteractionValidator.Validate(
+                AIAction.Eat,
+                "sensen",
+                "sensen",
+                state,
+                ticket,
+                true,
+                loader,
+                out var controller);
+
+            Assert.That(result, Is.EqualTo(AIInteractionValidationResult.Allowed));
+            Assert.That(controller, Is.SameAs(expectedController));
+            Assert.That(expectedController.IsBusy, Is.False);
+        }
+
+        [Test]
         public void Validate_NoneAndUnknownActionsFailClosed()
         {
             var state = new ChatRequestState();
@@ -247,7 +269,7 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(animator.runtimeAnimatorController, Is.Not.Null);
             controller = model.AddComponent<AnimalModelController>();
             SetPrivateField(controller, "animator", animator);
-            SetPrivateField(loader, "loadedCapabilities", CreateProfile(AIAction.Taunt));
+            SetPrivateField(loader, "loadedCapabilities", CreateProfile(AIAction.Taunt, AIAction.Eat));
             return loader;
         }
 

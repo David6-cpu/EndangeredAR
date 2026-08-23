@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using EndangeredAR.AI;
 using EndangeredAR.Animals;
 using EndangeredAR.AR;
 using EndangeredAR.Models;
@@ -23,6 +24,7 @@ namespace EndangeredAR.Editor
         private const string RunningKey = "EndangeredAR.R30.Acceptance.Running";
         private const string ModeKey = "EndangeredAR.R30.Acceptance.Mode";
         private const string RiggedMode = "rigged";
+        private const string EatMode = "eat";
         private const string LegacyMode = "legacy";
         private const string ModelRootName = "Animal GLB Runtime Root";
 
@@ -32,6 +34,7 @@ namespace EndangeredAR.Editor
         private static double stageStartedAt;
         private static double loadStartedAt;
         private static AnimalModelLoader modelLoader;
+        private static AnimalModelController animationController;
         private static Animator animator;
         private static SkinnedMeshRenderer skinnedRenderer;
         private static Renderer visibleRenderer;
@@ -44,6 +47,7 @@ namespace EndangeredAR.Editor
         private static Quaternion rootRotation;
         private static bool idleObserved;
         private static bool tauntObserved;
+        private static bool eatObserved;
         private static bool tauntCaptureRequested;
         private static double firstDisplaySeconds;
         private static double idleMedianFps;
@@ -65,6 +69,12 @@ namespace EndangeredAR.Editor
         public static void RunRiggedAcceptance()
         {
             Start(RiggedMode);
+        }
+
+        [MenuItem("Endangered AR/Debug/Sensen/Run Eat Game View Acceptance")]
+        public static void RunEatAcceptance()
+        {
+            Start(EatMode);
         }
 
         [MenuItem("Endangered AR/Debug/Sensen/Run Legacy GLB Baseline")]
@@ -117,6 +127,7 @@ namespace EndangeredAR.Editor
             stageStartedAt = EditorApplication.timeSinceStartup;
             FrameRates.Clear();
             modelLoader = null;
+            animationController = null;
             animator = null;
             skinnedRenderer = null;
             visibleRenderer = null;
@@ -124,6 +135,7 @@ namespace EndangeredAR.Editor
             rootBone = null;
             idleObserved = false;
             tauntObserved = false;
+            eatObserved = false;
             tauntCaptureRequested = false;
             firstDisplaySeconds = 0d;
             idleMedianFps = 0d;
@@ -188,7 +200,8 @@ namespace EndangeredAR.Editor
             }
 
             loadStartedAt = EditorApplication.timeSinceStartup;
-            if (SessionState.GetString(ModeKey, RiggedMode) == RiggedMode)
+            var mode = SessionState.GetString(ModeKey, RiggedMode);
+            if (UsesRiggedModel(mode))
             {
                 var scanner = UnityEngine.Object.FindObjectOfType<ARImageScanController>();
                 if (scanner == null)
@@ -235,6 +248,11 @@ namespace EndangeredAR.Editor
             Advance(1);
         }
 
+        private static bool UsesRiggedModel(string mode)
+        {
+            return mode == RiggedMode || mode == EatMode;
+        }
+
         private static void WaitForVisibleModel()
         {
             var root = modelLoader.transform.Find(ModelRootName);
@@ -256,6 +274,7 @@ namespace EndangeredAR.Editor
             hostRotation = hostTransform.rotation;
             hostScale = hostTransform.localScale;
             animator = root.GetComponentInChildren<Animator>(true);
+            animationController = root.GetComponentInChildren<AnimalModelController>(true);
             skinnedRenderer = root.GetComponentInChildren<SkinnedMeshRenderer>(true);
             rootBone = skinnedRenderer == null ? null : skinnedRenderer.rootBone;
             if (rootBone != null)
@@ -281,7 +300,11 @@ namespace EndangeredAR.Editor
             }
 
             var mode = SessionState.GetString(ModeKey, RiggedMode);
-            Capture(mode == RiggedMode ? "rigged-sensen-idle" : "legacy-sensen");
+            Capture(mode == RiggedMode
+                ? "rigged-sensen-idle"
+                : mode == EatMode
+                    ? "sensen-eat-idle"
+                    : "legacy-sensen");
             if (mode == LegacyMode)
             {
                 Advance(5);
@@ -294,7 +317,24 @@ namespace EndangeredAR.Editor
             }
 
             idleMedianFps = Median(FrameRates);
-            animator.SetTrigger("Taunt");
+            if (mode == EatMode)
+            {
+                if (animationController == null)
+                {
+                    throw new InvalidOperationException("Rigged model has no AnimalModelController at runtime.");
+                }
+
+                var result = animationController.TryPlayAction(AIAction.Eat);
+                if (result != ActionRequestResult.Played)
+                {
+                    throw new InvalidOperationException($"Eat action request was rejected with {result}.");
+                }
+            }
+            else
+            {
+                animator.SetTrigger("Taunt");
+            }
+
             FrameRates.Clear();
             Advance(3);
         }
@@ -302,15 +342,24 @@ namespace EndangeredAR.Editor
         private static void SampleTaunt()
         {
             SampleFrameRate();
-            tauntObserved |= animator.GetCurrentAnimatorStateInfo(0).IsName("Taunt");
+            var mode = SessionState.GetString(ModeKey, RiggedMode);
+            if (mode == EatMode)
+            {
+                eatObserved |= animator.GetCurrentAnimatorStateInfo(0).IsName("Eat");
+            }
+            else
+            {
+                tauntObserved |= animator.GetCurrentAnimatorStateInfo(0).IsName("Taunt");
+            }
+
             var elapsed = EditorApplication.timeSinceStartup - stageStartedAt;
             if (elapsed >= 1.2d && !tauntCaptureRequested)
             {
-                Capture("rigged-sensen-taunt");
+                Capture(mode == EatMode ? "sensen-eat-keyframe" : "rigged-sensen-taunt");
                 tauntCaptureRequested = true;
             }
 
-            if (elapsed >= 3.5d)
+            if (elapsed >= (mode == EatMode ? 4.25d : 3.5d))
             {
                 tauntMedianFps = Median(FrameRates);
                 Advance(4);
@@ -327,15 +376,19 @@ namespace EndangeredAR.Editor
 
         private static void VerifyReturnToIdle()
         {
+            var mode = SessionState.GetString(ModeKey, RiggedMode);
             idleObserved |= animator.GetCurrentAnimatorStateInfo(0).IsName("Idle");
-            if (!idleObserved || !tauntObserved)
+            var actionObserved = mode == EatMode ? eatObserved : tauntObserved;
+            if (!idleObserved || !actionObserved)
             {
                 if (EditorApplication.timeSinceStartup - stageStartedAt < 2d)
                 {
                     return;
                 }
 
-                Complete(false, "Animator did not observe both Idle and Taunt states.");
+                Complete(false, mode == EatMode
+                    ? "Animator did not observe both Idle and Eat states."
+                    : "Animator did not observe both Idle and Taunt states.");
                 return;
             }
 
@@ -344,8 +397,15 @@ namespace EndangeredAR.Editor
                              (Approximately(rootBone.localPosition, rootPosition) &&
                               Approximately(rootBone.localRotation, rootRotation));
             var fallbackHidden = !HasVisibleFallbackRenderer();
+            if (mode == EatMode)
+            {
+                Capture("sensen-eat-return-idle");
+            }
+
             Complete(hostStable && rootStable && fallbackHidden, hostStable && rootStable && fallbackHidden
-                ? "Rigged Idle/Taunt cycle completed without Animator drift; the legacy fallback stayed hidden."
+                ? mode == EatMode
+                    ? "Rigged Idle/Eat cycle completed without Animator drift; the legacy fallback stayed hidden."
+                    : "Rigged Idle/Taunt cycle completed without Animator drift; the legacy fallback stayed hidden."
                 : $"Runtime presentation failed (hostStable={hostStable}, rootStable={rootStable}, fallbackHidden={fallbackHidden}).");
         }
 
@@ -361,9 +421,11 @@ namespace EndangeredAR.Editor
         {
             var directory = VerificationDirectory();
             Directory.CreateDirectory(directory);
+            var mode = SessionState.GetString(ModeKey, RiggedMode);
+            var prefix = mode == EatMode ? "2026-08-24-r3.2b1" : "2026-08-22-r3.0";
             ScreenCapture.CaptureScreenshot(Path.Combine(
                 directory,
-                $"2026-08-22-r3.0-{suffix}.png"));
+                $"{prefix}-{suffix}.png"));
         }
 
         private static void Complete(bool passed, string message)
@@ -399,6 +461,7 @@ namespace EndangeredAR.Editor
                 $"monoUsedBytes={Profiler.GetMonoUsedSizeLong()}",
                 $"idleObserved={idleObserved}",
                 $"tauntObserved={tauntObserved}",
+                $"eatObserved={eatObserved}",
                 $"rendererBoundsSize={(visibleRenderer == null ? Vector3.zero : visibleRenderer.bounds.size)}",
                 $"hostVerticalDelta={(hostTransform == null ? 0f : Mathf.Abs(hostTransform.position.y - hostPosition.y)).ToString("0.000000", CultureInfo.InvariantCulture)}",
                 $"hostStable={IsHostWithinBreathingEnvelope()}",
@@ -407,8 +470,11 @@ namespace EndangeredAR.Editor
                 $"utc={DateTime.UtcNow:O}"
             }) + "\n";
 
-            File.WriteAllText($"/private/tmp/animalsar-r30-{mode}-gameview-report.txt", report);
-            Debug.Log($"R3.0 {mode} Game View acceptance completed: passed={passed}; {message}");
+            var reportPath = mode == EatMode
+                ? "/private/tmp/animalsar-r32b1-eat-gameview-report.txt"
+                : $"/private/tmp/animalsar-r30-{mode}-gameview-report.txt";
+            File.WriteAllText(reportPath, report);
+            Debug.Log($"{(mode == EatMode ? "R3.2B1" : "R3.0")} {mode} Game View acceptance completed: passed={passed}; {message}");
             stage = int.MaxValue;
             EditorApplication.update -= Tick;
             EditorApplication.isPlaying = false;

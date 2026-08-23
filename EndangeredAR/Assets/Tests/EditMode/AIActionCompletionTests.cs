@@ -172,6 +172,37 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
+        public void Completion_EatSuggestionRemainsTransportIsolatedBeforeR32C()
+        {
+            var state = new ChatRequestState();
+            var ticket = state.Begin("sensen");
+            var loader = CreateLoader(out _);
+            var response = new AIResponse
+            {
+                animalId = "sensen",
+                reply = "我的可靠资料里记录了天然食物。",
+                answerMode = "grounded_fact",
+                ActionSuggestion = AIAction.Eat
+            };
+
+            Assert.That(DemoAppController.TryResolveAICompletionWithAction(
+                state,
+                ticket,
+                "sensen",
+                true,
+                loader,
+                response,
+                "森森，你平时吃什么？",
+                new Func<string, string>(_ => "安全的本地知识回答"),
+                out var reply,
+                out var action,
+                out var validation), Is.True);
+            Assert.That(reply, Is.EqualTo(response.reply));
+            Assert.That(action, Is.Null);
+            Assert.That(validation, Is.EqualTo(AIInteractionValidationResult.NoAction));
+        }
+
+        [Test]
         public void ConversationRecordSchema_RemainsTextOnly()
         {
             var fields = typeof(ConversationRecord).GetFields(BindingFlags.Instance | BindingFlags.Public)

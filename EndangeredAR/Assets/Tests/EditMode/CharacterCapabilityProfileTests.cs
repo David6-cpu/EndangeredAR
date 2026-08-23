@@ -9,15 +9,16 @@ namespace EndangeredAR.Tests.EditMode
     public class CharacterCapabilityProfileTests
     {
         [Test]
-        public void SensenCapability_AllowsOnlyTaunt()
+        public void SensenCapability_AllowsOnlyImplementedManualActions()
         {
             var definition = Resources.Load<AnimalDefinition>("Animals/Sensen");
 
             Assert.That(definition, Is.Not.Null);
             Assert.That(definition.Capabilities, Is.Not.Null);
             Assert.That(definition.Capabilities.Supports(AIAction.Taunt), Is.True);
+            Assert.That(definition.Capabilities.Supports(AIAction.Eat), Is.True);
             Assert.That(definition.Capabilities.Supports(AIAction.None), Is.False);
-            Assert.That(definition.Capabilities.SupportedActions, Is.EqualTo(new[] { AIAction.Taunt }));
+            Assert.That(definition.Capabilities.SupportedActions, Is.EqualTo(new[] { AIAction.Taunt, AIAction.Eat }));
         }
 
         [Test]
@@ -28,17 +29,19 @@ namespace EndangeredAR.Tests.EditMode
             {
                 var serialized = new SerializedObject(profile);
                 var actions = serialized.FindProperty("supportedActions");
-                actions.arraySize = 4;
+                actions.arraySize = 5;
                 actions.GetArrayElementAtIndex(0).enumValueIndex = (int)AIAction.None;
                 actions.GetArrayElementAtIndex(1).enumValueIndex = (int)AIAction.Taunt;
                 actions.GetArrayElementAtIndex(2).enumValueIndex = (int)AIAction.Taunt;
                 actions.GetArrayElementAtIndex(3).intValue = 999;
+                actions.GetArrayElementAtIndex(4).enumValueIndex = (int)AIAction.Eat;
                 serialized.ApplyModifiedPropertiesWithoutUndo();
 
                 Assert.That(profile.Supports(AIAction.None), Is.False);
                 Assert.That(profile.Supports(AIAction.Taunt), Is.True);
+                Assert.That(profile.Supports(AIAction.Eat), Is.True);
                 Assert.That(profile.Supports((AIAction)999), Is.False);
-                Assert.That(profile.SupportedActions, Is.EqualTo(new[] { AIAction.Taunt }));
+                Assert.That(profile.SupportedActions, Is.EqualTo(new[] { AIAction.Taunt, AIAction.Eat }));
             }
             finally
             {
