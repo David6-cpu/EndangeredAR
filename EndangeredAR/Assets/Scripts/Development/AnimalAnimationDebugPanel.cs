@@ -21,6 +21,7 @@ namespace EndangeredAR.Development
         private Text animatorText;
         private Text resultText;
         private Button tauntButton;
+        private Button eatButton;
         private float nextRefreshAt;
 
         private void Awake()
@@ -64,7 +65,7 @@ namespace EndangeredAR.Development
             expandedRect.anchorMax = Vector2.one;
             expandedRect.pivot = Vector2.one;
             expandedRect.anchoredPosition = new Vector2(-24f, -24f);
-            expandedRect.sizeDelta = new Vector2(360f, 330f);
+            expandedRect.sizeDelta = new Vector2(360f, 400f);
             var background = expandedRoot.AddComponent<Image>();
             background.color = panelColor;
             background.raycastTarget = true;
@@ -82,12 +83,26 @@ namespace EndangeredAR.Development
             Place(tauntButton.GetComponent<RectTransform>(), 22f, -205f, 316f, 56f);
             tauntButton.onClick.AddListener(RequestTaunt);
 
+            eatButton = CreateButton(expandedRect, "Play Eat", "PLAY EAT", actionColor);
+            Place(eatButton.GetComponent<RectTransform>(), 22f, -273f, 316f, 56f);
+            eatButton.onClick.AddListener(RequestEat);
+
             var collapseButton = CreateButton(expandedRect, "Collapse", "COLLAPSE", mutedColor);
-            Place(collapseButton.GetComponent<RectTransform>(), 22f, -273f, 316f, 42f);
+            Place(collapseButton.GetComponent<RectTransform>(), 22f, -341f, 316f, 42f);
             collapseButton.onClick.AddListener(() => SetExpanded(false));
         }
 
         private void RequestTaunt()
+        {
+            RequestAction(AIAction.Taunt);
+        }
+
+        private void RequestEat()
+        {
+            RequestAction(AIAction.Eat);
+        }
+
+        private void RequestAction(AIAction action)
         {
             var loader = ResolveLoader();
             if (loader == null || !loader.TryGetCurrentModelController(out var controller))
@@ -97,7 +112,7 @@ namespace EndangeredAR.Development
                 return;
             }
 
-            var result = controller.TryPlayAction(AIAction.Taunt);
+            var result = controller.TryPlayAction(action);
             resultText.text = "Result: " + result;
             RefreshStatus();
         }
@@ -111,11 +126,13 @@ namespace EndangeredAR.Development
             {
                 animatorText.text = "Animator: " + controller.CurrentStateLabel;
                 tauntButton.interactable = controller.CanRequestAction(AIAction.Taunt);
+                eatButton.interactable = controller.CanRequestAction(AIAction.Eat);
                 return;
             }
 
             animatorText.text = "Animator: unavailable";
             tauntButton.interactable = false;
+            eatButton.interactable = false;
         }
 
         private static AnimalModelLoader ResolveLoader()
