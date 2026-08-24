@@ -75,7 +75,8 @@ namespace EndangeredAR.AI
             var selected = AIAction.None;
             foreach (var candidate in candidates)
             {
-                if (candidate.Source != AIActionCandidateSource.DeterministicUserIntent ||
+                if ((candidate.Source != AIActionCandidateSource.DeterministicUserIntent &&
+                     candidate.Source != AIActionCandidateSource.GroundedKnowledge) ||
                     !string.Equals(candidate.AnimalId, expectedAnimalId, StringComparison.OrdinalIgnoreCase) ||
                     !AIActionProtocol.IsExecutable(candidate.Action))
                 {

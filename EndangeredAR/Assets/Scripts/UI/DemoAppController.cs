@@ -1729,6 +1729,7 @@ namespace EndangeredAR.UI
                     modelLoader,
                     response,
                     userMessage,
+                    CurrentAnimal?.Knowledge,
                     BuildFallbackReply,
                     out var reply,
                     out var validatedAction,
@@ -1757,10 +1758,12 @@ namespace EndangeredAR.UI
                     $"source={response?.source ?? "unknown"}",
                     this);
             }
-            else if (response != null && response.ActionSuggestion != AIAction.None)
+            else if (response != null &&
+                     (response.ActionSuggestion != AIAction.None || response.GroundingTopic != GroundingTopic.None))
             {
                 Debug.Log(
-                    $"AI action={response.ActionSuggestion} validation={validationResult} execution=Skipped " +
+                    $"AI action={response.ActionSuggestion} grounding={response.GroundingTopic} " +
+                    $"validation={validationResult} execution=Skipped " +
                     $"source={response.source ?? "unknown"}",
                     this);
             }
@@ -1845,11 +1848,60 @@ namespace EndangeredAR.UI
             out ValidatedAIAction validatedAction,
             out AIInteractionValidationResult validationResult)
         {
-            var selectedAction = AIActionPolicy.SelectProviderSuggestion(
+            return TryResolveAICompletionWithAction(
+                requestState,
+                request,
+                currentAnimalId,
+                isInteractionPageActive,
+                modelLoader,
+                response,
+                userMessage,
+                null,
+                fallbackReply,
+                out displayReply,
+                out validatedAction,
+                out validationResult);
+        }
+
+        internal static bool TryResolveAICompletionWithAction(
+            ChatRequestState requestState,
+            ChatRequestTicket request,
+            string currentAnimalId,
+            bool isInteractionPageActive,
+            AnimalModelLoader modelLoader,
+            AIResponse response,
+            string userMessage,
+            AnimalKnowledgeProfile knowledgeProfile,
+            Func<string, string> fallbackReply,
+            out string displayReply,
+            out ValidatedAIAction validatedAction,
+            out AIInteractionValidationResult validationResult)
+        {
+            var candidates = new List<AIActionCandidate>();
+            var providerAction = AIActionPolicy.SelectProviderSuggestion(
                 response == null ? AIAction.None : response.ActionSuggestion,
                 userMessage,
                 response?.animalId,
                 currentAnimalId);
+            if (providerAction != AIAction.None)
+            {
+                candidates.Add(new AIActionCandidate(
+                    providerAction,
+                    AIActionCandidateSource.DeterministicUserIntent,
+                    response?.animalId));
+            }
+
+            if (GroundedActionCandidateFactory.TryCreate(
+                    response,
+                    userMessage,
+                    currentAnimalId,
+                    knowledgeProfile,
+                    out var groundedCandidate))
+            {
+                candidates.Add(groundedCandidate);
+            }
+
+            var selectedAction = AIActionPolicy.Select(candidates, currentAnimalId);
             validationResult = AIInteractionValidator.Validate(
                 selectedAction,
                 response?.animalId,

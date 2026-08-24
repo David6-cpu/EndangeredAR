@@ -104,6 +104,110 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
+        public void Completion_GroundedDietProducesOneShotEatOnlyAfterTicketIsConsumed()
+        {
+            var state = new ChatRequestState();
+            var ticket = state.Begin("sensen");
+            var loader = CreateLoader(out var controller);
+            var response = GroundedDietResponse(out var profile);
+
+            Assert.That(ResolveGrounded(
+                state,
+                ticket,
+                true,
+                loader,
+                response,
+                "森森，你平时吃什么？",
+                profile,
+                out var reply,
+                out var action,
+                out var validation), Is.True);
+            Assert.That(reply, Does.Contain(response.reply));
+            Assert.That(validation, Is.EqualTo(AIInteractionValidationResult.Allowed));
+            Assert.That(action, Is.Not.Null);
+            Assert.That(action.Action, Is.EqualTo(AIAction.Eat));
+            Assert.That(state.CanComplete(ticket, "sensen"), Is.False);
+            Assert.That(controller.IsBusy, Is.False, "Resolution must not execute Eat before the UI/history path completes.");
+            Assert.That(action.TryExecute(out _), Is.True);
+            Assert.That(action.TryExecute(out _), Is.False);
+        }
+
+        [Test]
+        public void Completion_ProviderTauntAndGroundedEatConflictFailsClosed()
+        {
+            var state = new ChatRequestState();
+            var ticket = state.Begin("sensen");
+            var loader = CreateLoader(out _);
+            var response = GroundedDietResponse(out var profile);
+            response.ActionSuggestion = AIAction.Taunt;
+
+            Assert.That(ResolveGrounded(
+                state,
+                ticket,
+                true,
+                loader,
+                response,
+                "给我表演一下，再告诉我你吃什么。",
+                profile,
+                out var reply,
+                out var action,
+                out var validation), Is.True);
+            Assert.That(reply, Does.Contain(response.reply));
+            Assert.That(action, Is.Null);
+            Assert.That(validation, Is.EqualTo(AIInteractionValidationResult.NoAction));
+        }
+
+        [Test]
+        public void Completion_GroundedDietBusyAcceptsReplyWithoutQueuingEat()
+        {
+            var state = new ChatRequestState();
+            var ticket = state.Begin("sensen");
+            var loader = CreateLoader(out var controller);
+            SetPrivateField(controller, "pendingAction", AIAction.Taunt);
+            var response = GroundedDietResponse(out var profile);
+
+            Assert.That(ResolveGrounded(
+                state,
+                ticket,
+                true,
+                loader,
+                response,
+                "你平时吃什么？",
+                profile,
+                out var reply,
+                out var action,
+                out var validation), Is.True);
+            Assert.That(reply, Does.Contain(response.reply));
+            Assert.That(action, Is.Null);
+            Assert.That(validation, Is.EqualTo(AIInteractionValidationResult.Busy));
+        }
+
+        [Test]
+        public void Completion_StaleGroundedDietCannotExposeEatOrReply()
+        {
+            var state = new ChatRequestState();
+            var ticket = state.Begin("sensen");
+            var loader = CreateLoader(out _);
+            var response = GroundedDietResponse(out var profile);
+            state.Invalidate();
+
+            Assert.That(ResolveGrounded(
+                state,
+                ticket,
+                true,
+                loader,
+                response,
+                "你平时吃什么？",
+                profile,
+                out var reply,
+                out var action,
+                out var validation), Is.False);
+            Assert.That(reply, Is.Null);
+            Assert.That(action, Is.Null);
+            Assert.That(validation, Is.EqualTo(AIInteractionValidationResult.StaleRequest));
+        }
+
+        [Test]
         public void Completion_BusyControllerAcceptsReplyWithoutQueuingAction()
         {
             var state = new ChatRequestState();
@@ -237,6 +341,33 @@ namespace EndangeredAR.Tests.EditMode
                 out validation);
         }
 
+        private static bool ResolveGrounded(
+            ChatRequestState state,
+            ChatRequestTicket ticket,
+            bool isInteractionPageActive,
+            AnimalModelLoader loader,
+            AIResponse response,
+            string userMessage,
+            AnimalKnowledgeProfile profile,
+            out string reply,
+            out ValidatedAIAction action,
+            out AIInteractionValidationResult validation)
+        {
+            return DemoAppController.TryResolveAICompletionWithAction(
+                state,
+                ticket,
+                "sensen",
+                isInteractionPageActive,
+                loader,
+                response,
+                userMessage,
+                profile,
+                new Func<string, string>(_ => "安全的本地知识回答"),
+                out reply,
+                out action,
+                out validation);
+        }
+
         private AnimalModelLoader CreateLoader(out AnimalModelController controller)
         {
             loaderObject = new GameObject("Loader");
@@ -267,6 +398,25 @@ namespace EndangeredAR.Tests.EditMode
                 reply = "好呀，看我的！",
                 answerMode = "social_chat",
                 ActionSuggestion = AIAction.Taunt
+            };
+        }
+
+        private static AIResponse GroundedDietResponse(out AnimalKnowledgeProfile profile)
+        {
+            profile = AssetDatabase.LoadAssetAtPath<AnimalKnowledgeProfile>(
+                "Assets/Resources/Animals/SensenKnowledge.asset");
+            Assert.That(profile, Is.Not.Null);
+            var diet = profile.Entries.Single(entry => entry.KnowledgeId == "sensen.diet");
+            return new AIResponse
+            {
+                animalId = "sensen",
+                reply = diet.Reply,
+                answerMode = "grounded_fact",
+                evidenceStatus = "evidence_found",
+                GroundingTopic = GroundingTopic.Diet,
+                GroundedFactIds = new[] { diet.KnowledgeId },
+                citations = diet.SourceIds.Select(sourceId => new AICitation { sourceId = sourceId }).ToArray(),
+                ActionSuggestion = AIAction.None
             };
         }
 

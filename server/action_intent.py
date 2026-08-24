@@ -15,6 +15,7 @@ _TAUNT_INTENTS = frozenset(
         "逗我一下",
         "showmeataunt",
         "performataunt",
+        "给我表演一下再告诉我你吃什么",
     }
 )
 

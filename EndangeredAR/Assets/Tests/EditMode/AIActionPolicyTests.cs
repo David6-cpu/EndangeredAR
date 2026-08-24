@@ -47,12 +47,23 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
+        public void Select_WithCanonicalGroundedKnowledgeEat_ReturnsEat()
+        {
+            var candidates = new[]
+            {
+                new AIActionCandidate(AIAction.Eat, AIActionCandidateSource.GroundedKnowledge, "sensen")
+            };
+
+            Assert.That(AIActionPolicy.Select(candidates, "sensen"), Is.EqualTo(AIAction.Eat));
+        }
+
+        [Test]
         public void Select_WithConflictingTauntAndEat_FailsClosed()
         {
             var candidates = new[]
             {
                 new AIActionCandidate(AIAction.Taunt, AIActionCandidateSource.DeterministicUserIntent, "sensen"),
-                new AIActionCandidate(AIAction.Eat, AIActionCandidateSource.DeterministicUserIntent, "sensen")
+                new AIActionCandidate(AIAction.Eat, AIActionCandidateSource.GroundedKnowledge, "sensen")
             };
 
             Assert.That(AIActionPolicy.Select(candidates, "sensen"), Is.EqualTo(AIAction.None));

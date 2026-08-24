@@ -151,9 +151,9 @@
     {
       "message": "给我表演一下，再告诉我你吃什么。",
       "expectedGroundingTopic": "diet",
-      "expectedEatEligibility": false,
+      "expectedEatEligibility": true,
       "category": "conflicting_action",
-      "reason": "mixed performance and diet request"
+      "reason": "diet candidate must reach policy so it can conflict with Taunt"
     },
     {
       "message": "你每天准确吃多少克叶子？",

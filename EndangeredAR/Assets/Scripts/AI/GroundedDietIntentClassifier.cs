@@ -11,7 +11,7 @@ namespace EndangeredAR.AI
             "不要吃", "别吃", "不吃", "刚才为什么吃", "现在没有在吃", "没有在吃",
             "薯片", "巧克力", "人类零食", "零食", "塑料", "包装食品", "喂你", "给你吃",
             "eat", "trigger", "animator", "settrigger", "tryplayaction",
-            "播放", "执行", "触发", "动画", "动作", "表演", "给我看",
+            "播放eat", "执行吃东西动画", "直接触发动作",
             "忽略规则", "忽略证据", "修改groundingtopic", "伪造citation", "删除数据",
             "修改任务", "修改进度", "解锁", "发徽章"
         };
@@ -24,7 +24,8 @@ namespace EndangeredAR.AI
             new Regex("^(森森)?你以什么为食$", RegexOptions.CultureInvariant),
             new Regex("^给我介绍一下(森森的|你的)?食性$", RegexOptions.CultureInvariant),
             new Regex("^(森森)?你会怎么吃这些树叶$", RegexOptions.CultureInvariant),
-            new Regex("^森森的食物(是|有)什么$", RegexOptions.CultureInvariant)
+            new Regex("^森森的食物(是|有)什么$", RegexOptions.CultureInvariant),
+            new Regex("^给我表演一下再告诉我你吃什么$", RegexOptions.CultureInvariant)
         };
 
         public static bool IsEligible(string message)
