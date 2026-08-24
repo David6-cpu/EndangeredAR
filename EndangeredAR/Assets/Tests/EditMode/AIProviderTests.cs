@@ -127,6 +127,8 @@ namespace EndangeredAR.Tests.EditMode
         [TestCase("eat", AIAction.None)]
         [TestCase("Eat", AIAction.None)]
         [TestCase("EAT", AIAction.None)]
+        [TestCase("eat ", AIAction.None)]
+        [TestCase("eat;delete", AIAction.None)]
         public void CloudProvider_MapsTransportActionWithStrictParser(string raw, AIAction expected)
         {
             var response = CloudLLMProvider.ToAIResponse(new ChatResponse
@@ -272,6 +274,8 @@ namespace EndangeredAR.Tests.EditMode
         [TestCase("eat", AIAction.None)]
         [TestCase("Eat", AIAction.None)]
         [TestCase("EAT", AIAction.None)]
+        [TestCase("eat ", AIAction.None)]
+        [TestCase("eat;delete", AIAction.None)]
         public void LocalProvider_MapsTransportActionWithSameStrictParser(string raw, AIAction expected)
         {
             AIResponse response;
@@ -344,7 +348,7 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
-        public void LocalKnowledgeProvider_DietQuestionDoesNotGenerateEatBeforeR32C()
+        public void LocalKnowledgeProvider_DietQuestionReturnsTrustedMetadataButNoTransportEat()
         {
             var gameObject = new GameObject("LocalKnowledgeDietActionTests");
             createdObjects.Add(gameObject);
@@ -357,6 +361,29 @@ namespace EndangeredAR.Tests.EditMode
             RunProviderStrict(provider.Send(request, 0f, value => response = value, Fail));
 
             Assert.That(response.answerMode, Is.EqualTo("grounded_fact"));
+            Assert.That(response.evidenceStatus, Is.EqualTo("evidence_found"));
+            Assert.That(response.GroundingTopic, Is.EqualTo(GroundingTopic.Diet));
+            Assert.That(response.GroundedFactIds, Is.EqualTo(new[] { "sensen.diet" }));
+            Assert.That(response.citations, Is.Not.Empty);
+            Assert.That(response.ActionSuggestion, Is.EqualTo(AIAction.None));
+        }
+
+        [Test]
+        public void LocalKnowledgeProvider_PreciseDietQuantityHasNoGroundingAuthority()
+        {
+            var gameObject = new GameObject("LocalKnowledgePreciseDietTests");
+            createdObjects.Add(gameObject);
+            var provider = new LocalKnowledgeProvider(gameObject.AddComponent<LocalKnowledgeChatService>());
+            var request = Request();
+            request.message = "你每天准确吃多少克叶子？";
+            request.knowledgeProfile = Resources.Load<EndangeredAR.Animals.AnimalKnowledgeProfile>("Animals/SensenKnowledge");
+            AIResponse response = null;
+
+            RunProviderStrict(provider.Send(request, 0f, value => response = value, Fail));
+
+            Assert.That(response.evidenceStatus, Is.EqualTo("insufficient_evidence"));
+            Assert.That(response.GroundingTopic, Is.EqualTo(GroundingTopic.None));
+            Assert.That(response.GroundedFactIds, Is.Empty);
             Assert.That(response.ActionSuggestion, Is.EqualTo(AIAction.None));
         }
 

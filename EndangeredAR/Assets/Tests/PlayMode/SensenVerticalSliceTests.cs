@@ -479,7 +479,44 @@ namespace EndangeredAR.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator AICompletion_GroundedDietFactDoesNotTriggerEatEvenIfSuggested()
+        public IEnumerator AICompletion_TrustedGroundedDietAcrossRoutesDisplaysCitationAndExecutesOneEat()
+        {
+            yield return LoadDemoScene();
+
+            var scanner = FindSingle<ARImageScanController>();
+            var loader = FindSingle<AnimalModelLoader>();
+            var appController = FindSingle<DemoAppController>();
+            scanner.SimulateMarkerDetected("sensen");
+            yield return null;
+            yield return null;
+            InvokePrivate(appController, "EnterModelView");
+            Assert.That(loader.TryGetCurrentModelController(out var animationController), Is.True);
+            var animator = animationController.GetComponentInChildren<Animator>(true);
+            var history = (System.Collections.Generic.List<ChatMessage>)GetPrivateField(appController, "chatHistory");
+            var requestState = (ChatRequestState)GetPrivateField(appController, "chatRequestState");
+
+            foreach (var source in new[] { "local_llm", "cloud_llm", "unity_knowledge" })
+            {
+                yield return WaitForAnimatorState(animator, "Idle", 2f);
+                var historyCount = history.Count;
+                var ticket = requestState.Begin("sensen");
+                InvokePrivate(
+                    appController,
+                    "FinishCloudAnswer",
+                    ticket,
+                    "森森，你平时吃什么？",
+                    GroundedDietResponse(source));
+
+                Assert.That(animationController.IsBusy, Is.True, source);
+                Assert.That(history, Has.Count.EqualTo(historyCount + 2), source);
+                Assert.That(history[^1].content, Does.Contain("资料来源"), source);
+                yield return WaitUntilNotBusy(animationController, 6f);
+                Assert.That(animationController.CurrentStateLabel, Is.EqualTo("Idle"), source);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator AICompletion_UntrustedAndNonEligibleDietContextsNeverExecuteEat()
         {
             yield return LoadDemoScene();
 
@@ -493,16 +530,80 @@ namespace EndangeredAR.Tests.PlayMode
             Assert.That(loader.TryGetCurrentModelController(out var animationController), Is.True);
 
             var requestState = (ChatRequestState)GetPrivateField(appController, "chatRequestState");
-            var ticket = requestState.Begin("sensen");
-            InvokePrivate(appController, "FinishCloudAnswer", ticket, "森森，你平时吃什么？", new AIResponse
+            var cases = new[]
             {
-                animalId = "sensen",
-                reply = "我的可靠资料记录了嫩叶、花朵和部分果实。",
-                answerMode = "grounded_fact",
-                ActionSuggestion = AIAction.Eat
-            });
+                new CompletionCase("你的学名是什么？", GroundedIdentityResponse()),
+                new CompletionCase("薯片适合你吗？", GroundedDietResponse("cloud_llm")),
+                new CompletionCase("你每天准确吃多少克叶子？", InsufficientDietResponse()),
+                new CompletionCase("森森，你平时吃什么？", new AIResponse
+                {
+                    animalId = "sensen",
+                    reply = "普通规则回答。",
+                    source = "server_rule",
+                    answerMode = "grounded_fact",
+                    evidenceStatus = "evidence_found"
+                })
+            };
 
-            Assert.That(animationController.IsBusy, Is.False);
+            foreach (var item in cases)
+            {
+                var ticket = requestState.Begin("sensen");
+                InvokePrivate(appController, "FinishCloudAnswer", ticket, item.Message, item.Response);
+                Assert.That(animationController.IsBusy, Is.False, item.Message);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator AICompletion_GroundedEatConflictBusyAndStaleFailClosed()
+        {
+            yield return LoadDemoScene();
+
+            var scanner = FindSingle<ARImageScanController>();
+            var loader = FindSingle<AnimalModelLoader>();
+            var appController = FindSingle<DemoAppController>();
+            scanner.SimulateMarkerDetected("sensen");
+            yield return null;
+            yield return null;
+            InvokePrivate(appController, "EnterModelView");
+            Assert.That(loader.TryGetCurrentModelController(out var animationController), Is.True);
+            var animator = animationController.GetComponentInChildren<Animator>(true);
+            yield return WaitForAnimatorState(animator, "Idle", 2f);
+
+            var requestState = (ChatRequestState)GetPrivateField(appController, "chatRequestState");
+            var conflict = GroundedDietResponse("cloud_llm");
+            conflict.ActionSuggestion = AIAction.Taunt;
+            InvokePrivate(
+                appController,
+                "FinishCloudAnswer",
+                requestState.Begin("sensen"),
+                "给我表演一下，再告诉我你吃什么。",
+                conflict);
+            Assert.That(animationController.IsBusy, Is.False, "Conflicting actions must both fail closed.");
+
+            Assert.That(animationController.TryPlayAction(AIAction.Eat), Is.EqualTo(ActionRequestResult.Played));
+            var history = (System.Collections.Generic.List<ChatMessage>)GetPrivateField(appController, "chatHistory");
+            var historyCount = history.Count;
+            InvokePrivate(
+                appController,
+                "FinishCloudAnswer",
+                requestState.Begin("sensen"),
+                "你平时吃什么？",
+                GroundedDietResponse("local_llm"));
+            Assert.That(history, Has.Count.EqualTo(historyCount + 2), "Busy must not suppress the reply.");
+
+            yield return WaitUntilNotBusy(animationController, 6f);
+            yield return new WaitForSeconds(0.2f);
+            Assert.That(animationController.CurrentStateLabel, Is.EqualTo("Idle"), "Busy must not queue a second Eat.");
+
+            var staleTicket = requestState.Begin("sensen");
+            requestState.Invalidate();
+            InvokePrivate(
+                appController,
+                "FinishCloudAnswer",
+                staleTicket,
+                "你平时吃什么？",
+                GroundedDietResponse("cloud_llm"));
+            Assert.That(animationController.IsBusy, Is.False, "Stale completion must not execute Eat.");
         }
 
         [UnityTest]
@@ -879,6 +980,74 @@ namespace EndangeredAR.Tests.PlayMode
                 answerMode = "social_chat",
                 ActionSuggestion = AIAction.Taunt
             };
+        }
+
+        private static AIResponse GroundedDietResponse(string source)
+        {
+            var profile = Resources.Load<AnimalKnowledgeProfile>("Animals/SensenKnowledge");
+            Assert.That(profile, Is.Not.Null);
+            var diet = profile.Entries.Single(entry => entry.KnowledgeId == "sensen.diet");
+            return new AIResponse
+            {
+                animalId = "sensen",
+                reply = diet.Reply,
+                source = source,
+                answerMode = "grounded_fact",
+                evidenceStatus = "evidence_found",
+                GroundingTopic = GroundingTopic.Diet,
+                GroundedFactIds = new[] { diet.KnowledgeId },
+                citations = diet.SourceIds.Select(sourceId => new AICitation
+                {
+                    sourceId = sourceId,
+                    organization = profile.Sources.Single(item => item.SourceId == sourceId).Organization
+                }).ToArray(),
+                ActionSuggestion = AIAction.None
+            };
+        }
+
+        private static AIResponse GroundedIdentityResponse()
+        {
+            var profile = Resources.Load<AnimalKnowledgeProfile>("Animals/SensenKnowledge");
+            Assert.That(profile, Is.Not.Null);
+            var identity = profile.Entries.Single(entry => entry.KnowledgeId == "sensen.scientific_name");
+            return new AIResponse
+            {
+                animalId = "sensen",
+                reply = identity.Reply,
+                source = "cloud_llm",
+                answerMode = "grounded_fact",
+                evidenceStatus = "evidence_found",
+                GroundingTopic = GroundingTopic.None,
+                GroundedFactIds = new[] { identity.KnowledgeId },
+                citations = identity.SourceIds.Select(sourceId => new AICitation { sourceId = sourceId }).ToArray()
+            };
+        }
+
+        private static AIResponse InsufficientDietResponse()
+        {
+            return new AIResponse
+            {
+                animalId = "sensen",
+                reply = "可靠资料里没有精确食量数字，所以我不能随便编一个。",
+                source = "server_knowledge",
+                answerMode = "insufficient_evidence",
+                evidenceStatus = "insufficient_evidence",
+                GroundingTopic = GroundingTopic.None,
+                GroundedFactIds = Array.Empty<string>(),
+                citations = Array.Empty<AICitation>()
+            };
+        }
+
+        private readonly struct CompletionCase
+        {
+            public CompletionCase(string message, AIResponse response)
+            {
+                Message = message;
+                Response = response;
+            }
+
+            public string Message { get; }
+            public AIResponse Response { get; }
         }
     }
 }
