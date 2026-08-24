@@ -31,12 +31,7 @@ namespace EndangeredAR.AI
                 yield break;
             }
 
-            var payload = new ChatRequest
-            {
-                animalId = request == null ? string.Empty : request.animalId,
-                message = request == null ? string.Empty : request.message,
-                history = request == null || request.history == null ? Array.Empty<ChatMessage>() : request.history
-            };
+            var payload = CreatePayload(request);
 
             var webRequest = new UnityWebRequest(url, "POST");
             try
@@ -110,6 +105,17 @@ namespace EndangeredAR.AI
             };
             endpoint = builder.Uri.AbsoluteUri;
             return true;
+        }
+
+        internal static ChatRequest CreatePayload(AIRequest request)
+        {
+            return new ChatRequest
+            {
+                animalId = request == null ? string.Empty : request.animalId,
+                message = request == null ? string.Empty : request.message,
+                history = request == null || request.history == null ? Array.Empty<ChatMessage>() : request.history,
+                context = request == null ? ReadOnlyCharacterContext.Empty : request.Context ?? ReadOnlyCharacterContext.Empty
+            };
         }
 
         internal static bool TryParseErrorResponse(string json, out AIProviderError error)

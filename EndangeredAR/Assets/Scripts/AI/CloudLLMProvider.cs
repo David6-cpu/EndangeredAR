@@ -36,6 +36,7 @@ namespace EndangeredAR.AI
                     request == null ? string.Empty : request.animalId,
                     request == null ? string.Empty : request.message,
                     request == null ? Array.Empty<ChatMessage>() : request.history,
+                    request == null ? ReadOnlyCharacterContext.Empty : request.Context,
                     timeoutSeconds,
                     response =>
                     {
