@@ -1,84 +1,89 @@
-# 濒危动物交互科普系统 EndangeredAR
+# EndangeredAR
 
-> A Unity mobile experience where rare and protected wildlife can be discovered, understood, and spoken with.
+基于增强现实、可信动物知识与端云协同 AI 的珍稀及受保护野生动物智能科普系统
 
-[![Unity](https://img.shields.io/badge/Unity-2022.3.62f3c1-222C37?logo=unity)](https://unity.com/releases/editor/whats-new/2022.3.62)
-![Platform](https://img.shields.io/badge/Platform-iOS%20%7C%20Unity%20Editor-2E6245)
-![Status](https://img.shields.io/badge/Status-Sensen%20Vertical%20Slice-5EBB78)
+[![Unity](https://img.shields.io/badge/Unity-6000.0.76f1-222C37?logo=unity)](https://unity.com/releases/editor/archive)
+![Platform](https://img.shields.io/badge/Platform-iOS%2027%20%7C%20Unity%20Editor-2E6245)
+![Status](https://img.shields.io/badge/Status-R3.3A%20Read--only%20Context-5EBB78)
 ![Repository](https://img.shields.io/badge/Repository-Public-C9A33A)
 
-**EndangeredAR** 是一款面向青少年科普与竞赛展示的珍稀及受保护野生动物互动产品。用户通过相机扫描入口认识动物，在 3D 场景中旋转、缩放动物模型，与角色化 AI 对话，完成轻量科普任务，并生成可保存的学习卡片。
+## 项目简介
 
-当前已经完成并经过 iPhone 真机验证的主角是缨冠灰叶猴 **“森森”**。项目同时建立了数据驱动的多动物基础，但第二个动物体验仍在开发中。
+**EndangeredAR** 是一款面向青少年科普、研学活动、动物园及自然教育场景的智能 AR 应用。项目通过 Unity 构建可交互的数字动物角色，结合本地轻量模型、云端大模型和经过审核的动物知识库，为用户提供具有真实来源引用的自然语言科普问答。
+
+当前核心角色为缨冠灰叶猴“森森”（*Semnopithecus priam*）。系统不仅能够回答用户关于物种身份、食性、分布和保护状态的问题，还能在严格的白名单、角色能力和运行时校验下，根据明确互动意图或可信知识主题驱动角色播放相应动画。
+
+项目坚持“模型负责表达，知识库负责事实，应用层负责权限”的设计原则。AI 可以读取有限的业务上下文，但不能直接修改任务、进度、徽章、解锁状态或动画权限。
 
 ![EndangeredAR 产品界面总览](EndangeredAR/Design/sensen-ar-redesigned-navigation-board.png)
 
-## 核心体验
+## 核心能力
+
+- **AR 数字动物交互**：支持角色展示、单指旋转、双指缩放和页面生命周期管理。
+- **端云协同问答**：支持本地轻量模型、云端模型和确定性知识兜底路由。
+- **可信动物知识**：科学事实来自 canonical 动物知识库，并返回可追踪引用。
+- **事实约束与拒绝编造**：资料不足时明确说明证据不足，不虚构学名、数量、分布或保护等级。
+- **安全角色动作**：AI 或知识系统只能产生动作候选，最终必须经过 Policy、Capability、Validator 和角色控制器。
+- **知识驱动行为**：食性问题在真实 diet 证据和 citation 成立时，可安全触发森森的 Eat 动画。
+- **只读业务上下文**：AI 可读取有限的解锁、知识、徽章和任务完成状态，但没有业务写权限。
+- **真机验证**：已在 iOS 27 与 Unity 6000.0.76f1 环境完成启动、AR、手势、聊天和角色动画验收。
+
+## 当前角色：森森
+
+- 中文名：缨冠灰叶猴
+- 学名：*Semnopithecus priam*
+- 英文名：Tufted Gray Langur
+- IUCN 状态：近危（Near Threatened，NT）
+- 种群趋势：下降
+- 全球种群总量：缺少可靠的统一估算
+- CITES：附录 I
+
+> CITES 附录 I 与 IUCN“濒危（EN）”不是同一评价体系。森森当前的 IUCN 等级是近危（NT），不能描述为 IUCN 濒危（EN）。
+
+## 技术架构概览
 
 ```text
-进入 App → 相机扫描入口 → 识别/手动确认 → 森森 3D 模型出现
-        → 角色化 AI 对话 → 帮森森寻找食物 → 解锁徽章
-        → 生成科普卡片 PNG → 图鉴与进度持久化
+用户输入
+  ↓
+只读角色上下文 + Canonical 动物知识检索
+  ↓
+Local LLM / Cloud LLM / Unity Knowledge Fallback
+  ↓
+可信回答 + Citations + 受控动作候选
+  ↓
+Action Policy
+  ↓
+Character Capability
+  ↓
+AIInteractionValidator
+  ↓
+Rigged AR Character
 ```
 
-| 能力 | 当前实现 |
-| --- | --- |
-| 动物展示 | 森森 GLB 模型、材质加载、出现反馈、双指缩放和单指旋转 |
-| 扫描体验 | iOS 相机预览、扫描框、手动/模拟识别兜底；稳定版暂未启用 ARFoundation 图像追踪 |
-| AI 对话 | Unity 可切换 CloudOnly、LocalOnly、LocalFirstCloudFallback；科学事实先检索项目知识并携带真实引用，再由本机 llama.cpp 或 Moonshot 提供角色表达 |
-| 科普任务 | “帮森森寻找食物”选择任务，区分正确/错误反馈并避免重复发放奖励 |
-| 学习闭环 | 学习中心、动物解锁进度、徽章、图鉴、科普卡片 PNG |
-| 移动端适配 | Safe Area、Dynamic Island、Home Indicator、iPhone 竖屏布局 |
-| 多动物基础 | 数据驱动的动物定义、模型加载、知识、任务、进度和 Marker 映射 |
-
-## 项目亮点
-
-- **角色化科普**：森森以第一人称、青少年友好的语气回答，不是普通百科问答框。
-- **AI 安全边界**：大模型密钥只存在于后端环境变量，Unity 客户端不直连模型供应商。
-- **完整互动闭环**：展示、对话、任务、奖励、学习卡片和持久化不是彼此割裂的页面。
-- **离线可演示**：云端不可用时仍能使用本地动物知识回答，避免现场演示中断。
-- **面向扩展**：动物内容从角色、模型、知识、任务到进度均按 `animalId` 隔离。
-
-## 系统架构
-
-```mermaid
-flowchart LR
-    U["用户 / iPhone"] --> UI["Unity UI 与相机预览"]
-    UI --> X["AnimalExperienceController"]
-    X --> C["Animal Catalog"]
-    X --> M["GLB 模型加载与手势"]
-    X --> P["本地解锁、任务与对话进度"]
-    UI --> A["AIManager / AIRouter"]
-    UI --> R["Deterministic Knowledge Retrieval"]
-    A --> LP["LocalLLMProvider"]
-    A --> CP["CloudLLMProvider"]
-    A --> UK["LocalKnowledgeProvider"]
-    LP --> LS["Python POST /chat/local"]
-    CP --> CS["ChatApiClient → Python POST /chat"]
-    LS --> LL["llama.cpp-compatible server"]
-    CS --> L["Moonshot API"]
-    CS --> F["Python rule fallback"]
-    UK --> K["Unity animal knowledge"]
-    R --> J["content/animals/sensen.json"]
-    J --> LP
-    J --> CP
-    J --> UK
-    C --> D["AnimalDefinition / Knowledge / Mission"]
-```
-
-核心原则是：**Unity 只访问项目自己的 Python 代理；Moonshot 密钥永远不进入客户端和 Git 历史。** `/chat/local` 代理本机 llama.cpp-compatible 服务，`/chat` 保留 Moonshot 路径。两条 Provider 路径在科学事实问题上使用同一份确定性检索证据，模型不能决定事实正文或引用。
+核心原则是：**模型负责表达，知识库负责事实，应用层负责权限。** Unity 只访问项目自己的 Python 代理，Moonshot 密钥不进入客户端和 Git 历史。Local、Cloud 和 Unity 知识兜底使用同一份事实约束；模型不能决定引用、业务写入权限或直接调用 Animator。
 
 ## 技术栈
 
-- Unity `2022.3.62f3c1`
-- Unity UI / TextMeshPro
-- glTFast `6.18.0`
-- C#、NUnit、Unity Test Framework
-- Python 3 标准库 HTTP Server
-- Moonshot OpenAI-compatible API（可选）
-- Xcode / iOS 15+
+- Unity `6000.0.76f1`
+- C# / Python
+- iOS 27 / Xcode 27
+- llama.cpp
+- Qwen2.5-1.5B-Instruct GGUF（本地开发推理服务）
+- Moonshot API（云端模型路径）
+- JSON canonical knowledge corpus
+- Unity Generic Rig / Animator
+- Unity UI / TextMeshPro / glTFast `6.18.0`
 
-稳定分支目前**没有启用** AR Foundation、ARKit XR Plugin 或 ARCore XR Plugin，以避免重新引入此前的 Unity 包冲突。真实 AR 图片追踪属于后续阶段，不是当前 README 所描述的已完成功能。
+当前稳定包清单未包含 AR Foundation、ARKit XR Plugin 或 ARCore XR Plugin。扫描体验使用 iOS 相机预览与手动/模拟识别兜底；真实图片追踪仍属于后续工作。
+
+## 当前限制
+
+- 本地轻量模型目前通过开发机上的 llama.cpp 服务运行，尚未直接内嵌到 iOS 或 Android App。
+- 当前完整角色闭环主要围绕森森实现，尚未完成大规模多物种扩展。
+- 森森为卡通化数字角色原型，后续仍可继续进行物种特征和美术精修。
+- 当前长期角色记忆尚未实现；R3.3A 仅提供真实业务状态的只读上下文。
+- 正式商业化所需的长期性能监控、隐私政策和多用户体系仍属于后续工作。
+
 
 ## 仓库结构
 
@@ -112,7 +117,7 @@ cd EndangeredAR
 
 ### 2. 打开 Unity Demo
 
-1. 使用 Unity Hub 安装并打开 Unity `2022.3.62f3c1`。
+1. 使用 Unity Hub 安装并打开 Unity `6000.0.76f1`。
 2. 在 Unity Hub 中选择仓库内的 `EndangeredAR/` 目录。
 3. 打开 `Assets/Scenes/DemoScene.unity`。
 4. 等待脚本编译和资源导入完成后进入 Play Mode。
@@ -145,7 +150,7 @@ curl http://127.0.0.1:8000/health
 
 ```bash
 llama-server \
-  -m /absolute/path/to/model.gguf \
+  -m "<path-to-qwen-gguf>" \
   --host 127.0.0.1 \
   --port 8080
 ```
@@ -179,7 +184,7 @@ Endangered AR > Set Local API To Mac LAN IP
 3. 配置自己的开发团队和 Bundle Identifier。
 4. 连接已信任且开启开发者模式的 iPhone，签名并运行。
 
-项目的 Unity 后处理步骤包含 Unity 2022 对新 iOS `UIScene` 生命周期的兼容处理。当前开发构建最低目标为 iOS 15。
+Unity 6000.0.76f1 生成的 iOS 工程包含当前系统所需的 `UIScene` 生命周期支持，并已在 iOS 27 真机完成正常启动验收。
 
 ## AI 配置与安全
 
@@ -205,7 +210,7 @@ LOCAL_LLM_TIMEOUT=7
 - 森森唯一人工维护知识源是 [`content/animals/sensen.json`](content/animals/sensen.json)。Unity 的 `Sensen.asset` 与 `SensenKnowledge.asset` 由 `AnimalContentAssetBuilder` 从该文件生成，不应手工维护第二份事实。
 - 默认预算为本地 8 秒、整条 Provider 路由 38 秒；聊天 UI 另有 40 秒总保护，不会让 Local 与 Cloud 各自等待完整 40 秒。
 - 后端最多保留请求中最近 20 条受支持的用户/角色消息。
-- 当前 R2 使用小型确定性检索，不包含向量数据库、Embedding、流式输出、移动端原生推理或 AI 动画/任务控制。
+- 当前知识系统使用小型确定性检索，不包含向量数据库、Embedding、流式输出或移动端原生推理。角色动作只能由应用生成候选并经过 Policy、Capability、Validator 和角色控制器，模型不能直接控制动画或任务。
 
 更完整的后端说明见 [`server/README.md`](server/README.md)。
 
@@ -220,12 +225,13 @@ python3 -m unittest discover -s server/tests -v
 ### Unity EditMode
 
 ```bash
-UNITY="/Applications/Unity/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/MacOS/Unity"
+UNITY="${UNITY_EDITOR:?Set UNITY_EDITOR to the Unity executable}"
+mkdir -p TestResults
 "$UNITY" -batchmode -nographics \
   -projectPath "$PWD/EndangeredAR" \
   -runTests -testPlatform EditMode \
-  -testResults /tmp/endangeredar-editmode.xml \
-  -logFile /tmp/endangeredar-editmode.log
+  -testResults "$PWD/TestResults/endangeredar-editmode.xml" \
+  -logFile "$PWD/TestResults/endangeredar-editmode.log"
 ```
 
 ### Unity PlayMode
@@ -234,27 +240,26 @@ UNITY="/Applications/Unity/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/MacOS/Uni
 "$UNITY" -batchmode -nographics \
   -projectPath "$PWD/EndangeredAR" \
   -runTests -testPlatform PlayMode \
-  -testResults /tmp/endangeredar-playmode.xml \
-  -logFile /tmp/endangeredar-playmode.log
+  -testResults "$PWD/TestResults/endangeredar-playmode.xml" \
+  -logFile "$PWD/TestResults/endangeredar-playmode.log"
 ```
 
 最近一次完整回归记录：
 
 | 验证项 | 结果 |
 | --- | ---: |
-| Unity EditMode | 136 / 136 passed |
-| Unity PlayMode | 13 / 13 passed |
-| Python backend | 54 / 54 passed |
-| iOS 构建 | Unity 导出、Xcode 签名构建与真机安装成功 |
-| 真机目标 | iPhone 17 Pro Max，竖屏 Safe Area 验证 |
+| Unity EditMode | 280 / 280 passed |
+| Unity PlayMode | 28 / 28 passed |
+| Python backend | 74 / 74 passed |
+| iOS 构建 | Unity 6 导出、Xcode 签名构建与真机安装成功 |
+| 真机范围 | iOS 27 启动、Safe Area、相机、Rigged 角色、手势、聊天与动作验收 |
 
 真机构建背景、设备检查项和已知边界见 [`Sensen iPhone Device Acceptance`](EndangeredAR/docs/verification/2026-08-06-sensen-device-acceptance.md)。自动化测试不能替代相机比例、模型材质、手势、PNG 输出等真机人工检查。
 
-## 当前边界
+## 已知问题与发布边界
 
-- 森森是当前唯一完整跑通的动物体验。
 - 扫描页提供相机预览与手动/模拟识别；真实图片追踪尚未恢复。
-- AI 代理当前是适合本地开发和竞赛展示的轻量服务，不是生产级账号或高并发后台；本地模型仍运行在开发电脑上，不在 iPhone/Android 包内。
+- AI 代理当前适合本地开发和竞赛展示，不是生产级账号或高并发后台。
 - iOS App Store 发布前仍需准备正式应用图标、隐私文案、生产 HTTPS 地址和分发配置。
 - 第二动物模型资源已进入仓库，但角色内容、任务、识别映射和完整真机验收尚未完成。
 
@@ -289,6 +294,7 @@ UNITY="/Applications/Unity/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/MacOS/Uni
 - [iPhone 真机验收记录](EndangeredAR/docs/verification/2026-08-06-sensen-device-acceptance.md)
 - [R1 端云协同 AI 验收说明](EndangeredAR/docs/verification/2026-08-21-r1-hybrid-ai-routing.md)
 - [R2 Grounded Animal Knowledge 验收说明](EndangeredAR/docs/verification/2026-08-21-r2-grounded-animal-knowledge.md)
+- [R3.3A Read-only Context 验收说明](EndangeredAR/docs/verification/2026-08-24-r3.3a-readonly-context-foundation.md)
 - [UI Design System](EndangeredAR/DESIGN.md)
 
 ---
