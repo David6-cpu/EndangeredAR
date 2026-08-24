@@ -132,6 +132,27 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
+        public void LocalCloudAndKnowledgeReceiveTheSameReadOnlyContextSnapshot()
+        {
+            var local = FakeProvider.Error("local");
+            var cloud = FakeProvider.Error("cloud");
+            var knowledge = FakeProvider.Success("knowledge", "unity_knowledge", "knowledge reply");
+            var router = new AIRouter(local, cloud, knowledge, () => 0f);
+            var request = Request();
+            request.Context = ReadOnlyCharacterContext.Create(
+                new ReadOnlyCharacterState("sensen", true, 1, 1),
+                new ReadOnlyTaskState("food-mission", "帮森森寻找食物", true),
+                ReadOnlyInteractionState.Empty);
+
+            Run(router.Route(request, AIRouteMode.LocalFirstCloudFallback, 8f, 38f, Ignore, Fail));
+
+            Assert.That(local.LastRequest, Is.SameAs(request));
+            Assert.That(cloud.LastRequest, Is.SameAs(request));
+            Assert.That(knowledge.LastRequest, Is.SameAs(request));
+            Assert.That(local.LastRequest.Context, Is.SameAs(request.Context));
+        }
+
+        [Test]
         public void LocalFirst_GivesCloudOnlyRemainingTotalBudget()
         {
             var now = 0f;
@@ -413,6 +434,7 @@ namespace EndangeredAR.Tests.EditMode
             public string ProviderId { get; }
             public int CallCount { get; private set; }
             public float LastTimeoutSeconds { get; private set; }
+            public AIRequest LastRequest { get; private set; }
 
             public static FakeProvider Success(string providerId, string source, string reply)
             {
@@ -441,6 +463,7 @@ namespace EndangeredAR.Tests.EditMode
                 Action<AIProviderError> onError)
             {
                 CallCount++;
+                LastRequest = request;
                 LastTimeoutSeconds = timeoutSeconds;
                 if (callbackSynchronously)
                 {

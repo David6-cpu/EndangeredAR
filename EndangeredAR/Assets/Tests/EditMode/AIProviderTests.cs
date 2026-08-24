@@ -117,6 +117,37 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(response.citations[0].sourceId, Is.EqualTo("iucn-2020-s-priam"));
         }
 
+        [Test]
+        public void CloudProvider_ForwardsTheRequestReadOnlyContext()
+        {
+            var client = CreateControlledChatClient();
+            var provider = new CloudLLMProvider(client);
+            var request = Request();
+            request.Context = ReadOnlyCharacterContext.Create(
+                new ReadOnlyCharacterState("sensen", true, 1, 1),
+                new ReadOnlyTaskState("food-mission", "帮森森寻找食物", true),
+                ReadOnlyInteractionState.Empty);
+
+            RunProviderStrict(provider.Send(request, 7f, Ignore, Fail));
+
+            Assert.That(client.LastContext, Is.SameAs(request.Context));
+        }
+
+        [Test]
+        public void LocalProvider_PayloadIncludesTheSameReadOnlyContext()
+        {
+            var request = Request();
+            request.Context = ReadOnlyCharacterContext.Create(
+                new ReadOnlyCharacterState("sensen", true, 1, 1),
+                new ReadOnlyTaskState("food-mission", "帮森森寻找食物", true),
+                ReadOnlyInteractionState.Empty);
+
+            var payload = LocalLLMProvider.CreatePayload(request);
+
+            Assert.That(payload.context, Is.SameAs(request.Context));
+            Assert.That(payload.animalId, Is.EqualTo("sensen"));
+        }
+
         [TestCase("taunt", AIAction.Taunt)]
         [TestCase("none", AIAction.None)]
         [TestCase(null, AIAction.None)]
@@ -496,6 +527,20 @@ namespace EndangeredAR.Tests.EditMode
             public Func<Action<ChatResponse>, Action<string>, IEnumerator> RoutineFactory { get; set; }
             public float LastTimeoutSeconds { get; private set; }
             public ChatMessage[] LastHistory { get; private set; }
+            public ReadOnlyCharacterContext LastContext { get; private set; }
+
+            public override IEnumerator SendMessage(
+                string animalId,
+                string message,
+                ChatMessage[] history,
+                ReadOnlyCharacterContext context,
+                float timeoutSeconds,
+                Action<ChatResponse> onSuccess,
+                Action<string> onError)
+            {
+                LastContext = context;
+                return SendMessage(animalId, message, history, timeoutSeconds, onSuccess, onError);
+            }
 
             public override IEnumerator SendMessage(
                 string animalId,
