@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using EndangeredAR.API;
 
 namespace EndangeredAR.AI
@@ -123,6 +124,8 @@ namespace EndangeredAR.AI
                 missionHint = response == null ? null : response.missionHint,
                 answerMode = response == null ? null : response.answerMode,
                 evidenceStatus = response == null ? null : response.evidenceStatus,
+                GroundingTopic = GroundingTopicProtocol.Parse(response == null ? null : response.groundingTopic),
+                GroundedFactIds = Copy(response == null ? null : response.groundedFactIds),
                 ActionSuggestion = AIActionProtocol.Parse(response == null ? null : response.actionSuggestion),
                 citations = MapCitations(response == null ? null : response.citations)
             };
@@ -151,6 +154,26 @@ namespace EndangeredAR.AI
             }
 
             return mapped;
+        }
+
+        internal static string[] Copy(string[] values)
+        {
+            if (values == null || values.Length == 0)
+            {
+                return Array.Empty<string>();
+            }
+
+            var copy = new List<string>();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var value in values)
+            {
+                if (!string.IsNullOrWhiteSpace(value) && seen.Add(value))
+                {
+                    copy.Add(value);
+                }
+            }
+
+            return copy.ToArray();
         }
 
         private static AIProviderError ToProviderError(string error)

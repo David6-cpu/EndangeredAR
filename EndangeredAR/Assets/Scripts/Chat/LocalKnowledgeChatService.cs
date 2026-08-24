@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using EndangeredAR.AI;
 using EndangeredAR.Animals;
 using UnityEngine;
 
@@ -25,7 +26,9 @@ namespace EndangeredAR.Chat
                     true,
                     retrieval.AnswerMode,
                     retrieval.EvidenceStatus,
-                    retrieval.SourceIds);
+                    retrieval.SourceIds,
+                    GroundingTopicProtocol.Parse(retrieval.Entry.Topic),
+                    new[] { retrieval.Entry.KnowledgeId });
             }
 
             var reply = retrieval.ClassificationReason == "prompt_injection"
@@ -41,7 +44,9 @@ namespace EndangeredAR.Chat
                 false,
                 retrieval.AnswerMode,
                 retrieval.EvidenceStatus,
-                retrieval.SourceIds);
+                retrieval.SourceIds,
+                GroundingTopic.None,
+                Array.Empty<string>());
         }
 
         [Obsolete("Use Answer(AnimalKnowledgeProfile, string) with the active animal profile.")]
@@ -197,6 +202,27 @@ namespace EndangeredAR.Chat
             string answerMode,
             string evidenceStatus,
             string[] sourceIds)
+            : this(
+                reply,
+                suggestedQuestions,
+                isMatch,
+                answerMode,
+                evidenceStatus,
+                sourceIds,
+                GroundingTopic.None,
+                Array.Empty<string>())
+        {
+        }
+
+        public ChatAnswer(
+            string reply,
+            string[] suggestedQuestions,
+            bool isMatch,
+            string answerMode,
+            string evidenceStatus,
+            string[] sourceIds,
+            GroundingTopic groundingTopic,
+            string[] groundedFactIds)
         {
             Reply = reply;
             this.suggestedQuestions = Copy(suggestedQuestions);
@@ -204,6 +230,8 @@ namespace EndangeredAR.Chat
             AnswerMode = answerMode;
             EvidenceStatus = evidenceStatus;
             this.sourceIds = Copy(sourceIds);
+            GroundingTopic = groundingTopic;
+            GroundedFactIds = Copy(groundedFactIds);
         }
 
         public static ChatAnswer GenericFallback => new ChatAnswer("我暂时无法回答这个问题。", Array.Empty<string>(), false);
@@ -214,6 +242,8 @@ namespace EndangeredAR.Chat
         public string AnswerMode { get; }
         public string EvidenceStatus { get; }
         public string[] SourceIds => Copy(sourceIds);
+        public GroundingTopic GroundingTopic { get; }
+        public string[] GroundedFactIds { get; }
 
         private static string[] Copy(string[] values)
         {

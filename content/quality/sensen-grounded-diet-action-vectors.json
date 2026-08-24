@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "message": "森森，你平时吃什么？",
+      "expectedGroundingTopic": "diet",
+      "expectedEatEligibility": true,
+      "category": "positive_diet",
+      "reason": "direct natural diet question"
+    },
+    {
+      "message": "你每天准确吃多少克叶子？",
+      "expectedGroundingTopic": "none",
+      "expectedEatEligibility": false,
+      "category": "unsupported_precise_quantity",
+      "reason": "exact daily quantity is not supported by canonical evidence"
+    },
+    {
+      "message": "一天吃多少公斤？",
+      "expectedGroundingTopic": "none",
+      "expectedEatEligibility": false,
+      "category": "unsupported_precise_quantity",
+      "reason": "exact mass is not supported by canonical evidence"
+    },
+    {
+      "message": "每餐具体吃多少？",
+      "expectedGroundingTopic": "none",
+      "expectedEatEligibility": false,
+      "category": "unsupported_precise_quantity",
+      "reason": "exact per-meal quantity is not supported by canonical evidence"
+    },
+    {
+      "message": "每天准确吃几片叶子？",
+      "expectedGroundingTopic": "none",
+      "expectedEatEligibility": false,
+      "category": "unsupported_precise_quantity",
+      "reason": "exact item count is not supported by canonical evidence"
+    },
+    {
+      "message": "给出一个精确食量数字",
+      "expectedGroundingTopic": "none",
+      "expectedEatEligibility": false,
+      "category": "unsupported_precise_quantity",
+      "reason": "invented precise intake is forbidden"
+    }
+  ]
+}

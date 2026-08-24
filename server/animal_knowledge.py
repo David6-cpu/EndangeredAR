@@ -48,6 +48,41 @@ class RetrievalResult:
     def source_ids(self) -> Tuple[str, ...]:
         return tuple(citation["sourceId"] for citation in self.citations)
 
+    @property
+    def grounding_topic(self) -> str:
+        if (
+            self.answer_mode != "grounded_fact"
+            or self.evidence_status != "evidence_found"
+            or not self.facts
+            or not self.citations
+        ):
+            return "none"
+
+        topics = {
+            str(fact.get("topic") or "")
+            for fact in self.facts
+            if isinstance(fact, dict)
+        }
+        return "diet" if topics == {"diet"} else "none"
+
+    @property
+    def grounded_fact_ids(self) -> Tuple[str, ...]:
+        if (
+            self.answer_mode != "grounded_fact"
+            or self.evidence_status != "evidence_found"
+            or not self.citations
+        ):
+            return ()
+
+        fact_ids = []
+        seen = set()
+        for fact in self.facts:
+            fact_id = str(fact.get("factId") or "") if isinstance(fact, dict) else ""
+            if fact_id and fact_id not in seen:
+                seen.add(fact_id)
+                fact_ids.append(fact_id)
+        return tuple(fact_ids)
+
 
 def load_animal_knowledge(animal_id: str) -> Dict:
     safe_id = "".join(
@@ -82,6 +117,8 @@ def retrieve(document: Dict, message: str, animal_id: Optional[str] = None) -> R
     normalized = normalize_text(message)
     if not normalized:
         return _insufficient(document, "empty_question")
+    if is_unsupported_precise_diet_quantity(normalized):
+        return _insufficient(document, "unsupported_precise_diet_quantity")
     if any(marker in normalized for marker in map(normalize_text, STYLE_MARKERS)):
         return RetrievalResult(
             "social_chat",
@@ -163,6 +200,20 @@ def retrieve(document: Dict, message: str, animal_id: Optional[str] = None) -> R
 def normalize_text(value: str) -> str:
     normalized = unicodedata.normalize("NFKC", str(value or "")).lower()
     return re.sub(r"[\s\W_]+", "", normalized, flags=re.UNICODE)
+
+
+def is_unsupported_precise_diet_quantity(normalized_message: str) -> bool:
+    if not any(marker in normalized_message for marker in ("吃", "食量", "食物", "叶子", "叶片")):
+        return False
+
+    if any(marker in normalized_message for marker in ("准确", "精确", "具体", "数字")):
+        return True
+    if any(marker in normalized_message for marker in ("多少克", "千克", "公斤", "几片")):
+        return True
+    return (
+        any(marker in normalized_message for marker in ("每天", "每日", "每餐", "一天"))
+        and any(marker in normalized_message for marker in ("多少", "几", "数量"))
+    )
 
 
 def _score_fact(fact: Dict, normalized_message: str) -> int:

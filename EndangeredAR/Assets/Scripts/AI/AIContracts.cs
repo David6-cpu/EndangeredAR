@@ -33,6 +33,8 @@ namespace EndangeredAR.AI
         public string missionHint;
         public string answerMode;
         public string evidenceStatus;
+        public GroundingTopic GroundingTopic;
+        public string[] GroundedFactIds = Array.Empty<string>();
         public AIAction ActionSuggestion;
         public string emotion;
         public AICitation[] citations = Array.Empty<AICitation>();

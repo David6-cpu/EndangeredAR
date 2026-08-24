@@ -1,4 +1,6 @@
+import json
 import unittest
+from pathlib import Path
 
 from server import animal_knowledge
 
@@ -80,6 +82,27 @@ class AnimalKnowledgeRetrievalTests(unittest.TestCase):
         for question, fact_id in cases.items():
             with self.subTest(question=question):
                 self.assert_grounded(question, fact_id)
+
+    def test_grounded_diet_exposes_application_owned_topic_and_fact_ids(self):
+        result = self.assert_grounded("森森，你平时吃什么？", "sensen.diet")
+
+        self.assertEqual(result.grounding_topic, "diet")
+        self.assertEqual(result.grounded_fact_ids, ("sensen.diet",))
+
+    def test_precise_diet_quantity_vectors_fail_closed_without_evidence(self):
+        fixture_path = Path(__file__).resolve().parents[2] / "content" / "quality" / "sensen-grounded-diet-action-vectors.json"
+        fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+        for case in fixture["cases"]:
+            if case["category"] != "unsupported_precise_quantity":
+                continue
+            with self.subTest(message=case["message"]):
+                result = animal_knowledge.retrieve(self.document, case["message"])
+                self.assertEqual(result.answer_mode, "grounded_fact")
+                self.assertEqual(result.evidence_status, "insufficient_evidence")
+                self.assertEqual(result.grounding_topic, "none")
+                self.assertEqual(result.grounded_fact_ids, ())
+                self.assertEqual(result.citations, ())
 
     def test_population_returns_cited_insufficient_evidence(self):
         result = self.assert_grounded("野外还剩多少只？", "sensen.population.global")

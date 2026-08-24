@@ -38,6 +38,8 @@ namespace EndangeredAR.AI
                 suggestedQuestions = answer.SuggestedQuestions,
                 answerMode = answer.AnswerMode,
                 evidenceStatus = answer.EvidenceStatus,
+                GroundingTopic = answer.GroundingTopic,
+                GroundedFactIds = answer.GroundedFactIds,
                 ActionSuggestion = AIActionPolicy.SelectDeterministicIntent(
                     request == null ? null : request.message,
                     request == null ? null : request.animalId),

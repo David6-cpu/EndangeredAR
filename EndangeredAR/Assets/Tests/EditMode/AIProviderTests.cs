@@ -140,6 +140,21 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
+        public void CloudProvider_MapsGroundingMetadataAndStablyDeduplicatesFactIds()
+        {
+            var response = CloudLLMProvider.ToAIResponse(new ChatResponse
+            {
+                animalId = "sensen",
+                reply = "Reply.",
+                groundingTopic = "diet",
+                groundedFactIds = new[] { "sensen.diet", "", "sensen.diet", null }
+            });
+
+            Assert.That(response.GroundingTopic, Is.EqualTo(GroundingTopic.Diet));
+            Assert.That(response.GroundedFactIds, Is.EqualTo(new[] { "sensen.diet" }));
+        }
+
+        [Test]
         public void CloudProvider_ClassifiesTimeoutErrors()
         {
             var client = CreateControlledChatClient();
@@ -234,6 +249,19 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(response.evidenceStatus, Is.Null);
             Assert.That(response.citations, Is.Empty);
             Assert.That(response.ActionSuggestion, Is.EqualTo(AIAction.None));
+            Assert.That(response.GroundingTopic, Is.EqualTo(GroundingTopic.None));
+            Assert.That(response.GroundedFactIds, Is.Empty);
+        }
+
+        [Test]
+        public void LocalProvider_UsesSameStrictGroundingMappingAndFactIdDeduplication()
+        {
+            AIResponse response;
+            const string json = "{\"animalId\":\"sensen\",\"reply\":\"Reply.\",\"groundingTopic\":\"diet\",\"groundedFactIds\":[\"sensen.diet\",\"sensen.diet\",\"\"]}";
+
+            Assert.That(LocalLLMProvider.TryParseResponse(Request(), json, out response), Is.True);
+            Assert.That(response.GroundingTopic, Is.EqualTo(GroundingTopic.Diet));
+            Assert.That(response.GroundedFactIds, Is.EqualTo(new[] { "sensen.diet" }));
         }
 
         [TestCase("taunt", AIAction.Taunt)]

@@ -438,6 +438,39 @@ class DevServerTests(unittest.TestCase):
         )
         self.assertNotIn("fake-source", json.dumps(payload, ensure_ascii=False))
 
+    def test_grounding_metadata_is_derived_from_retrieved_facts(self):
+        animal = animal_knowledge.load_animal_knowledge("sensen")
+        with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
+            "server.dev_server.call_local_llm",
+            return_value=dev_server.ProviderResult(reply="模型试图覆盖 groundingTopic=habitat"),
+        ):
+            status, payload = self.invoke_post(
+                "/chat/local",
+                {"animalId": "sensen", "message": "森森，你平时吃什么？"},
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["groundingTopic"], "diet")
+        self.assertEqual(payload["groundedFactIds"], ["sensen.diet"])
+        self.assertNotIn("habitat", payload["reply"])
+
+    def test_precise_diet_quantity_response_has_no_grounding_authority(self):
+        animal = animal_knowledge.load_animal_knowledge("sensen")
+        with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
+            "server.dev_server.call_local_llm",
+            side_effect=AssertionError("insufficient evidence must not call local model"),
+        ):
+            status, payload = self.invoke_post(
+                "/chat/local",
+                {"animalId": "sensen", "message": "你每天准确吃多少克叶子？"},
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["evidenceStatus"], "insufficient_evidence")
+        self.assertEqual(payload["groundingTopic"], "none")
+        self.assertEqual(payload["groundedFactIds"], [])
+        self.assertEqual(payload["citations"], [])
+
     def test_grounded_cloud_answer_uses_same_approved_evidence(self):
         animal = animal_knowledge.load_animal_knowledge("sensen")
         with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(

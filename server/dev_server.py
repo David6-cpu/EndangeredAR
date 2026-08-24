@@ -327,6 +327,8 @@ def make_chat_response(
         "routeReason": route_reason,
         "answerMode": answer_mode,
         "evidenceStatus": retrieval.evidence_status if retrieval else "not_required",
+        "groundingTopic": retrieval.grounding_topic if retrieval else "none",
+        "groundedFactIds": list(retrieval.grounded_fact_ids) if retrieval else [],
         "actionSuggestion": action_suggestion,
         "citations": list(retrieval.citations) if retrieval else [],
     }

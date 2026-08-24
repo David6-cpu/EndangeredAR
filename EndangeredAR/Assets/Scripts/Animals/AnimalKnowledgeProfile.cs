@@ -51,6 +51,11 @@ namespace EndangeredAR.Animals
                 return AnimalKnowledgeRetrieval.Insufficient("empty_question");
             }
 
+            if (IsUnsupportedPreciseDietQuantity(normalized))
+            {
+                return AnimalKnowledgeRetrieval.Insufficient("unsupported_precise_diet_quantity");
+            }
+
             if (ContainsAny(normalized, StyleMarkers))
             {
                 return AnimalKnowledgeRetrieval.Social;
@@ -204,6 +209,23 @@ namespace EndangeredAR.Animals
             }
 
             return false;
+        }
+
+        private static bool IsUnsupportedPreciseDietQuantity(string normalizedMessage)
+        {
+            if (!ContainsAny(normalizedMessage, new[] { "吃", "食量", "食物", "叶子", "叶片" }))
+            {
+                return false;
+            }
+
+            if (ContainsAny(normalizedMessage, new[] { "准确", "精确", "具体", "数字" }) ||
+                ContainsAny(normalizedMessage, new[] { "多少克", "千克", "公斤", "几片" }))
+            {
+                return true;
+            }
+
+            return ContainsAny(normalizedMessage, new[] { "每天", "每日", "每餐", "一天" }) &&
+                   ContainsAny(normalizedMessage, new[] { "多少", "几", "数量" });
         }
 
         private static string Normalize(string value)

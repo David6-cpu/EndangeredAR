@@ -137,6 +137,8 @@ namespace EndangeredAR.API
         public string missionHint;
         public string answerMode;
         public string evidenceStatus;
+        public string groundingTopic;
+        public string[] groundedFactIds = Array.Empty<string>();
         public string actionSuggestion;
         public ChatCitation[] citations = Array.Empty<ChatCitation>();
     }
