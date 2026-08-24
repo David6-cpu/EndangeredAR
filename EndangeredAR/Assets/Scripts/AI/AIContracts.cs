@@ -19,6 +19,7 @@ namespace EndangeredAR.AI
         public string animalId;
         public string message;
         public ChatMessage[] history;
+        [NonSerialized] public ReadOnlyCharacterContext Context;
         [NonSerialized] public AnimalKnowledgeProfile knowledgeProfile;
     }
 

@@ -104,6 +104,12 @@ namespace EndangeredAR.Progress
             return JsonAnimalProgressRepository.CloneRecord(GetOrCreateInternal(animalId));
         }
 
+        public bool TryGetSnapshot(string animalId, out AnimalProgressRecord snapshot)
+        {
+            snapshot = JsonAnimalProgressRepository.CloneRecord(FindRecord(animalId));
+            return snapshot != null;
+        }
+
         public void MarkMissionCompleted(string animalId, string badgeId, string knowledgeId)
         {
             var record = GetOrCreateInternal(animalId);
