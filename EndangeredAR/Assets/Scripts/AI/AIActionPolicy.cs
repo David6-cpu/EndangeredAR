@@ -28,6 +28,14 @@ namespace EndangeredAR.AI
     {
         public static AIAction SelectDeterministicIntent(string userMessage, string animalId)
         {
+            return SelectDeterministicIntent(userMessage, animalId, animalId);
+        }
+
+        public static AIAction SelectDeterministicIntent(
+            string userMessage,
+            string responseAnimalId,
+            string currentAnimalId)
+        {
             var action = AIActionIntent.Resolve(userMessage);
             if (!AIActionProtocol.IsExecutable(action))
             {
@@ -37,9 +45,9 @@ namespace EndangeredAR.AI
             return Select(
                 new[]
                 {
-                    new AIActionCandidate(action, AIActionCandidateSource.DeterministicUserIntent, animalId)
+                    new AIActionCandidate(action, AIActionCandidateSource.DeterministicUserIntent, responseAnimalId)
                 },
-                animalId);
+                currentAnimalId);
         }
 
         public static AIAction SelectProviderSuggestion(

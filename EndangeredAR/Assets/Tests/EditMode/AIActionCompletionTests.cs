@@ -133,13 +133,14 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
-        public void Completion_ProviderTauntAndGroundedEatConflictFailsClosed()
+        public void Completion_TransportNoneButDeterministicTauntAndGroundedEatConflictFailsClosed()
         {
             var state = new ChatRequestState();
             var ticket = state.Begin("sensen");
             var loader = CreateLoader(out _);
             var response = GroundedDietResponse(out var profile);
-            response.ActionSuggestion = AIAction.Taunt;
+            Assert.That(response.ActionSuggestion, Is.EqualTo(AIAction.None),
+                "Real grounded HTTP responses suppress transport actions; the app-owned intent must still create the Taunt conflict.");
 
             Assert.That(ResolveGrounded(
                 state,

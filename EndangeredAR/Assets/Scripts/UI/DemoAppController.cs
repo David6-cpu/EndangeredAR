@@ -1891,14 +1891,27 @@ namespace EndangeredAR.UI
                     response?.animalId));
             }
 
-            if (GroundedActionCandidateFactory.TryCreate(
+            var hasGroundedCandidate = GroundedActionCandidateFactory.TryCreate(
                     response,
                     userMessage,
                     currentAnimalId,
                     knowledgeProfile,
-                    out var groundedCandidate))
+                    out var groundedCandidate);
+            if (hasGroundedCandidate)
             {
                 candidates.Add(groundedCandidate);
+
+                var deterministicAction = AIActionPolicy.SelectDeterministicIntent(
+                    userMessage,
+                    response?.animalId,
+                    currentAnimalId);
+                if (deterministicAction != AIAction.None)
+                {
+                    candidates.Add(new AIActionCandidate(
+                        deterministicAction,
+                        AIActionCandidateSource.DeterministicUserIntent,
+                        response?.animalId));
+                }
             }
 
             var selectedAction = AIActionPolicy.Select(candidates, currentAnimalId);

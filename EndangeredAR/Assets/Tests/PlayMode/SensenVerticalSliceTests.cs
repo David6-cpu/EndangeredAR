@@ -571,7 +571,7 @@ namespace EndangeredAR.Tests.PlayMode
 
             var requestState = (ChatRequestState)GetPrivateField(appController, "chatRequestState");
             var conflict = GroundedDietResponse("cloud_llm");
-            conflict.ActionSuggestion = AIAction.Taunt;
+            Assert.That(conflict.ActionSuggestion, Is.EqualTo(AIAction.None));
             InvokePrivate(
                 appController,
                 "FinishCloudAnswer",
