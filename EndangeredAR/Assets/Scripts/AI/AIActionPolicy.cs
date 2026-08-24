@@ -6,7 +6,8 @@ namespace EndangeredAR.AI
     internal enum AIActionCandidateSource
     {
         None,
-        DeterministicUserIntent
+        DeterministicUserIntent,
+        GroundedKnowledge
     }
 
     internal readonly struct AIActionCandidate
