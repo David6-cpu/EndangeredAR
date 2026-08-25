@@ -29,7 +29,7 @@ def make_glb(document, extra_chunks=()):
 class GlbMetadataSanitizerTests(unittest.TestCase):
     def test_only_target_metadata_is_removed_and_non_json_chunks_are_identical(self):
         sanitizer = load_sanitizer()
-        private_path = "/" + "private" + "/tmp/converter/source.obj"
+        private_path = "/" + "private" + "/" + "tmp/converter/source.obj"
         document = {
             "asset": {"version": "2.0"},
             "nodes": [

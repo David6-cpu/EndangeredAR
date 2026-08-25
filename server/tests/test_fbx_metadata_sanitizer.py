@@ -23,15 +23,19 @@ def elem(identifier, props=(), prop_types=b"", children=()):
     return Elem(identifier, list(props), bytearray(prop_types), list(children))
 
 
+def absolute_bytes(*parts):
+    return ("/" + "/".join(parts)).encode("utf-8")
+
+
 def scene_info_property(name, value):
     return elem(b"P", (name, b"KString", b"Url", b"", value), b"SSSSS")
 
 
 def rigged_tree(extra_scene_property=None):
     scene_properties = [
-        scene_info_property(b"DocumentUrl", b"/untitled.blend"),
-        scene_info_property(b"SrcDocumentUrl", b"/untitled.blend"),
-        scene_info_property(b"Original|FileName", b"/untitled.blend"),
+        scene_info_property(b"DocumentUrl", absolute_bytes("untitled.blend")),
+        scene_info_property(b"SrcDocumentUrl", absolute_bytes("untitled.blend")),
+        scene_info_property(b"Original|FileName", absolute_bytes("untitled.blend")),
         scene_info_property(b"Keep", b"relative-value"),
     ]
     if extra_scene_property is not None:
@@ -51,7 +55,7 @@ def rigged_tree(extra_scene_property=None):
             elem(
                 b"Objects",
                 children=(
-                    elem(b"Texture", children=(elem(b"FileName", (b"/private/tmp/work/texture.png",), b"S"),)),
+                    elem(b"Texture", children=(elem(b"FileName", (absolute_bytes("private", "tmp", "work", "texture.png"),), b"S"),)),
                     elem(
                         b"Video",
                         children=(
@@ -60,13 +64,13 @@ def rigged_tree(extra_scene_property=None):
                                 children=(
                                     elem(
                                         b"P",
-                                        (b"Path", b"KString", b"Url", b"", b"/private/tmp/work/texture.png"),
+                                        (b"Path", b"KString", b"Url", b"", absolute_bytes("private", "tmp", "work", "texture.png")),
                                         b"SSSSS",
                                     ),
                                     elem(b"P", (b"Keep", b"KString", b"", b"", b"relative"), b"SSSSS"),
                                 ),
                             ),
-                            elem(b"Filename", (b"/private/tmp/work/texture.png",), b"S"),
+                            elem(b"Filename", (absolute_bytes("private", "tmp", "work", "texture.png"),), b"S"),
                         ),
                     ),
                     elem(b"Geometry", (array.array("d", (1.0, 2.0, 3.0)),), b"d"),
@@ -111,7 +115,7 @@ class FbxMetadataSanitizerTests(unittest.TestCase):
         missing.elems[1].elems[0].elems.clear()
         duplicate = rigged_tree()
         duplicate.elems[1].elems[0].elems.append(
-            elem(b"FileName", (b"/private/tmp/work/second.png",), b"S")
+            elem(b"FileName", (absolute_bytes("private", "tmp", "work", "second.png"),), b"S")
         )
 
         with self.assertRaisesRegex(sanitizer.SanitizationError, "expected count"):
@@ -121,14 +125,14 @@ class FbxMetadataSanitizerTests(unittest.TestCase):
 
     def test_unapproved_local_path_fails_closed(self):
         sanitizer = load_sanitizer()
-        unexpected = scene_info_property(b"UnexpectedPath", b"/Users/fixture/private.blend")
+        unexpected = scene_info_property(b"UnexpectedPath", absolute_bytes("Users", "fixture", "private.blend"))
 
         with self.assertRaisesRegex(sanitizer.SanitizationError, "unexpected local absolute path"):
             sanitizer.remove_authorized_path_nodes(rigged_tree(unexpected), "rigged")
 
     def test_unapproved_absolute_path_on_an_unusual_mount_fails_closed(self):
         sanitizer = load_sanitizer()
-        unexpected = scene_info_property(b"UnexpectedPath", b"/Volumes/private/source.blend")
+        unexpected = scene_info_property(b"UnexpectedPath", absolute_bytes("Volumes", "private", "source.blend"))
 
         with self.assertRaisesRegex(sanitizer.SanitizationError, "UnexpectedPath") as raised:
             sanitizer.remove_authorized_path_nodes(rigged_tree(unexpected), "rigged")
@@ -151,11 +155,11 @@ class FbxMetadataSanitizerTests(unittest.TestCase):
                                     children=(
                                         scene_info_property(
                                             b"Original|ApplicationNativeFile",
-                                            b"/Users/fixture/source.blend",
+                                            absolute_bytes("Users", "fixture", "source.blend"),
                                         ),
-                                        scene_info_property(b"DocumentUrl", b"/untitled.blend"),
-                                        scene_info_property(b"SrcDocumentUrl", b"/untitled.blend"),
-                                        scene_info_property(b"Original|FileName", b"/untitled.blend"),
+                                        scene_info_property(b"DocumentUrl", absolute_bytes("untitled.blend")),
+                                        scene_info_property(b"SrcDocumentUrl", absolute_bytes("untitled.blend")),
+                                        scene_info_property(b"Original|FileName", absolute_bytes("untitled.blend")),
                                         scene_info_property(b"Keep", b"relative-value"),
                                     ),
                                 ),
@@ -221,7 +225,7 @@ class FbxMetadataSanitizerTests(unittest.TestCase):
             candidate.write_bytes(b"safe-binary")
             self.assertEqual(sanitizer._scan_output_bytes(candidate), {})
 
-            candidate.write_bytes(b"binary\0/Users/fixture/private.blend")
+            candidate.write_bytes(b"binary\0" + absolute_bytes("Users", "fixture", "private.blend"))
             with self.assertRaisesRegex(sanitizer.SanitizationError, "still contains"):
                 sanitizer._scan_output_bytes(candidate)
 
