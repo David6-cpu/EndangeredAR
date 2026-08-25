@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using EndangeredAR.Progress;
 
 namespace EndangeredAR.Memory
@@ -14,6 +15,7 @@ namespace EndangeredAR.Memory
         private readonly string profileKey;
         private readonly Func<DateTime> utcNow;
         private readonly Func<string> eventIdFactory;
+        private readonly ICharacterMemoryProgressSnapshotSource snapshotSource;
         private CharacterMemoryDocument document;
         private bool initialized;
         private bool canWrite;
@@ -26,11 +28,21 @@ namespace EndangeredAR.Memory
         {
         }
 
+        public CharacterMemoryService(
+            ICharacterMemoryRepository repository,
+            ICharacterMemoryProgressSnapshotSource snapshotSource,
+            Func<DateTime> utcNow = null,
+            Func<string> eventIdFactory = null)
+            : this(repository, LocalDefaultProfileKey, utcNow, eventIdFactory, snapshotSource)
+        {
+        }
+
         internal CharacterMemoryService(
             ICharacterMemoryRepository repository,
             string profileKey,
             Func<DateTime> utcNow = null,
-            Func<string> eventIdFactory = null)
+            Func<string> eventIdFactory = null,
+            ICharacterMemoryProgressSnapshotSource snapshotSource = null)
         {
             this.repository = repository ?? throw new ArgumentNullException(nameof(repository));
             if (!CharacterMemoryIdValidator.IsValid(profileKey))
@@ -41,6 +53,7 @@ namespace EndangeredAR.Memory
             this.profileKey = profileKey;
             this.utcNow = utcNow ?? (() => DateTime.UtcNow);
             this.eventIdFactory = eventIdFactory ?? (() => Guid.NewGuid().ToString("N"));
+            this.snapshotSource = snapshotSource;
             document = CharacterMemoryDocumentUtility.CreateEmpty();
             Status = CharacterMemoryStoreStatus.Unavailable;
             LastOperationResult = CharacterMemoryOperationResult.Unavailable;
@@ -76,6 +89,11 @@ namespace EndangeredAR.Memory
                 document = CharacterMemoryDocumentUtility.CreateEmpty();
                 LastOperationResult = CharacterMemoryOperationResult.Unavailable;
             }
+
+            if (canWrite && snapshotSource != null)
+            {
+                LastOperationResult = SynchronizeSnapshots();
+            }
         }
 
         public void AppendBatch(AnimalProgressTransitionBatch batch)
@@ -100,15 +118,18 @@ namespace EndangeredAR.Memory
 
             var existingKeys = CollectExistingKeys(record, profileKey, batch.AnimalId);
             var newEvents = new List<CharacterMemoryEvent>();
+            var suppressionRemoved = false;
             foreach (var requestedEvent in requestedEvents)
             {
+                suppressionRemoved |= record.reconciliationSuppressionKeys.Remove(
+                    requestedEvent.IdempotencyKey);
                 if (existingKeys.Add(requestedEvent.IdempotencyKey))
                 {
                     newEvents.Add(requestedEvent);
                 }
             }
 
-            if (newEvents.Count == 0)
+            if (newEvents.Count == 0 && !suppressionRemoved)
             {
                 LastOperationResult = CharacterMemoryOperationResult.NoChanges;
                 return;
@@ -154,6 +175,65 @@ namespace EndangeredAR.Memory
                 : BuildProjection(record, profileKey, animalId);
         }
 
+        public CharacterMemoryOperationResult Reconcile()
+        {
+            EnsureInitialized();
+            if (!canWrite || snapshotSource == null)
+            {
+                return SetResult(CharacterMemoryOperationResult.Unavailable);
+            }
+
+            return SetResult(SynchronizeSnapshots());
+        }
+
+        public CharacterMemoryOperationResult ClearAnimalMemory(string animalId)
+        {
+            EnsureInitialized();
+            if (!canWrite || snapshotSource == null)
+            {
+                return SetResult(CharacterMemoryOperationResult.Unavailable);
+            }
+
+            if (!CharacterMemoryIdValidator.IsValid(animalId))
+            {
+                return SetResult(CharacterMemoryOperationResult.InvalidInput);
+            }
+
+            if (!TryGetSnapshotDescriptors(out var descriptors))
+            {
+                return SetResult(CharacterMemoryOperationResult.Unavailable);
+            }
+
+            return SetResult(ClearAnimalMemory(descriptors, animalId));
+        }
+
+        public CharacterMemoryOperationResult ClearAllCharacterMemory()
+        {
+            EnsureInitialized();
+            if (!canWrite || snapshotSource == null)
+            {
+                return SetResult(CharacterMemoryOperationResult.Unavailable);
+            }
+
+            if (!TryGetSnapshotDescriptors(out var descriptors))
+            {
+                return SetResult(CharacterMemoryOperationResult.Unavailable);
+            }
+
+            return SetResult(ClearAllCharacterMemory(descriptors));
+        }
+
+        internal CharacterMemoryOperationResult ReloadForDevelopment()
+        {
+            initialized = false;
+            canWrite = false;
+            document = CharacterMemoryDocumentUtility.CreateEmpty();
+            Status = CharacterMemoryStoreStatus.Unavailable;
+            LastOperationResult = CharacterMemoryOperationResult.Unavailable;
+            Initialize();
+            return LastOperationResult;
+        }
+
         internal DateTime GetUtcNow()
         {
             return utcNow().ToUniversalTime();
@@ -165,6 +245,381 @@ namespace EndangeredAR.Memory
             {
                 Initialize();
             }
+        }
+
+        private CharacterMemoryOperationResult SetResult(CharacterMemoryOperationResult result)
+        {
+            LastOperationResult = result;
+            return result;
+        }
+
+        private CharacterMemoryOperationResult SynchronizeSnapshots()
+        {
+            if (!TryGetSnapshotDescriptors(out var descriptors))
+            {
+                return CharacterMemoryOperationResult.Unavailable;
+            }
+
+            var profile = FindProfile(document, profileKey);
+            var isBootstrap = profile == null || !profile.bootstrapCompleted;
+            return ApplySnapshotDescriptors(
+                descriptors,
+                isBootstrap ? CharacterMemoryEventOrigin.Bootstrap : CharacterMemoryEventOrigin.Reconcile,
+                isBootstrap);
+        }
+
+        private bool TryGetSnapshotDescriptors(out List<SnapshotEventDescriptor> descriptors)
+        {
+            descriptors = new List<SnapshotEventDescriptor>();
+            IReadOnlyList<CharacterMemoryProgressSnapshot> snapshots;
+            try
+            {
+                snapshots = snapshotSource.GetSnapshots() ?? Array.Empty<CharacterMemoryProgressSnapshot>();
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+
+            var descriptorsByKey = new Dictionary<string, SnapshotEventDescriptor>(StringComparer.Ordinal);
+            foreach (var snapshot in snapshots)
+            {
+                if (snapshot == null || !CharacterMemoryIdValidator.IsValid(snapshot.AnimalId))
+                {
+                    continue;
+                }
+
+                if (snapshot.Unlocked)
+                {
+                    AddSnapshotDescriptor(
+                        descriptorsByKey,
+                        new SnapshotEventDescriptor(
+                            snapshot.AnimalId,
+                            CharacterMemoryEventType.AnimalDiscovered,
+                            snapshot.AnimalId,
+                            SanitizeUtc(snapshot.UnlockedAtUtc)));
+                }
+
+                if (snapshot.MissionCompleted && CharacterMemoryIdValidator.IsValid(snapshot.MissionId))
+                {
+                    AddSnapshotDescriptor(
+                        descriptorsByKey,
+                        new SnapshotEventDescriptor(
+                            snapshot.AnimalId,
+                            CharacterMemoryEventType.MissionCompleted,
+                            snapshot.MissionId,
+                            string.Empty));
+                }
+
+                AddSnapshotSubjects(
+                    descriptorsByKey,
+                    snapshot.AnimalId,
+                    CharacterMemoryEventType.KnowledgeLearned,
+                    snapshot.LearnedKnowledgeIds);
+                AddSnapshotSubjects(
+                    descriptorsByKey,
+                    snapshot.AnimalId,
+                    CharacterMemoryEventType.BadgeEarned,
+                    snapshot.EarnedBadgeIds);
+            }
+
+            descriptors.AddRange(descriptorsByKey.Values);
+            descriptors.Sort(CompareSnapshotDescriptors);
+            return true;
+        }
+
+        private static void AddSnapshotSubjects(
+            IDictionary<string, SnapshotEventDescriptor> destination,
+            string animalId,
+            CharacterMemoryEventType eventType,
+            IReadOnlyList<string> subjectIds)
+        {
+            if (subjectIds == null)
+            {
+                return;
+            }
+
+            foreach (var subjectId in subjectIds)
+            {
+                if (CharacterMemoryIdValidator.IsValid(subjectId))
+                {
+                    AddSnapshotDescriptor(
+                        destination,
+                        new SnapshotEventDescriptor(animalId, eventType, subjectId, string.Empty));
+                }
+            }
+        }
+
+        private static void AddSnapshotDescriptor(
+            IDictionary<string, SnapshotEventDescriptor> destination,
+            SnapshotEventDescriptor descriptor)
+        {
+            var key = descriptor.CreateIdempotencyKey(LocalDefaultProfileKey);
+            if (!destination.TryGetValue(key, out var existing) ||
+                string.IsNullOrEmpty(existing.OccurredAtUtc) && !string.IsNullOrEmpty(descriptor.OccurredAtUtc))
+            {
+                destination[key] = descriptor;
+            }
+        }
+
+        private static int CompareSnapshotDescriptors(
+            SnapshotEventDescriptor left,
+            SnapshotEventDescriptor right)
+        {
+            var animalComparison = string.CompareOrdinal(left.AnimalId, right.AnimalId);
+            if (animalComparison != 0)
+            {
+                return animalComparison;
+            }
+
+            var typeComparison = left.EventType.CompareTo(right.EventType);
+            return typeComparison != 0
+                ? typeComparison
+                : string.CompareOrdinal(left.SubjectId, right.SubjectId);
+        }
+
+        private CharacterMemoryOperationResult ApplySnapshotDescriptors(
+            IReadOnlyList<SnapshotEventDescriptor> descriptors,
+            CharacterMemoryEventOrigin origin,
+            bool markBootstrapComplete)
+        {
+            var candidate = CharacterMemoryDocumentUtility.Clone(document);
+            var profile = GetOrCreateProfile(candidate, profileKey);
+            var changed = false;
+            if (markBootstrapComplete && !profile.bootstrapCompleted)
+            {
+                profile.bootstrapCompleted = true;
+                changed = true;
+            }
+
+            foreach (var descriptor in descriptors)
+            {
+                var record = FindRecord(profile, descriptor.AnimalId);
+                if (record != null)
+                {
+                    NormalizeRecord(record);
+                    var key = descriptor.CreateIdempotencyKey(profileKey);
+                    if (record.reconciliationSuppressionKeys.Contains(key) ||
+                        CollectExistingKeys(record, profileKey, descriptor.AnimalId).Contains(key))
+                    {
+                        continue;
+                    }
+                }
+
+                if (!TryCreateSnapshotEvent(descriptor, origin, out var memoryEvent))
+                {
+                    return CharacterMemoryOperationResult.InvalidInput;
+                }
+
+                record ??= GetOrCreateRecord(profile, descriptor.AnimalId);
+                NormalizeRecord(record);
+                if (record.events.Count >= MaximumLiveEventsPerAnimal &&
+                    !TryFoldExistingEvents(record, profileKey, descriptor.AnimalId, 1))
+                {
+                    return CharacterMemoryOperationResult.CapacityExceeded;
+                }
+
+                record.events.Add(memoryEvent.ToRecord());
+                changed = true;
+            }
+
+            return changed
+                ? SaveCandidate(candidate)
+                : CharacterMemoryOperationResult.NoChanges;
+        }
+
+        private bool TryCreateSnapshotEvent(
+            SnapshotEventDescriptor descriptor,
+            CharacterMemoryEventOrigin origin,
+            out CharacterMemoryEvent memoryEvent)
+        {
+            memoryEvent = default;
+            string eventId;
+            try
+            {
+                eventId = eventIdFactory();
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+
+            return CharacterMemoryEvent.TryCreate(
+                profileKey,
+                descriptor.AnimalId,
+                descriptor.EventType,
+                descriptor.SubjectId,
+                descriptor.OccurredAtUtc,
+                origin,
+                eventId,
+                out memoryEvent);
+        }
+
+        private CharacterMemoryOperationResult ClearAnimalMemory(
+            IReadOnlyList<SnapshotEventDescriptor> descriptors,
+            string animalId)
+        {
+            var candidate = CharacterMemoryDocumentUtility.Clone(document);
+            var profile = GetOrCreateProfile(candidate, profileKey);
+            var record = FindRecord(profile, animalId);
+            var suppressionKeys = CollectSuppressionKeys(descriptors, animalId);
+            if (record == null && suppressionKeys.Count == 0)
+            {
+                return CharacterMemoryOperationResult.NoChanges;
+            }
+
+            record ??= GetOrCreateRecord(profile, animalId);
+            if (profile.bootstrapCompleted && IsClearedWithSuppression(record, suppressionKeys))
+            {
+                return CharacterMemoryOperationResult.NoChanges;
+            }
+
+            profile.bootstrapCompleted = true;
+            ResetRecord(record, suppressionKeys);
+            return SaveCandidate(candidate);
+        }
+
+        private CharacterMemoryOperationResult ClearAllCharacterMemory(
+            IReadOnlyList<SnapshotEventDescriptor> descriptors)
+        {
+            var candidate = CharacterMemoryDocumentUtility.Clone(document);
+            var profile = GetOrCreateProfile(candidate, profileKey);
+            var suppressionByAnimal = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            foreach (var descriptor in descriptors)
+            {
+                if (!suppressionByAnimal.TryGetValue(descriptor.AnimalId, out var keys))
+                {
+                    keys = new List<string>();
+                    suppressionByAnimal.Add(descriptor.AnimalId, keys);
+                }
+
+                AddUnique(keys, descriptor.CreateIdempotencyKey(profileKey));
+            }
+
+            var changed = !profile.bootstrapCompleted;
+            profile.bootstrapCompleted = true;
+            foreach (var record in profile.animals)
+            {
+                if (record == null)
+                {
+                    continue;
+                }
+
+                var keys = record.animalId != null &&
+                           suppressionByAnimal.TryGetValue(record.animalId, out var currentKeys)
+                    ? currentKeys
+                    : new List<string>();
+                if (!IsClearedWithSuppression(record, keys))
+                {
+                    ResetRecord(record, keys);
+                    changed = true;
+                }
+
+                if (record.animalId != null)
+                {
+                    suppressionByAnimal.Remove(record.animalId);
+                }
+            }
+
+            foreach (var pair in suppressionByAnimal)
+            {
+                var record = GetOrCreateRecord(profile, pair.Key);
+                ResetRecord(record, pair.Value);
+                changed = true;
+            }
+
+            return changed
+                ? SaveCandidate(candidate)
+                : CharacterMemoryOperationResult.NoChanges;
+        }
+
+        private List<string> CollectSuppressionKeys(
+            IReadOnlyList<SnapshotEventDescriptor> descriptors,
+            string animalId)
+        {
+            var keys = new List<string>();
+            foreach (var descriptor in descriptors)
+            {
+                if (descriptor.AnimalId == animalId)
+                {
+                    AddUnique(keys, descriptor.CreateIdempotencyKey(profileKey));
+                }
+            }
+
+            return keys;
+        }
+
+        private static bool IsClearedWithSuppression(
+            CharacterMemoryRecord record,
+            IReadOnlyList<string> suppressionKeys)
+        {
+            NormalizeRecord(record);
+            return record.events.Count == 0 &&
+                   !record.foldedProjection.discovered &&
+                   record.foldedProjection.completedMissionIds.Count == 0 &&
+                   record.foldedProjection.learnedKnowledgeIds.Count == 0 &&
+                   record.foldedProjection.earnedBadgeIds.Count == 0 &&
+                   record.foldedProjection.idempotencyKeys.Count == 0 &&
+                   SequenceEqual(record.reconciliationSuppressionKeys, suppressionKeys);
+        }
+
+        private static void ResetRecord(
+            CharacterMemoryRecord record,
+            IReadOnlyList<string> suppressionKeys)
+        {
+            record.events = new List<CharacterMemoryEventRecord>();
+            record.foldedProjection = new CharacterMemoryFoldedProjection();
+            record.reconciliationSuppressionKeys = suppressionKeys == null
+                ? new List<string>()
+                : new List<string>(suppressionKeys);
+            record.reconciliationSuppressionKeys.Sort(StringComparer.Ordinal);
+        }
+
+        private static bool SequenceEqual(
+            IReadOnlyList<string> left,
+            IReadOnlyList<string> right)
+        {
+            if (left == null || right == null || left.Count != right.Count)
+            {
+                return left == null && right == null;
+            }
+
+            for (var index = 0; index < left.Count; index++)
+            {
+                if (left[index] != right[index])
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private CharacterMemoryOperationResult SaveCandidate(CharacterMemoryDocument candidate)
+        {
+            try
+            {
+                repository.Save(candidate);
+                document = candidate;
+                return CharacterMemoryOperationResult.Saved;
+            }
+            catch (Exception exception) when (IsRepositoryFailure(exception))
+            {
+                return CharacterMemoryOperationResult.SaveFailed;
+            }
+        }
+
+        private static string SanitizeUtc(string value)
+        {
+            return DateTime.TryParseExact(
+                       value,
+                       "o",
+                       CultureInfo.InvariantCulture,
+                       DateTimeStyles.RoundtripKind,
+                       out var parsed) &&
+                   parsed.Kind == DateTimeKind.Utc
+                ? value
+                : string.Empty;
         }
 
         private bool TryCreateBatchEvents(
@@ -557,6 +1012,35 @@ namespace EndangeredAR.Memory
             {
                 values.Add(value);
                 values.Sort(StringComparer.Ordinal);
+            }
+        }
+
+        private readonly struct SnapshotEventDescriptor
+        {
+            internal SnapshotEventDescriptor(
+                string animalId,
+                CharacterMemoryEventType eventType,
+                string subjectId,
+                string occurredAtUtc)
+            {
+                AnimalId = animalId;
+                EventType = eventType;
+                SubjectId = subjectId;
+                OccurredAtUtc = occurredAtUtc ?? string.Empty;
+            }
+
+            internal string AnimalId { get; }
+            internal CharacterMemoryEventType EventType { get; }
+            internal string SubjectId { get; }
+            internal string OccurredAtUtc { get; }
+
+            internal string CreateIdempotencyKey(string expectedProfileKey)
+            {
+                return CharacterMemoryEvent.CreateIdempotencyKey(
+                    expectedProfileKey,
+                    AnimalId,
+                    EventType,
+                    SubjectId);
             }
         }
 

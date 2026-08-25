@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using EndangeredAR.Animals;
+using EndangeredAR.Memory;
 using EndangeredAR.Models;
 using EndangeredAR.Missions;
 using EndangeredAR.Progress;
@@ -40,6 +41,29 @@ namespace EndangeredAR.Tests.EditMode
             }
 
             temporaryDirectories.Clear();
+        }
+
+        [Test]
+        public void Initialize_ComposesCharacterMemoryAndRecordsCommittedUnlock()
+        {
+            var sensen = CreateDefinition("sensen", "sensen-mission", Vector3.zero);
+            var setup = CreateSetup(sensen);
+            var memoryProperty = setup.controller.GetType().GetProperty(
+                "CharacterMemory",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.That(memoryProperty, Is.Not.Null);
+            var memory = (CharacterMemoryService)memoryProperty.GetValue(setup.controller);
+            Assert.That(memory, Is.Not.Null);
+
+            Select(setup.controller, "SelectFromScan", "sensen");
+
+            Assert.That(memory.GetProjection("sensen").Discovered, Is.True);
+            Assert.That(
+                File.Exists(Path.Combine(
+                    Path.GetDirectoryName(setup.progress.ActiveRepositoryPath),
+                    "character-memory.json")),
+                Is.True);
         }
 
         [Test]

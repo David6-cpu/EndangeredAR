@@ -47,28 +47,66 @@ namespace EndangeredAR.Memory
             out CharacterMemoryEvent memoryEvent)
         {
             memoryEvent = default;
-            if (!TryMap(transition.Type, out var eventType) ||
+            return TryMap(transition.Type, out var eventType) &&
+                   TryCreate(
+                       profileKey,
+                       animalId,
+                       eventType,
+                       transition.SubjectId,
+                       occurredAtUtc,
+                       CharacterMemoryEventOrigin.Business,
+                       eventId,
+                       out memoryEvent);
+        }
+
+        internal static bool TryCreate(
+            string profileKey,
+            string animalId,
+            CharacterMemoryEventType eventType,
+            string subjectId,
+            string occurredAtUtc,
+            CharacterMemoryEventOrigin origin,
+            string eventId,
+            out CharacterMemoryEvent memoryEvent)
+        {
+            memoryEvent = default;
+            if (string.IsNullOrEmpty(CharacterMemoryEventTypeProtocol.ToWireValue(eventType)) ||
+                string.IsNullOrEmpty(CharacterMemoryEventOriginProtocol.ToWireValue(origin)) ||
                 !CharacterMemoryIdValidator.IsValid(profileKey) ||
                 !CharacterMemoryIdValidator.IsValid(animalId) ||
-                !CharacterMemoryIdValidator.IsValid(transition.SubjectId) ||
+                !CharacterMemoryIdValidator.IsValid(subjectId) ||
                 !CharacterMemoryIdValidator.IsValid(eventId) ||
-                !TryParseUtc(occurredAtUtc, out var occurredAt) ||
-                eventType == CharacterMemoryEventType.AnimalDiscovered && transition.SubjectId != animalId)
+                eventType == CharacterMemoryEventType.AnimalDiscovered && subjectId != animalId)
             {
                 return false;
             }
 
-            var idempotencyKey = CreateIdempotencyKey(profileKey, animalId, eventType, transition.SubjectId);
+            DateTime? occurredAt = null;
+            if (!string.IsNullOrEmpty(occurredAtUtc))
+            {
+                if (!TryParseUtc(occurredAtUtc, out var parsed))
+                {
+                    return false;
+                }
+
+                occurredAt = parsed;
+            }
+            else if (origin == CharacterMemoryEventOrigin.Business)
+            {
+                return false;
+            }
+
+            var idempotencyKey = CreateIdempotencyKey(profileKey, animalId, eventType, subjectId);
             memoryEvent = new CharacterMemoryEvent(
                 eventId,
                 idempotencyKey,
                 profileKey,
                 animalId,
                 eventType,
-                transition.SubjectId,
-                occurredAtUtc,
+                subjectId,
+                occurredAtUtc ?? string.Empty,
                 occurredAt,
-                CharacterMemoryEventOrigin.Business);
+                origin);
             return true;
         }
 

@@ -1,4 +1,5 @@
 using System;
+using EndangeredAR.Memory;
 using EndangeredAR.Models;
 using EndangeredAR.Missions;
 using EndangeredAR.Progress;
@@ -41,6 +42,7 @@ namespace EndangeredAR.Animals
         public event Action<AnimalDefinition> CurrentAnimalChanged;
 
         public AnimalDefinition CurrentAnimal { get; private set; }
+        internal CharacterMemoryService CharacterMemory { get; private set; }
         public AnimalProgressRecord CurrentProgress => CurrentAnimal == null || animalProgressService == null
             ? null
             : animalProgressService.GetOrCreate(CurrentAnimal.AnimalId);
@@ -55,6 +57,20 @@ namespace EndangeredAR.Animals
             initialized = true;
             animalCatalogService?.Initialize();
             animalProgressService?.Initialize();
+            if (animalCatalogService != null && animalProgressService != null)
+            {
+                try
+                {
+                    CharacterMemory = CharacterMemoryRuntimeComposition.Create(
+                        animalProgressService,
+                        animalCatalogService);
+                }
+                catch (Exception)
+                {
+                    CharacterMemory = null;
+                    Debug.LogWarning("Character Memory is unavailable; animal progress remains active.", this);
+                }
+            }
         }
 
         public AnimalSelectionResult Prepare(string animalId)
