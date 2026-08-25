@@ -248,8 +248,8 @@ mkdir -p TestResults
 
 | 验证项 | 结果 |
 | --- | ---: |
-| Unity EditMode | 280 / 280 passed |
-| Unity PlayMode | 28 / 28 passed |
+| Unity EditMode | 332 / 332 passed |
+| Unity PlayMode | 33 / 33 passed |
 | Python backend | 74 / 74 passed |
 | iOS 构建 | Unity 6 导出、Xcode 签名构建与真机安装成功 |
 | 真机范围 | iOS 27 启动、Safe Area、相机、Rigged 角色、手势、聊天与动作验收 |
