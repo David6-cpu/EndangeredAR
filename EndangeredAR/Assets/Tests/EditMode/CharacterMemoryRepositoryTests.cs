@@ -128,6 +128,36 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
+        public void Save_ReadOnlyPreviousPrimaryDoesNotFailAfterReplacingPrimary()
+        {
+            var repository = CreateRepository();
+            repository.Load();
+            File.SetAttributes(memoryPath, File.GetAttributes(memoryPath) | FileAttributes.ReadOnly);
+
+            try
+            {
+                Assert.DoesNotThrow(() =>
+                    repository.Save(CreateDocumentWithEvent("knowledge_learned")));
+
+                var loaded = repository.Load();
+                Assert.That(loaded.Document.profiles[0].animals[0].events[0].subjectId,
+                    Is.EqualTo("sensen.diet"));
+            }
+            finally
+            {
+                if (File.Exists(memoryPath))
+                {
+                    File.SetAttributes(memoryPath, FileAttributes.Normal);
+                }
+
+                if (File.Exists(memoryPath + ".bak"))
+                {
+                    File.SetAttributes(memoryPath + ".bak", FileAttributes.Normal);
+                }
+            }
+        }
+
+        [Test]
         public void Load_CorruptPrimaryRestoresValidBackupAndQuarantinesPrimary()
         {
             var repository = CreateRepository();

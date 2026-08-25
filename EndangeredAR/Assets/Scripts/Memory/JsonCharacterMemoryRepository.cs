@@ -115,7 +115,7 @@ namespace EndangeredAR.Memory
             {
                 WriteFlushed(temporaryPath, JsonUtility.ToJson(normalized));
                 ReplacePrimary(temporaryPath);
-                File.Copy(filePath, filePath + ".bak", true);
+                RefreshBackupAfterPrimaryCommit();
             }
             finally
             {
@@ -191,6 +191,22 @@ namespace EndangeredAR.Memory
 
             File.Move(filePath, backupPath);
             File.Move(temporaryPath, filePath);
+        }
+
+        private void RefreshBackupAfterPrimaryCommit()
+        {
+            try
+            {
+                File.Copy(filePath, filePath + ".bak", true);
+            }
+            catch (IOException)
+            {
+                // The primary is already committed; the previous valid backup remains usable.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // The primary is already committed; the previous valid backup remains usable.
+            }
         }
 
         private bool TryLoadSupported(
