@@ -51,7 +51,7 @@ class TrackedLocalPathScanTests(unittest.TestCase):
 
     def test_glb_json_extras_path_is_detected(self):
         scanner = load_scanner()
-        private_path = b"/" + b"private" + b"/tmp/converter/source.obj"
+        private_path = b"/" + b"private" + b"/" + b"tmp/converter/source.obj"
         data = b'{"nodes":[{"extras":{"file_path":"' + private_path + b'"}}]}'
 
         self.assertEqual(
@@ -65,7 +65,7 @@ class TrackedLocalPathScanTests(unittest.TestCase):
             (
                 b"/" + b"Users" + b"/...",
                 b"/" + b"Users" + b"/<username>/project",
-                b"/" + b"private" + b"/tmp/...",
+                b"/" + b"private" + b"/" + b"tmp/...",
                 b"/" + b"Applications" + b"/Unity/<version>/Unity.app",
             )
         )
@@ -77,7 +77,7 @@ class TrackedLocalPathScanTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             asset = root / "candidate.fbx"
-            private_path = b"/" + b"private" + b"/tmp/asset-work/candidate.fbx"
+            private_path = b"/" + b"private" + b"/" + b"tmp/asset-work/candidate.fbx"
             asset.write_bytes(b"binary\x00" + private_path)
             output = io.StringIO()
 
@@ -94,7 +94,7 @@ class TrackedLocalPathScanTests(unittest.TestCase):
             root = Path(directory)
             fixture = root / "EndangeredAR" / "Assets" / "Tests" / "EditMode" / "AIProviderTests.cs"
             fixture.parent.mkdir(parents=True)
-            fixture.write_bytes(b'endpoint = "file://' + b"/tmp/local-ai" + b'";')
+            fixture.write_bytes(b'endpoint = "file://' + b"/" + b"tmp/local-ai" + b'";')
             output = io.StringIO()
 
             with redirect_stdout(output):
@@ -109,7 +109,7 @@ class TrackedLocalPathScanTests(unittest.TestCase):
             root = Path(directory)
             product = root / "EndangeredAR" / "Assets" / "product.bin"
             product.parent.mkdir(parents=True)
-            product.write_bytes(b"binary\x00file://" + b"/tmp/local-ai")
+            product.write_bytes(b"binary\x00file://" + b"/" + b"tmp/local-ai")
             output = io.StringIO()
 
             with redirect_stdout(output):

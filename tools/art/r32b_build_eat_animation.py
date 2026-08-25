@@ -357,7 +357,9 @@ def export_animation_only(armature, action, output_path):
         bake_anim_force_startend_keying=True,
         bake_anim_step=1.0,
         bake_anim_simplify_factor=0.0,
-        path_mode="AUTO",
+        path_mode="STRIP",
+        use_custom_props=False,
+        embed_textures=False,
     )
     return sorted(result)
 
@@ -418,8 +420,8 @@ def main():
         blend_path = os.path.join(candidate_dir, f"sensen-eat-{style}.blend")
         fbx_path = os.path.join(candidate_dir, f"sensen-eat-{style}-animation.fbx")
         evidence = render_evidence(armature, mesh_obj, action, style, evidence_dir)
-        bpy.ops.wm.save_as_mainfile(filepath=blend_path)
         export_result = export_animation_only(armature, action, fbx_path)
+        bpy.ops.wm.save_as_mainfile(filepath=blend_path)
 
         report = {
             "schemaVersion": 1,

@@ -27,8 +27,9 @@ EXPORT_SETTINGS = {
     "bake_anim_force_startend_keying": True,
     "bake_anim_step": 1.0,
     "bake_anim_simplify_factor": 0.0,
-    "path_mode": "COPY",
-    "embed_textures": True,
+    "path_mode": "STRIP",
+    "use_custom_props": False,
+    "embed_textures": False,
 }
 
 
