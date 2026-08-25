@@ -55,7 +55,7 @@ namespace EndangeredAR.Tests.EditMode
             using (var sha256 = SHA256.Create())
             {
                 var digest = string.Concat(sha256.ComputeHash(stream).Select(value => value.ToString("x2")));
-                Assert.That(digest, Is.EqualTo("66c6d474f3ac2053732a9af23b53e0d67621ee8b74dac9a4e062de15d48ffdcb"));
+                Assert.That(digest, Is.EqualTo("dd3df2814327994baf46545254e796b161400fa87e327565054286d1a99ddbfc"));
             }
         }
 
