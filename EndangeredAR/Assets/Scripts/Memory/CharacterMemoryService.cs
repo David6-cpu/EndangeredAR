@@ -175,6 +175,18 @@ namespace EndangeredAR.Memory
                 : BuildProjection(record, profileKey, animalId);
         }
 
+        internal int GetLiveEventCount(string animalId)
+        {
+            EnsureInitialized();
+            if (!CharacterMemoryIdValidator.IsValid(animalId))
+            {
+                return 0;
+            }
+
+            var record = FindRecord(FindProfile(document, profileKey), animalId);
+            return record?.events?.Count ?? 0;
+        }
+
         public CharacterMemoryOperationResult Reconcile()
         {
             EnsureInitialized();
