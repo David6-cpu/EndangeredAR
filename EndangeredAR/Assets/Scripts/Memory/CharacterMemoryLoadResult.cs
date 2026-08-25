@@ -5,7 +5,8 @@ namespace EndangeredAR.Memory
         Available,
         RecoveredFromBackup,
         RecoveredEmpty,
-        FutureVersion
+        FutureVersion,
+        Unavailable
     }
 
     public sealed class CharacterMemoryLoadResult
