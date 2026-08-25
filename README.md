@@ -4,7 +4,7 @@
 
 [![Unity](https://img.shields.io/badge/Unity-6000.0.76f1-222C37?logo=unity)](https://unity.com/releases/editor/archive)
 ![Platform](https://img.shields.io/badge/Platform-iOS%2027%20%7C%20Unity%20Editor-2E6245)
-![Status](https://img.shields.io/badge/Status-R3.3A%20Read--only%20Context-5EBB78)
+![Status](https://img.shields.io/badge/Status-R3.3B%20Event--based%20Memory-5EBB78)
 ![Repository](https://img.shields.io/badge/Repository-Public-C9A33A)
 
 ## 项目简介
@@ -26,6 +26,7 @@
 - **安全角色动作**：AI 或知识系统只能产生动作候选，最终必须经过 Policy、Capability、Validator 和角色控制器。
 - **知识驱动行为**：食性问题在真实 diet 证据和 citation 成立时，可安全触发森森的 Eat 动画。
 - **只读业务上下文**：AI 可读取有限的解锁、知识、徽章和任务完成状态，但没有业务写权限。
+- **事件型角色记忆**：应用会在真实业务状态成功保存后，以强类型、幂等且有界的事件记录动物发现、任务完成、知识学习和徽章获得等里程碑。记忆独立保存在本地，可清除、可恢复，并与核心业务进度隔离。
 - **真机验证**：已在 iOS 27 与 Unity 6000.0.76f1 环境完成启动、AR、手势、聊天和角色动画验收。
 
 ## 当前角色：森森
@@ -81,7 +82,9 @@ Rigged AR Character
 - 本地轻量模型目前通过开发机上的 llama.cpp 服务运行，尚未直接内嵌到 iOS 或 Android App。
 - 当前完整角色闭环主要围绕森森实现，尚未完成大规模多物种扩展。
 - 森森为卡通化数字角色原型，后续仍可继续进行物种特征和美术精修。
-- 当前长期角色记忆尚未实现；R3.3A 仅提供真实业务状态的只读上下文。
+- R3.3B 已实现本地事件型角色记忆存储，但尚未将长期记忆投影注入 AI 对话；当前 AI 仍只读取 R3.3A 提供的实时业务上下文。
+- 角色记忆目前仅记录由真实业务状态产生的结构化里程碑，不保存完整聊天、用户自由文本、LLM 回复、昵称、好感度或情绪值。
+- 当前仍为单一本地 Profile，不代表已经支持账号、多用户、云同步或跨设备记忆。
 - 正式商业化所需的长期性能监控、隐私政策和多用户体系仍属于后续工作。
 
 
@@ -295,6 +298,7 @@ mkdir -p TestResults
 - [R1 端云协同 AI 验收说明](EndangeredAR/docs/verification/2026-08-21-r1-hybrid-ai-routing.md)
 - [R2 Grounded Animal Knowledge 验收说明](EndangeredAR/docs/verification/2026-08-21-r2-grounded-animal-knowledge.md)
 - [R3.3A Read-only Context 验收说明](EndangeredAR/docs/verification/2026-08-24-r3.3a-readonly-context-foundation.md)
+- [R3.3B Event-based Character Memory 验收说明](EndangeredAR/docs/verification/2026-08-25-r3.3b-event-memory-acceptance.md)
 - [UI Design System](EndangeredAR/DESIGN.md)
 
 ---
