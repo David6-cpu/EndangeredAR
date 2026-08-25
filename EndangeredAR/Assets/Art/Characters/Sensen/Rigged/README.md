@@ -15,8 +15,8 @@ part of R3.0 integration.
 ## Approved runtime derivative
 
 - File: `Models/sensen_rigged_100k.fbx`
-- SHA-256: `c885fe83a6605e71b2d977e28871f6259647754f79861320fbf68dec0b960926`
-- File size: 7,683,340 bytes
+- SHA-256: `0a598fa930d30df602094d0cc2659e99da53a5c5e3bdaa81b694d57d0da6898a`
+- File size: 4,232,492 bytes
 - Blender geometry: 53,815 vertices, 100,000 triangles
 - Unity geometry: 54,684 vertices, 100,000 triangles
 - Rig: Generic, 33 imported bones, `mixamorig:Hips` root
@@ -41,6 +41,13 @@ reference remain in the repository-external local art workspace.
 - Blender plug-ins: none
 - Processing script: `tools/art/r30_build_candidate.py`
 - Product import builder: `Assets/Editor/SensenRiggedAssetBuilder.cs`
+- Metadata sanitizer: `tools/security/sanitize_fbx_metadata.py`
+
+The current FBX was structurally re-encoded with Blender's pinned built-in FBX
+parser and encoder to remove audited local source-path metadata. Geometry,
+skeleton, skin weights, hierarchy, material slot, Idle, and Taunt remain
+semantically identical to the previously accepted runtime asset. See
+`docs/verification/2026-08-25-r3.3b1-tracked-3d-asset-metadata-sanitization.md`.
 
 The source FBX must be supplied separately when running the Blender processing
 script. The script does not download or discover replacement models.
