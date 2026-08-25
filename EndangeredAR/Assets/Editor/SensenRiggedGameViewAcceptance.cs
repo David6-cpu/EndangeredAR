@@ -470,9 +470,17 @@ namespace EndangeredAR.Editor
                 $"utc={DateTime.UtcNow:O}"
             }) + "\n";
 
-            var reportPath = mode == EatMode
-                ? "/private/tmp/animalsar-r32b1-eat-gameview-report.txt"
-                : $"/private/tmp/animalsar-r30-{mode}-gameview-report.txt";
+            var reportDirectory = Environment.GetEnvironmentVariable("TEST_RESULTS_DIR");
+            if (string.IsNullOrWhiteSpace(reportDirectory))
+            {
+                reportDirectory = Path.GetTempPath();
+            }
+
+            Directory.CreateDirectory(reportDirectory);
+            var reportFileName = mode == EatMode
+                ? "animalsar-r32b1-eat-gameview-report.txt"
+                : $"animalsar-r30-{mode}-gameview-report.txt";
+            var reportPath = Path.Combine(reportDirectory, reportFileName);
             File.WriteAllText(reportPath, report);
             Debug.Log($"{(mode == EatMode ? "R3.2B1" : "R3.0")} {mode} Game View acceptance completed: passed={passed}; {message}");
             stage = int.MaxValue;
