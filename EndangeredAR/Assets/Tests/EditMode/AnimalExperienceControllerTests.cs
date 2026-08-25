@@ -129,7 +129,8 @@ namespace EndangeredAR.Tests.EditMode
             var setup = CreateSetup(pangolin);
             Select(setup.controller, "SelectFromScan", "pangolin");
 
-            setup.progress.MarkMissionCompleted("pangolin", "pangolin-badge", "pangolin-knowledge");
+            setup.progress.MarkMissionCompleted(
+                "pangolin", "pangolin-mission", "pangolin-badge", "pangolin-knowledge");
             setup.progress.ReplaceConversation("pangolin", new[]
             {
                 new ConversationRecord { role = "user", content = "saved conversation" }
@@ -181,7 +182,8 @@ namespace EndangeredAR.Tests.EditMode
             var leopard = CreateDefinition("leopard", "leopard-mission", new Vector3(2f, 0f, 0f));
             var setup = CreateSetup(pangolin, leopard);
             Select(setup.controller, "SelectFromScan", "pangolin");
-            setup.progress.MarkMissionCompleted("pangolin", "pangolin-badge", "pangolin-knowledge");
+            setup.progress.MarkMissionCompleted(
+                "pangolin", "pangolin-mission", "pangolin-badge", "pangolin-knowledge");
             Select(setup.controller, "Prepare", "leopard");
 
             var result = Select(setup.controller, "SelectFromCatalog", "pangolin");
@@ -200,7 +202,8 @@ namespace EndangeredAR.Tests.EditMode
             var leopard = CreateDefinition("leopard", "leopard-mission", new Vector3(2f, 0f, 0f));
             var setup = CreateSetup(pangolin, leopard);
             Select(setup.controller, "SelectFromScan", "pangolin");
-            setup.progress.MarkMissionCompleted("pangolin", "pangolin-badge", "pangolin-knowledge");
+            setup.progress.MarkMissionCompleted(
+                "pangolin", "pangolin-mission", "pangolin-badge", "pangolin-knowledge");
             setup.progress.ReplaceConversation("pangolin", new[] { new ConversationRecord { role = "user", content = "pangolin conversation" } });
             Select(setup.controller, "SelectFromScan", "leopard");
             setup.progress.ReplaceConversation("leopard", new[] { new ConversationRecord { role = "assistant", content = "leopard conversation" } });

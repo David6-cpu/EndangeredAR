@@ -64,7 +64,7 @@ namespace EndangeredAR.Tests.EditMode
             var progress = CreateProgressService();
             var catalog = CreateSensenCatalog();
             progress.Unlock("sensen");
-            progress.MarkMissionCompleted("sensen", "eco-guardian", "sensen.diet");
+            progress.MarkMissionCompleted("sensen", "sensen-food", "eco-guardian", "sensen.diet");
             var provider = new ReadOnlyCharacterContextProvider(progress, catalog);
 
             var context = provider.CreateSnapshot("sensen");
@@ -93,7 +93,7 @@ namespace EndangeredAR.Tests.EditMode
             var progress = CreateProgressService();
             var catalog = CreateSensenCatalog();
             progress.Unlock("sensen");
-            progress.MarkMissionCompleted("sensen", "eco-guardian", "sensen.diet");
+            progress.MarkMissionCompleted("sensen", "sensen-food", "eco-guardian", "sensen.diet");
             var provider = new ReadOnlyCharacterContextProvider(progress, catalog);
 
             Assert.That(progress.TryGetSnapshot("sensen", out var mutableCopy), Is.True);

@@ -52,7 +52,7 @@ namespace EndangeredAR.Tests.EditMode
             var path = CreateRepositoryPath();
             var service = CreateService(path);
             service.Unlock(" Pangolin ");
-            service.MarkMissionCompleted("leopard", "guardian", "habitat");
+            service.MarkMissionCompleted("leopard", "leopard-mission", "guardian", "habitat");
 
             var reloaded = new JsonAnimalProgressRepository(path).Load();
 
@@ -156,7 +156,7 @@ namespace EndangeredAR.Tests.EditMode
             new JsonAnimalProgressRepository(path).Save(document);
 
             var service = CreateService(path);
-            service.MarkMissionCompleted("pangolin", "guardian", "habitat");
+            service.MarkMissionCompleted("pangolin", "pangolin-mission", "guardian", "habitat");
             var reloaded = new JsonAnimalProgressRepository(path).Load();
 
             Assert.That(reloaded.animals, Has.Count.EqualTo(2));

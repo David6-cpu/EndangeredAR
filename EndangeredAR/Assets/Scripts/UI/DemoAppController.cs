@@ -2037,7 +2037,11 @@ namespace EndangeredAR.UI
             {
                 if (!rewardWasAlreadyClaimed)
                 {
-                    animalProgress?.MarkMissionCompleted(CurrentAnimalId, result.BadgeId, result.LearnedKnowledgeId);
+                    animalProgress?.MarkMissionCompleted(
+                        CurrentAnimalId,
+                        missionController.CurrentMissionId,
+                        result.BadgeId,
+                        result.LearnedKnowledgeId);
                     SetText(badgeText, $"已获得：生态守护者徽章 +{result.PointsAwarded}");
                     AddAssistantMessage($"太棒啦！你帮{CurrentShortName}完成了任务。现在你已经是小小生态守护者了，可以生成一张科普卡片带走这段记录。", true);
                 }

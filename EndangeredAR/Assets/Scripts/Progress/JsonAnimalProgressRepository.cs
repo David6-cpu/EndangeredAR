@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace EndangeredAR.Progress
 {
-    public sealed class JsonAnimalProgressRepository
+    public sealed class JsonAnimalProgressRepository : IAnimalProgressRepository
     {
         public const int CurrentSchemaVersion = 1;
 

@@ -9,7 +9,9 @@ namespace EndangeredAR.Progress
     {
         internal static string RepositoryPathOverrideForTests;
 
-        private JsonAnimalProgressRepository repository;
+        private IAnimalProgressRepository repository;
+        private IAnimalProgressTransitionSink transitionSink;
+        private Func<DateTime> utcNow = () => DateTime.UtcNow;
         private AnimalProgressDocument document;
         private bool initialized;
 
@@ -61,6 +63,158 @@ namespace EndangeredAR.Progress
             InitializeRepository(ResolveRepositoryPath(overridePath));
         }
 
+        public bool IsUnlocked(string animalId)
+        {
+            var record = FindRecord(animalId);
+            return record != null && record.unlocked;
+        }
+
+        public bool Unlock(string animalId)
+        {
+            if (!TryCreateCandidateRecord(animalId, out var candidate, out var record) || record.unlocked)
+            {
+                return false;
+            }
+
+            var occurredAtUtc = GetOccurredAtUtc();
+            record.unlocked = true;
+            record.unlockedAtUtc = occurredAtUtc;
+            SaveCommitNotify(
+                candidate,
+                record.animalId,
+                new AnimalProgressTransitionBatch(
+                    record.animalId,
+                    occurredAtUtc,
+                    new[]
+                    {
+                        new AnimalProgressTransition(
+                            AnimalProgressTransitionType.AnimalDiscovered,
+                            record.animalId)
+                    }));
+            return true;
+        }
+
+        public AnimalProgressRecord GetOrCreate(string animalId)
+        {
+            Initialize();
+            var normalizedAnimalId = JsonAnimalProgressRepository.NormalizeAnimalId(animalId);
+            if (string.IsNullOrEmpty(normalizedAnimalId))
+            {
+                return null;
+            }
+
+            var existing = FindRecord(document, normalizedAnimalId);
+            return existing == null
+                ? new AnimalProgressRecord { animalId = normalizedAnimalId }
+                : JsonAnimalProgressRepository.CloneRecord(existing);
+        }
+
+        public bool TryGetSnapshot(string animalId, out AnimalProgressRecord snapshot)
+        {
+            snapshot = JsonAnimalProgressRepository.CloneRecord(FindRecord(animalId));
+            return snapshot != null;
+        }
+
+        public IReadOnlyList<AnimalProgressRecord> GetAllSnapshots()
+        {
+            Initialize();
+            var snapshots = new List<AnimalProgressRecord>();
+            foreach (var record in document.animals)
+            {
+                var snapshot = JsonAnimalProgressRepository.CloneRecord(record);
+                if (snapshot != null)
+                {
+                    snapshots.Add(snapshot);
+                }
+            }
+
+            return snapshots;
+        }
+
+        public void MarkMissionCompleted(
+            string animalId,
+            string missionId,
+            string badgeId,
+            string knowledgeId)
+        {
+            if (!AnimalProgressIdentifier.IsValid(missionId) ||
+                !IsOptionalIdentifierValid(badgeId) ||
+                !IsOptionalIdentifierValid(knowledgeId) ||
+                !TryCreateCandidateRecord(animalId, out var candidate, out var record))
+            {
+                return;
+            }
+
+            var transitions = new List<AnimalProgressTransition>();
+            if (!record.missionCompleted)
+            {
+                record.missionCompleted = true;
+                transitions.Add(new AnimalProgressTransition(
+                    AnimalProgressTransitionType.MissionCompleted,
+                    missionId));
+            }
+
+            if (AddIfMissing(record.learnedKnowledgeIds, knowledgeId))
+            {
+                transitions.Add(new AnimalProgressTransition(
+                    AnimalProgressTransitionType.KnowledgeLearned,
+                    knowledgeId));
+            }
+
+            if (AddIfMissing(record.earnedBadgeIds, badgeId))
+            {
+                transitions.Add(new AnimalProgressTransition(
+                    AnimalProgressTransitionType.BadgeEarned,
+                    badgeId));
+            }
+
+            if (transitions.Count == 0)
+            {
+                return;
+            }
+
+            var occurredAtUtc = GetOccurredAtUtc();
+            SaveCommitNotify(
+                candidate,
+                record.animalId,
+                new AnimalProgressTransitionBatch(record.animalId, occurredAtUtc, transitions));
+        }
+
+        public void ReplaceConversation(string animalId, IEnumerable<ConversationRecord> messages)
+        {
+            if (!TryCreateCandidateRecord(animalId, out var candidate, out var record))
+            {
+                return;
+            }
+
+            record.recentConversation = JsonAnimalProgressRepository.CloneConversation(messages);
+            SaveCommitNotify(candidate, record.animalId, null);
+        }
+
+        public IReadOnlyList<ConversationRecord> GetConversation(string animalId)
+        {
+            var record = FindRecord(animalId);
+            return JsonAnimalProgressRepository.CloneConversation(record == null ? null : record.recentConversation);
+        }
+
+        internal void InitializeForTests(
+            IAnimalProgressRepository testRepository,
+            IAnimalProgressTransitionSink testTransitionSink,
+            Func<DateTime> testUtcNow)
+        {
+            repository = testRepository ?? throw new ArgumentNullException(nameof(testRepository));
+            transitionSink = testTransitionSink;
+            utcNow = testUtcNow ?? (() => DateTime.UtcNow);
+            document = JsonAnimalProgressRepository.NormalizeDocument(repository.Load());
+            ActiveRepositoryPath = null;
+            initialized = true;
+        }
+
+        internal void ConfigureTransitionSink(IAnimalProgressTransitionSink sink)
+        {
+            transitionSink = sink;
+        }
+
         private static string ResolveRepositoryPath(string overridePath)
         {
             var repositoryPath = !string.IsNullOrWhiteSpace(overridePath)
@@ -76,84 +230,32 @@ namespace EndangeredAR.Progress
             ActiveRepositoryPath = repositoryPath;
             repository = new JsonAnimalProgressRepository(repositoryPath);
             document = repository.Load();
+            utcNow = () => DateTime.UtcNow;
             initialized = true;
-        }
-
-        public bool IsUnlocked(string animalId)
-        {
-            var record = FindRecord(animalId);
-            return record != null && record.unlocked;
-        }
-
-        public bool Unlock(string animalId)
-        {
-            var record = GetOrCreateInternal(animalId);
-            if (record == null || record.unlocked)
-            {
-                return false;
-            }
-
-            record.unlocked = true;
-            record.unlockedAtUtc = DateTime.UtcNow.ToString("o");
-            SaveAndNotify(record.animalId);
-            return true;
-        }
-
-        public AnimalProgressRecord GetOrCreate(string animalId)
-        {
-            return JsonAnimalProgressRepository.CloneRecord(GetOrCreateInternal(animalId));
-        }
-
-        public bool TryGetSnapshot(string animalId, out AnimalProgressRecord snapshot)
-        {
-            snapshot = JsonAnimalProgressRepository.CloneRecord(FindRecord(animalId));
-            return snapshot != null;
-        }
-
-        public void MarkMissionCompleted(string animalId, string badgeId, string knowledgeId)
-        {
-            var record = GetOrCreateInternal(animalId);
-            if (record == null)
-            {
-                return;
-            }
-
-            record.missionCompleted = true;
-            AddIfPresent(record.earnedBadgeIds, badgeId);
-            AddIfPresent(record.learnedKnowledgeIds, knowledgeId);
-            SaveAndNotify(record.animalId);
-        }
-
-        public void ReplaceConversation(string animalId, IEnumerable<ConversationRecord> messages)
-        {
-            var record = GetOrCreateInternal(animalId);
-            if (record == null)
-            {
-                return;
-            }
-
-            record.recentConversation = JsonAnimalProgressRepository.CloneConversation(messages);
-            SaveAndNotify(record.animalId);
-        }
-
-        public IReadOnlyList<ConversationRecord> GetConversation(string animalId)
-        {
-            var record = FindRecord(animalId);
-            return JsonAnimalProgressRepository.CloneConversation(record == null ? null : record.recentConversation);
         }
 
         private AnimalProgressRecord FindRecord(string animalId)
         {
             Initialize();
             var normalizedAnimalId = JsonAnimalProgressRepository.NormalizeAnimalId(animalId);
-            if (string.IsNullOrEmpty(normalizedAnimalId))
+            return string.IsNullOrEmpty(normalizedAnimalId)
+                ? null
+                : FindRecord(document, normalizedAnimalId);
+        }
+
+        private static AnimalProgressRecord FindRecord(
+            AnimalProgressDocument source,
+            string normalizedAnimalId)
+        {
+            if (source?.animals == null)
             {
                 return null;
             }
 
-            foreach (var record in document.animals)
+            foreach (var record in source.animals)
             {
-                if (string.Equals(record.animalId, normalizedAnimalId, StringComparison.OrdinalIgnoreCase))
+                if (record != null &&
+                    string.Equals(record.animalId, normalizedAnimalId, StringComparison.OrdinalIgnoreCase))
                 {
                     return record;
                 }
@@ -162,38 +264,73 @@ namespace EndangeredAR.Progress
             return null;
         }
 
-        private AnimalProgressRecord GetOrCreateInternal(string animalId)
+        private bool TryCreateCandidateRecord(
+            string animalId,
+            out AnimalProgressDocument candidate,
+            out AnimalProgressRecord record)
         {
+            Initialize();
+            candidate = null;
+            record = null;
             var normalizedAnimalId = JsonAnimalProgressRepository.NormalizeAnimalId(animalId);
-            if (string.IsNullOrEmpty(normalizedAnimalId))
+            if (string.IsNullOrEmpty(normalizedAnimalId) || !AnimalProgressIdentifier.IsValid(normalizedAnimalId))
             {
-                return null;
+                return false;
             }
 
-            var existingRecord = FindRecord(normalizedAnimalId);
-            if (existingRecord != null)
+            candidate = JsonAnimalProgressRepository.NormalizeDocument(document);
+            record = FindRecord(candidate, normalizedAnimalId);
+            if (record == null)
             {
-                return existingRecord;
+                record = new AnimalProgressRecord { animalId = normalizedAnimalId };
+                candidate.animals.Add(record);
             }
 
-            var record = new AnimalProgressRecord { animalId = normalizedAnimalId };
-            document.animals.Add(record);
-            return record;
+            return true;
         }
 
-        private void SaveAndNotify(string animalId)
+        private void SaveCommitNotify(
+            AnimalProgressDocument candidate,
+            string animalId,
+            AnimalProgressTransitionBatch transitionBatch)
         {
-            repository.Save(document);
-            document = repository.Load();
+            repository.Save(candidate);
+            document = JsonAnimalProgressRepository.NormalizeDocument(candidate);
+
+            if (transitionBatch != null && transitionBatch.Transitions.Count > 0 && transitionSink != null)
+            {
+                try
+                {
+                    transitionSink.AppendBatch(transitionBatch);
+                }
+                catch (Exception)
+                {
+                    Debug.LogWarning("Character Memory could not record a committed progress transition.");
+                }
+            }
+
             ProgressChanged?.Invoke(animalId);
         }
 
-        private static void AddIfPresent(List<string> values, string value)
+        private string GetOccurredAtUtc()
         {
-            if (!string.IsNullOrWhiteSpace(value) && !values.Contains(value.Trim()))
+            return utcNow().ToUniversalTime().ToString("o");
+        }
+
+        private static bool IsOptionalIdentifierValid(string value)
+        {
+            return string.IsNullOrEmpty(value) || AnimalProgressIdentifier.IsValid(value);
+        }
+
+        private static bool AddIfMissing(List<string> values, string value)
+        {
+            if (string.IsNullOrEmpty(value) || values.Contains(value))
             {
-                values.Add(value.Trim());
+                return false;
             }
+
+            values.Add(value);
+            return true;
         }
     }
 }
