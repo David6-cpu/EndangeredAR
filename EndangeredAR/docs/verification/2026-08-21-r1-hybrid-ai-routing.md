@@ -44,12 +44,14 @@ python3 -m unittest discover -s server/tests -v
 Unity EditMode:
 
 ```bash
-UNITY="/Applications/Unity/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/MacOS/Unity"
+: "${UNITY:?Set UNITY to the Unity 2022.3.62f3c1 executable}"
+TEST_RESULTS_DIR="${TEST_RESULTS_DIR:-$(mktemp -d)}"
+mkdir -p "$TEST_RESULTS_DIR"
 "$UNITY" -batchmode -nographics \
   -projectPath "$PWD/EndangeredAR" \
   -runTests -testPlatform EditMode \
-  -testResults /tmp/endangeredar-r1-editmode.xml \
-  -logFile /tmp/endangeredar-r1-editmode.log
+  -testResults "$TEST_RESULTS_DIR/endangeredar-r1-editmode.xml" \
+  -logFile "$TEST_RESULTS_DIR/endangeredar-r1-editmode.log"
 ```
 
 Expected R1 baseline at the time of this document:

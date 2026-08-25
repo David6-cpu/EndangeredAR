@@ -25,9 +25,11 @@
 统一命令变量：
 
 ```bash
-UNITY="/Applications/Unity/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/MacOS/Unity"
-PROJECT="/Users/yuanweijie/Documents/Larian Studios/animalsAR/EndangeredAR"
-REPO="/Users/yuanweijie/Documents/Larian Studios/animalsAR"
+: "${UNITY:?Set UNITY to the required Unity 2022.3.62f3c1 executable}"
+REPO="${REPO:-$PWD}"
+PROJECT="${PROJECT:-$REPO/EndangeredAR}"
+TEST_RESULTS_DIR="${TEST_RESULTS_DIR:-$(mktemp -d)}"
+mkdir -p "$TEST_RESULTS_DIR"
 ```
 
 ---
@@ -92,9 +94,9 @@ The verification note must record: no red errors; Learning/Scan/Profile clicks; 
 
 ```bash
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" -quit \
-  -logFile /private/tmp/endangered-ar-baseline.log
+  -logFile "$TEST_RESULTS_DIR/endangered-ar-baseline.log"
 rg -n 'error CS|Compilation failed|Scripts have compiler errors|Aborting batchmode' \
-  /private/tmp/endangered-ar-baseline.log
+  "$TEST_RESULTS_DIR/endangered-ar-baseline.log"
 ```
 
 Expected: Unity exits 0; `rg` prints nothing.
@@ -197,8 +199,8 @@ public void SensenFoodMission_AwardsPointsOnlyOnce()
 ```bash
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" \
   -runTests -testPlatform EditMode \
-  -testResults /private/tmp/editmode.xml \
-  -logFile /private/tmp/editmode.log
+  -testResults "$TEST_RESULTS_DIR/editmode.xml" \
+  -logFile "$TEST_RESULTS_DIR/editmode.log"
 ```
 
 Expected: one pass, zero failures.
@@ -275,8 +277,8 @@ Keep `Configure(...)` internal; runtime never mutates content.
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" \
   -runTests -testPlatform EditMode \
   -testFilter EndangeredAR.Tests.EditMode.AnimalContentContractTests \
-  -testResults /private/tmp/content-contract.xml \
-  -logFile /private/tmp/content-contract.log
+  -testResults "$TEST_RESULTS_DIR/content-contract.xml" \
+  -logFile "$TEST_RESULTS_DIR/content-contract.log"
 
 git add EndangeredAR/Assets/Scripts/Animals/AnimalDefinition.cs \
   EndangeredAR/Assets/Scripts/Animals/AnimalKnowledgeProfile.cs \
@@ -337,7 +339,7 @@ Bad content never throws. `Initialize()` is idempotent, logs issues once, and fa
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" \
   -runTests -testPlatform EditMode \
   -testFilter EndangeredAR.Tests.EditMode.AnimalCatalogTests \
-  -testResults /private/tmp/catalog.xml -logFile /private/tmp/catalog.log
+  -testResults "$TEST_RESULTS_DIR/catalog.xml" -logFile "$TEST_RESULTS_DIR/catalog.log"
 
 git add EndangeredAR/Assets/Scripts/Animals/AnimalCatalog.cs \
   EndangeredAR/Assets/Scripts/Animals/AnimalCatalogService.cs \
@@ -429,10 +431,10 @@ Default file: `Application.persistentDataPath/animal-progress.json`. Unlock save
 ```bash
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" -runTests \
   -testPlatform EditMode -testFilter EndangeredAR.Tests.EditMode.AnimalProgressRepositoryTests \
-  -testResults /private/tmp/progress-1.xml -logFile /private/tmp/progress-1.log
+  -testResults "$TEST_RESULTS_DIR/progress-1.xml" -logFile "$TEST_RESULTS_DIR/progress-1.log"
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" -runTests \
   -testPlatform EditMode -testFilter EndangeredAR.Tests.EditMode.AnimalProgressRepositoryTests \
-  -testResults /private/tmp/progress-2.xml -logFile /private/tmp/progress-2.log
+  -testResults "$TEST_RESULTS_DIR/progress-2.xml" -logFile "$TEST_RESULTS_DIR/progress-2.log"
 
 git add EndangeredAR/Assets/Scripts/Progress \
   EndangeredAR/Assets/Tests/EditMode/AnimalProgressRepositoryTests.cs
@@ -483,10 +485,10 @@ Migrate only current reviewed knowledge. Mission options: leaf/嫩叶/correct, f
 ```bash
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" \
   -executeMethod EndangeredAR.Editor.AnimalContentAssetBuilder.RebuildSensenContent \
-  -logFile /private/tmp/rebuild-sensen.log -quit
+  -logFile "$TEST_RESULTS_DIR/rebuild-sensen.log" -quit
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" -runTests \
   -testPlatform EditMode -testFilter EndangeredAR.Tests.EditMode.SensenContentAssetTests \
-  -testResults /private/tmp/sensen-content.xml -logFile /private/tmp/sensen-content.log
+  -testResults "$TEST_RESULTS_DIR/sensen-content.xml" -logFile "$TEST_RESULTS_DIR/sensen-content.log"
 
 git add EndangeredAR/Assets/Editor/AnimalContentAssetBuilder.cs \
   EndangeredAR/Assets/Resources/Animals \
@@ -527,7 +529,7 @@ public MissionResult SelectOption(string optionId);
 ```bash
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" -runTests \
   -testPlatform EditMode -testFilter EndangeredAR.Tests.EditMode.MissionControllerTests \
-  -testResults /private/tmp/mission.xml -logFile /private/tmp/mission.log
+  -testResults "$TEST_RESULTS_DIR/mission.xml" -logFile "$TEST_RESULTS_DIR/mission.log"
 
 git add EndangeredAR/Assets/Scripts/Missions/MissionController.cs \
   EndangeredAR/Assets/Tests/EditMode/ExistingDemoSmokeTests.cs \
@@ -573,7 +575,7 @@ Remove embedded森森 entries. Keep an obsolete `Answer(string)` until Task 11; 
 ```bash
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" -runTests \
   -testPlatform EditMode -testFilter EndangeredAR.Tests.EditMode.LocalKnowledgeChatServiceTests \
-  -testResults /private/tmp/fallback.xml -logFile /private/tmp/fallback.log
+  -testResults "$TEST_RESULTS_DIR/fallback.xml" -logFile "$TEST_RESULTS_DIR/fallback.log"
 
 git add EndangeredAR/Assets/Scripts/Chat/LocalKnowledgeChatService.cs \
   EndangeredAR/Assets/Tests/EditMode/LocalKnowledgeChatServiceTests.cs
@@ -682,7 +684,7 @@ Successful selection configures mission/model, moves `experienceHostTransform` t
 ```bash
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" -runTests \
   -testPlatform EditMode -testFilter EndangeredAR.Tests.EditMode.AnimalExperienceControllerTests \
-  -testResults /private/tmp/experience.xml -logFile /private/tmp/experience.log
+  -testResults "$TEST_RESULTS_DIR/experience.xml" -logFile "$TEST_RESULTS_DIR/experience.log"
 
 git add EndangeredAR/Assets/Scripts/Animals/AnimalExperienceController.cs \
   EndangeredAR/Assets/Tests/EditMode/AnimalExperienceControllerTests.cs
@@ -762,7 +764,7 @@ Before migration, record the actual scene null/optional references and button na
 ```bash
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" \
   -executeMethod EndangeredAR.Editor.AnimalArchitectureSceneMigrator.MigrateDemoScene \
-  -logFile /private/tmp/migrate-scene.log -quit
+  -logFile "$TEST_RESULTS_DIR/migrate-scene.log" -quit
 cd "$REPO"
 git diff --stat -- EndangeredAR/Assets/Scenes/DemoScene.unity
 git diff -- EndangeredAR/Assets/Scenes/DemoScene.unity | sed -n '1,240p'
@@ -776,8 +778,8 @@ Future `BuildDemoScene()` creates new services, but do not invoke it on the revi
 
 ```bash
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" -runTests \
-  -testPlatform EditMode -testResults /private/tmp/editmode-all.xml \
-  -logFile /private/tmp/editmode-all.log
+  -testPlatform EditMode -testResults "$TEST_RESULTS_DIR/editmode-all.xml" \
+  -logFile "$TEST_RESULTS_DIR/editmode-all.log"
 
 git add EndangeredAR/Assets/Scripts/UI/DemoAppController.cs \
   EndangeredAR/Assets/Scripts/AR/ARImageScanController.cs \
@@ -823,7 +825,7 @@ Expected: no output.
 ```bash
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" -runTests \
   -testPlatform EditMode -testFilter EndangeredAR.Tests.EditMode.ApiSecurityTests \
-  -testResults /private/tmp/api-security.xml -logFile /private/tmp/api-security.log
+  -testResults "$TEST_RESULTS_DIR/api-security.xml" -logFile "$TEST_RESULTS_DIR/api-security.log"
 
 git add EndangeredAR/Assets/Scripts/API \
   EndangeredAR/Assets/Editor/EndangeredARDemoSceneBuilder.cs \
@@ -877,11 +879,11 @@ Set internal static `AnimalProgressService.RepositoryPathOverrideForTests` befor
 
 ```bash
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" -runTests \
-  -testPlatform EditMode -testResults /private/tmp/editmode-final.xml \
-  -logFile /private/tmp/editmode-final.log
+  -testPlatform EditMode -testResults "$TEST_RESULTS_DIR/editmode-final.xml" \
+  -logFile "$TEST_RESULTS_DIR/editmode-final.log"
 "$UNITY" -batchmode -nographics -projectPath "$PROJECT" -runTests \
-  -testPlatform PlayMode -testResults /private/tmp/playmode-final.xml \
-  -logFile /private/tmp/playmode-final.log
+  -testPlatform PlayMode -testResults "$TEST_RESULTS_DIR/playmode-final.xml" \
+  -logFile "$TEST_RESULTS_DIR/playmode-final.log"
 ```
 
 Expected: zero failures; no null exception, missing script, or compile error.

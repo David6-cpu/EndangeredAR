@@ -16,8 +16,13 @@
 
 Clean-worktree verification command:
 
-```text
-/Applications/Unity/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/MacOS/Unity -batchmode -nographics -quit -projectPath /Users/yuanweijie/Documents/animalsAR/EndangeredAR -logFile /private/tmp/endangered-ar-clean-baseline-retry.log
+```bash
+: "${UNITY:?Set UNITY to the Unity 2022.3.62f3c1 executable}"
+TEST_RESULTS_DIR="${TEST_RESULTS_DIR:-$(mktemp -d)}"
+mkdir -p "$TEST_RESULTS_DIR"
+"$UNITY" -batchmode -nographics -quit \
+  -projectPath "$PWD/EndangeredAR" \
+  -logFile "$TEST_RESULTS_DIR/endangered-ar-clean-baseline-retry.log"
 ```
 
 Result: exit code `0`; log contains `Exiting batchmode successfully now!` and no C# compiler or package-resolution errors.

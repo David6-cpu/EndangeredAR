@@ -17,6 +17,14 @@
 - 不重新引入 `RoundedRectGraphic`。
 - 保留模拟识别、模型加载、手势、解锁、聊天历史和 PNG 保存接口。
 
+验证命令使用调用者提供的 Unity Editor 和仓库外临时目录：
+
+```bash
+: "${UNITY:?Set UNITY to the required Unity 2022.3.62f3c1 executable}"
+TEST_RESULTS_DIR="${TEST_RESULTS_DIR:-$(mktemp -d)}"
+mkdir -p "$TEST_RESULTS_DIR"
+```
+
 ---
 
 ### Task 1: Correct Camera Preview Aspect
@@ -56,12 +64,12 @@ public void CameraPreviewAspect_UsesRawTextureRatio(
 Run:
 
 ```bash
-/Applications/Unity/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/MacOS/Unity \
+"$UNITY" \
   -batchmode -projectPath "$PWD/EndangeredAR" \
   -runTests -testPlatform EditMode \
   -testFilter EndangeredAR.Tests.EditMode.DemoAnimalMigrationTests.CameraPreviewAspect_UsesRawTextureRatio \
-  -testResults /private/tmp/camera-aspect-red.xml \
-  -logFile /private/tmp/camera-aspect-red.log
+  -testResults "$TEST_RESULTS_DIR/camera-aspect-red.xml" \
+  -logFile "$TEST_RESULTS_DIR/camera-aspect-red.log"
 ```
 
 Expected: FAIL because `CalculatePreviewAspectRatio` does not exist.
@@ -244,12 +252,12 @@ Run:
 
 ```bash
 python3 -m unittest discover -s server/tests -v
-/Applications/Unity/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/MacOS/Unity \
+"$UNITY" \
   -batchmode -projectPath "$PWD/EndangeredAR" \
   -runTests -testPlatform EditMode \
   -testFilter EndangeredAR.Tests.EditMode.ApiSecurityTests \
-  -testResults /private/tmp/api-security-green.xml \
-  -logFile /private/tmp/api-security-green.log
+  -testResults "$TEST_RESULTS_DIR/api-security-green.xml" \
+  -logFile "$TEST_RESULTS_DIR/api-security-green.log"
 ```
 
 Expected: all pass; repository scan contains no key value or client provider authorization code.
@@ -259,8 +267,9 @@ Expected: all pass; repository scan contains no key value or client provider aut
 Run without printing values:
 
 ```bash
+: "${LOCAL_ENV_FILE:?Set LOCAL_ENV_FILE to a Git-ignored local environment file}"
 set -a
-source /Users/yuanweijie/Documents/Codex/2026-05-18/new-chat/.env.local
+source "$LOCAL_ENV_FILE"
 set +a
 python3 server/dev_server.py
 ```

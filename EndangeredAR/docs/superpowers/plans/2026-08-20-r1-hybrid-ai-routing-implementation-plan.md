@@ -21,6 +21,14 @@
 - Do not implement RAG, embeddings, streaming, native inference, animation actions, emotion execution, or task mutation.
 - Use test-first RED/GREEN cycles and commit each independently testable task.
 
+Verification commands use a caller-provided Unity Editor and an ephemeral directory outside the repository:
+
+```bash
+: "${UNITY:?Set UNITY to the required Unity 2022.3 executable}"
+TEST_RESULTS_DIR="${TEST_RESULTS_DIR:-$(mktemp -d)}"
+mkdir -p "$TEST_RESULTS_DIR"
+```
+
 ---
 
 ### Task 1: Python llama.cpp Adapter
@@ -186,11 +194,11 @@ Replace only the direct `ChatApiClient.SendMessage` decision inside `AskLocal` w
 Extend `AnimalArchitectureSceneMigrator`, then execute:
 
 ```bash
-/Applications/Unity/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/MacOS/Unity \
+"$UNITY" \
   -batchmode -nographics \
-  -projectPath /Users/yuanweijie/Documents/animalsAR/EndangeredAR \
+  -projectPath "$PWD/EndangeredAR" \
   -executeMethod EndangeredAR.Editor.AnimalArchitectureSceneMigrator.MigrateDemoScene \
-  -logFile /private/tmp/r1-ai-scene-migration.log \
+  -logFile "$TEST_RESULTS_DIR/r1-ai-scene-migration.log" \
   -quit
 ```
 
@@ -234,12 +242,12 @@ Run:
 
 ```bash
 python3 -m unittest discover -s server/tests -v
-/Applications/Unity/Hub/Editor/2022.3.62f3c1/Unity.app/Contents/MacOS/Unity \
+"$UNITY" \
   -batchmode -nographics \
-  -projectPath /Users/yuanweijie/Documents/animalsAR/EndangeredAR \
+  -projectPath "$PWD/EndangeredAR" \
   -runTests -testPlatform EditMode \
-  -testResults /private/tmp/r1-final-editmode.xml \
-  -logFile /private/tmp/r1-final-unity.log
+  -testResults "$TEST_RESULTS_DIR/r1-final-editmode.xml" \
+  -logFile "$TEST_RESULTS_DIR/r1-final-unity.log"
 ```
 
 Record exact totals and failures.
