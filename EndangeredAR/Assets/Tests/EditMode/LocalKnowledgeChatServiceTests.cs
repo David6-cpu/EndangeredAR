@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using EndangeredAR.Animals;
 using EndangeredAR.Chat;
 using EndangeredAR.Missions;
@@ -80,6 +81,29 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
+        public void Answer_IdentityAndAnimalFriendVectorsDoNotOverlap()
+        {
+            var service = CreateService();
+            var profile = Resources.Load<AnimalKnowledgeProfile>("Animals/SensenKnowledge");
+            var fixture = LoadKnowledgeRetrievalFixture();
+
+            foreach (var item in fixture.cases)
+            {
+                var answer = service.Answer(profile, item.message);
+
+                Assert.That(answer.AnswerMode, Is.EqualTo(item.expectedAnswerMode), item.message);
+                if (string.IsNullOrEmpty(item.expectedFactId))
+                {
+                    Assert.That(answer.GroundedFactIds, Is.Empty, item.message);
+                }
+                else
+                {
+                    Assert.That(answer.GroundedFactIds, Does.Contain(item.expectedFactId), item.message);
+                }
+            }
+        }
+
+        [Test]
         public void Answer_PromptInjectionWithoutFactIsRejectedDeterministically()
         {
             var service = CreateService();
@@ -107,6 +131,32 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(answer.SourceIds, Is.Empty);
         }
         private readonly List<UnityEngine.Object> createdObjects = new List<UnityEngine.Object>();
+
+        private static KnowledgeRetrievalFixture LoadKnowledgeRetrievalFixture()
+        {
+            var path = Path.GetFullPath(Path.Combine(
+                Application.dataPath,
+                "..",
+                "..",
+                "content",
+                "quality",
+                "sensen-knowledge-retrieval-vectors.json"));
+            return JsonUtility.FromJson<KnowledgeRetrievalFixture>(File.ReadAllText(path));
+        }
+
+        [Serializable]
+        private sealed class KnowledgeRetrievalFixture
+        {
+            public KnowledgeRetrievalCase[] cases;
+        }
+
+        [Serializable]
+        private sealed class KnowledgeRetrievalCase
+        {
+            public string message;
+            public string expectedAnswerMode;
+            public string expectedFactId;
+        }
 
         [TearDown]
         public void TearDown()

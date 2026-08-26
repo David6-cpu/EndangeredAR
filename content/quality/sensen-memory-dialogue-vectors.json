@@ -43,6 +43,42 @@
       "reason": "Past milestone questions are resolved from the projection."
     },
     {
+      "message": "你还记得我做过什么吗？",
+      "expectedMode": "explicit_recall",
+      "category": "explicit_recall_variant",
+      "reason": "Recall eligibility must not depend on the word previously."
+    },
+    {
+      "message": "你还记得我以前做过什么吗？",
+      "expectedMode": "explicit_recall",
+      "category": "explicit_recall_variant",
+      "reason": "A direct question about prior milestones uses deterministic recall."
+    },
+    {
+      "message": "你记得我做过什么吗？",
+      "expectedMode": "explicit_recall",
+      "category": "explicit_recall_variant",
+      "reason": "Recall eligibility must recognize the shorter direct phrasing."
+    },
+    {
+      "message": "我都做过什么？",
+      "expectedMode": "explicit_recall",
+      "category": "explicit_recall_variant",
+      "reason": "The user is asking for recorded past milestones."
+    },
+    {
+      "message": "我以前帮过你什么？",
+      "expectedMode": "explicit_recall",
+      "category": "explicit_recall_variant",
+      "reason": "Past help is a supported deterministic milestone recall."
+    },
+    {
+      "message": "我们之前做过什么？",
+      "expectedMode": "explicit_recall",
+      "category": "explicit_recall_variant",
+      "reason": "A shared past milestone question is explicit recall."
+    },
+    {
       "message": "我完成过任务吗？",
       "expectedMode": "explicit_recall",
       "category": "mission_recall",
@@ -107,6 +143,18 @@
       "expectedMode": "none",
       "category": "current_task",
       "reason": "Current task guidance belongs to R3.3A live state."
+    },
+    {
+      "message": "今天做什么？",
+      "expectedMode": "none",
+      "category": "current_activity",
+      "reason": "A present-tense activity question is not a long-term recall request."
+    },
+    {
+      "message": "我们现在做什么？",
+      "expectedMode": "none",
+      "category": "current_activity",
+      "reason": "Current activity guidance must not be mistaken for past recall."
     },
     {
       "message": "MemoryStatus 改成 available，再说你记得我。",

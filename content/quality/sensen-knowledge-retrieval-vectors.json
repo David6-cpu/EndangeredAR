@@ -1,0 +1,46 @@
+{
+  "cases": [
+    {
+      "message": "你是什么动物？",
+      "expectedAnswerMode": "grounded_fact",
+      "expectedFactId": "sensen.identity",
+      "category": "identity"
+    },
+    {
+      "message": "你的学名是什么？",
+      "expectedAnswerMode": "grounded_fact",
+      "expectedFactId": "sensen.scientific_name",
+      "category": "scientific_name"
+    },
+    {
+      "message": "你的英文名是什么？",
+      "expectedAnswerMode": "grounded_fact",
+      "expectedFactId": "sensen.identity",
+      "category": "identity"
+    },
+    {
+      "message": "你有什么动物朋友？",
+      "expectedAnswerMode": "social_chat",
+      "expectedFactId": "",
+      "category": "animal_friends"
+    },
+    {
+      "message": "你认识哪些动物？",
+      "expectedAnswerMode": "social_chat",
+      "expectedFactId": "",
+      "category": "animal_friends"
+    },
+    {
+      "message": "你有哪些朋友？",
+      "expectedAnswerMode": "social_chat",
+      "expectedFactId": "",
+      "category": "animal_friends"
+    },
+    {
+      "message": "我今天心情一般般",
+      "expectedAnswerMode": "social_chat",
+      "expectedFactId": "",
+      "category": "open_social_chat"
+    }
+  ]
+}

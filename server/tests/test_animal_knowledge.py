@@ -83,6 +83,17 @@ class AnimalKnowledgeRetrievalTests(unittest.TestCase):
             with self.subTest(question=question):
                 self.assert_grounded(question, fact_id)
 
+    def test_identity_and_animal_friend_vectors_do_not_overlap(self):
+        fixture_path = Path(__file__).resolve().parents[2] / "content" / "quality" / "sensen-knowledge-retrieval-vectors.json"
+        fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+        for case in fixture["cases"]:
+            with self.subTest(message=case["message"]):
+                result = animal_knowledge.retrieve(self.document, case["message"])
+                self.assertEqual(result.answer_mode, case["expectedAnswerMode"])
+                actual_fact_id = result.facts[0]["factId"] if result.facts else ""
+                self.assertEqual(actual_fact_id, case["expectedFactId"])
+
     def test_grounded_diet_exposes_application_owned_topic_and_fact_ids(self):
         result = self.assert_grounded("森森，你平时吃什么？", "sensen.diet")
 

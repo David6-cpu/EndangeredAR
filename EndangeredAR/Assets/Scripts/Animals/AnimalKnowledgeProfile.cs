@@ -61,6 +61,11 @@ namespace EndangeredAR.Animals
                 return AnimalKnowledgeRetrieval.Social;
             }
 
+            if (IsAnimalFriendsQuestion(normalized))
+            {
+                return AnimalKnowledgeRetrieval.SocialWithReason("animal_friends_question");
+            }
+
             AnimalKnowledgeEntry selected = null;
             var selectedScore = 0;
             foreach (var candidate in entries ?? Array.Empty<AnimalKnowledgeEntry>())
@@ -228,6 +233,12 @@ namespace EndangeredAR.Animals
                    ContainsAny(normalizedMessage, new[] { "多少", "几", "数量" });
         }
 
+        private static bool IsAnimalFriendsQuestion(string normalizedMessage)
+        {
+            return ContainsAny(normalizedMessage, new[] { "朋友", "伙伴" }) &&
+                   ContainsAny(normalizedMessage, new[] { "什么动物", "哪些动物", "认识哪些", "有哪些" });
+        }
+
         private static string Normalize(string value)
         {
             var builder = new StringBuilder();
@@ -293,6 +304,9 @@ namespace EndangeredAR.Animals
 
         public static AnimalKnowledgeRetrieval Social => new AnimalKnowledgeRetrieval(
             null, "social_chat", "not_required", Array.Empty<string>(), "social_chat");
+
+        public static AnimalKnowledgeRetrieval SocialWithReason(string reason) => new AnimalKnowledgeRetrieval(
+            null, "social_chat", "not_required", Array.Empty<string>(), reason);
 
         public static AnimalKnowledgeRetrieval OffDomain => new AnimalKnowledgeRetrieval(
             null, "off_domain", "not_required", Array.Empty<string>(), "off_domain_marker");

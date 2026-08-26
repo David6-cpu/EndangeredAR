@@ -128,6 +128,15 @@ def retrieve(document: Dict, message: str, animal_id: Optional[str] = None) -> R
             "我在呢。你想聊聊今天的心情，还是继续认识森林里的动物朋友？",
             "social_marker",
         )
+    if is_animal_friends_question(normalized):
+        return RetrievalResult(
+            "social_chat",
+            "not_required",
+            (),
+            (),
+            "我在呢。你想聊聊今天的心情，还是继续认识森林里的动物朋友？",
+            "animal_friends_question",
+        )
 
     scored_facts = []
     for index, fact in enumerate(document.get("facts", [])):
@@ -213,6 +222,15 @@ def is_unsupported_precise_diet_quantity(normalized_message: str) -> bool:
     return (
         any(marker in normalized_message for marker in ("每天", "每日", "每餐", "一天"))
         and any(marker in normalized_message for marker in ("多少", "几", "数量"))
+    )
+
+
+def is_animal_friends_question(normalized_message: str) -> bool:
+    if not any(marker in normalized_message for marker in ("朋友", "伙伴")):
+        return False
+    return any(
+        marker in normalized_message
+        for marker in ("什么动物", "哪些动物", "认识哪些", "有哪些")
     )
 
 
