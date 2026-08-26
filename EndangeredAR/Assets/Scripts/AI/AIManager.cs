@@ -15,10 +15,16 @@ namespace EndangeredAR.AI
         [SerializeField] private ChatApiClient chatApiClient;
         [SerializeField] private LocalKnowledgeChatService localKnowledgeService;
         private IReadOnlyCharacterContextProvider contextProvider;
+        private IReadOnlyCharacterMemoryContextProvider memoryContextProvider;
 
         internal void ConfigureContextProvider(IReadOnlyCharacterContextProvider provider)
         {
             contextProvider = provider;
+        }
+
+        internal void ConfigureMemoryContextProvider(IReadOnlyCharacterMemoryContextProvider provider)
+        {
+            memoryContextProvider = provider;
         }
 
         public IEnumerator Send(

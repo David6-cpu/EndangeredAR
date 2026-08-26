@@ -263,7 +263,10 @@ namespace EndangeredAR.UI
             animalCatalog.Initialize();
             animalProgress.Initialize();
             animalExperience.Initialize();
-            aiManager?.ConfigureContextProvider(new ReadOnlyCharacterContextProvider(animalProgress, animalCatalog));
+            var readOnlyContextProvider = new ReadOnlyCharacterContextProvider(animalProgress, animalCatalog);
+            aiManager?.ConfigureContextProvider(readOnlyContextProvider);
+            aiManager?.ConfigureMemoryContextProvider(
+                new ReadOnlyCharacterMemoryContextProvider(animalExperience.CharacterMemory, animalCatalog));
             animalExperience.CurrentAnimalChanged += HandleCurrentAnimalChanged;
 
             var defaultAnimalId = animalCatalog.DefaultAnimal?.AnimalId;
