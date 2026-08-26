@@ -155,8 +155,12 @@ curl http://127.0.0.1:8000/health
 llama-server \
   -m "<path-to-qwen-gguf>" \
   --host 127.0.0.1 \
-  --port 8080
+  --port 8080 \
+  -c 4096 \
+  -np 1
 ```
+
+`-c 4096 -np 1` gives the single inference slot the full 4096-token context. Do not combine this context size with four parallel slots for the current mobile acceptance flow; trusted evidence, read-only context, and bounded session history can exceed a 1024-token per-slot budget.
 
 然后确认 `.env.local` 包含：
 
