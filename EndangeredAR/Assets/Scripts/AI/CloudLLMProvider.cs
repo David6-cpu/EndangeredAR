@@ -32,32 +32,49 @@ namespace EndangeredAR.AI
             IEnumerator routine;
             try
             {
-                routine = chatApiClient.SendMessage(
-                    request == null ? string.Empty : request.animalId,
-                    request == null ? string.Empty : request.message,
-                    request == null ? Array.Empty<ChatMessage>() : request.history,
-                    request == null ? ReadOnlyCharacterContext.Empty : request.Context,
-                    timeoutSeconds,
-                    response =>
+                var animalId = request == null ? string.Empty : request.animalId;
+                var message = request == null ? string.Empty : request.message;
+                var history = request == null ? Array.Empty<ChatMessage>() : request.history;
+                var context = request == null ? ReadOnlyCharacterContext.Empty : request.Context;
+                Action<ChatResponse> success = response =>
+                {
+                    if (callbackCompleted)
                     {
-                        if (callbackCompleted)
-                        {
-                            return;
-                        }
+                        return;
+                    }
 
-                        callbackCompleted = true;
-                        onSuccess?.Invoke(ToAIResponse(response));
-                    },
-                    error =>
+                    callbackCompleted = true;
+                    onSuccess?.Invoke(ToAIResponse(response));
+                };
+                Action<string> failure = error =>
+                {
+                    if (callbackCompleted)
                     {
-                        if (callbackCompleted)
-                        {
-                            return;
-                        }
+                        return;
+                    }
 
-                        callbackCompleted = true;
-                        onError?.Invoke(ToProviderError(error));
-                    });
+                    callbackCompleted = true;
+                    onError?.Invoke(ToProviderError(error));
+                };
+                routine = request != null && request.MemoryUseMode == MemoryUseMode.Reunion
+                    ? chatApiClient.SendMessage(
+                        animalId,
+                        message,
+                        history,
+                        context,
+                        request.MemoryContext,
+                        request.MemoryUseMode,
+                        timeoutSeconds,
+                        success,
+                        failure)
+                    : chatApiClient.SendMessage(
+                        animalId,
+                        message,
+                        history,
+                        context,
+                        timeoutSeconds,
+                        success,
+                        failure);
 
             }
             catch (Exception)
@@ -123,7 +140,7 @@ namespace EndangeredAR.AI
                 source = response == null ? null : response.source,
                 suggestedQuestions = response == null ? null : response.suggestedQuestions,
                 missionHint = response == null ? null : response.missionHint,
-                answerMode = response == null ? null : response.answerMode,
+                answerMode = CharacterMemoryTransport.SanitizeExternalAnswerMode(response == null ? null : response.answerMode),
                 evidenceStatus = response == null ? null : response.evidenceStatus,
                 GroundingTopic = GroundingTopicProtocol.Parse(response == null ? null : response.groundingTopic),
                 GroundedFactIds = Copy(response == null ? null : response.groundedFactIds),

@@ -48,6 +48,29 @@ namespace EndangeredAR.API
             Action<ChatResponse> onSuccess,
             Action<string> onError)
         {
+            yield return SendMessage(
+                animalId,
+                message,
+                history,
+                context,
+                null,
+                MemoryUseMode.None,
+                timeoutSeconds,
+                onSuccess,
+                onError);
+        }
+
+        public virtual IEnumerator SendMessage(
+            string animalId,
+            string message,
+            ChatMessage[] history,
+            ReadOnlyCharacterContext context,
+            ReadOnlyCharacterMemoryContext memoryContext,
+            MemoryUseMode memoryUseMode,
+            float timeoutSeconds,
+            Action<ChatResponse> onSuccess,
+            Action<string> onError)
+        {
             if (config == null || string.IsNullOrWhiteSpace(config.baseUrl))
             {
                 onError?.Invoke("API 地址没有配置。请在 Unity 里执行 Endangered AR > Set Local API To Mac LAN IP。");
@@ -59,7 +82,9 @@ namespace EndangeredAR.API
                 animalId = animalId,
                 message = message,
                 history = history ?? Array.Empty<ChatMessage>(),
-                context = context ?? ReadOnlyCharacterContext.Empty
+                context = context ?? ReadOnlyCharacterContext.Empty,
+                memoryUseMode = MemoryUseModeProtocol.ToWireValue(memoryUseMode),
+                memoryContext = CharacterMemoryTransport.SelectContext(animalId, memoryContext, memoryUseMode)
             };
 
             var json = JsonUtility.ToJson(request);
@@ -139,6 +164,8 @@ namespace EndangeredAR.API
         public string message;
         public ChatMessage[] history;
         public ReadOnlyCharacterContext context;
+        public string memoryUseMode;
+        public ReadOnlyCharacterMemoryContext memoryContext;
     }
 
     [Serializable]

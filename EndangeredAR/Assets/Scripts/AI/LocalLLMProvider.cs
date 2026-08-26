@@ -114,7 +114,11 @@ namespace EndangeredAR.AI
                 animalId = request == null ? string.Empty : request.animalId,
                 message = request == null ? string.Empty : request.message,
                 history = request == null || request.history == null ? Array.Empty<ChatMessage>() : request.history,
-                context = request == null ? ReadOnlyCharacterContext.Empty : request.Context ?? ReadOnlyCharacterContext.Empty
+                context = request == null ? ReadOnlyCharacterContext.Empty : request.Context ?? ReadOnlyCharacterContext.Empty,
+                memoryUseMode = MemoryUseModeProtocol.ToWireValue(request == null ? MemoryUseMode.None : request.MemoryUseMode),
+                memoryContext = request == null
+                    ? null
+                    : CharacterMemoryTransport.SelectContext(request.animalId, request.MemoryContext, request.MemoryUseMode)
             };
         }
 
@@ -170,7 +174,7 @@ namespace EndangeredAR.AI
                     source = string.IsNullOrWhiteSpace(parsed.source) ? "local_llm" : parsed.source,
                     suggestedQuestions = parsed.suggestedQuestions,
                     missionHint = parsed.missionHint,
-                    answerMode = parsed.answerMode,
+                    answerMode = CharacterMemoryTransport.SanitizeExternalAnswerMode(parsed.answerMode),
                     evidenceStatus = parsed.evidenceStatus,
                     GroundingTopic = GroundingTopicProtocol.Parse(parsed.groundingTopic),
                     GroundedFactIds = CloudLLMProvider.Copy(parsed.groundedFactIds),

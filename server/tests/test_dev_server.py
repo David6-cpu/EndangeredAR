@@ -180,6 +180,125 @@ class DevServerTests(unittest.TestCase):
         self.assertEqual(cloud["messages"], local["messages"])
         self.assertIn("UNTRUSTED_USER_CONTEXT", cloud["messages"][0]["content"])
 
+    def test_reunion_memory_context_is_strictly_allowlisted_and_minimized(self):
+        raw_memory = {
+            "schemaVersion": 1,
+            "animalId": "sensen",
+            "memoryStatus": "available",
+            "discovered": True,
+            "completedMissionCount": 1,
+            "learnedKnowledgeCount": 1,
+            "earnedBadgeCount": 1,
+            "memoryMilestones": [
+                {"kind": "mission_completed", "displayLabel": "保护森森的森林", "subjectId": "sensen-food"},
+                {"kind": "knowledge_learned", "displayLabel": "森森的食性知识", "eventId": "private"},
+            ],
+            "profileKey": "local-default",
+            "occurredAtUtc": "2026-08-25T10:00:00Z",
+        }
+
+        context = dev_server.sanitize_character_memory_context(raw_memory, "sensen", "reunion")
+
+        self.assertEqual(context["animalId"], "sensen")
+        self.assertEqual(context["memoryStatus"], "available")
+        self.assertEqual(len(context["memoryMilestones"]), 2)
+        serialized = json.dumps(context, ensure_ascii=False)
+        for forbidden in (
+            "profileKey", "eventId", "idempotencyKey", "subjectId", "occurredAtUtc", "origin", "local-default"
+        ):
+            self.assertNotIn(forbidden, serialized)
+
+    def test_malformed_memory_context_and_mode_fail_closed(self):
+        valid = {
+            "schemaVersion": 1,
+            "animalId": "sensen",
+            "memoryStatus": "available",
+            "memoryMilestones": [],
+        }
+
+        self.assertEqual(dev_server.sanitize_character_memory_context(valid, "sensen", "Reunion"), {})
+        self.assertEqual(dev_server.sanitize_character_memory_context(valid, "sensen", " reunion"), {})
+        self.assertEqual(
+            dev_server.sanitize_character_memory_context(
+                {**valid, "memoryStatus": "Available"}, "sensen", "reunion"
+            ),
+            {},
+        )
+        self.assertEqual(
+            dev_server.sanitize_character_memory_context(
+                {**valid, "animalId": "other"}, "sensen", "reunion"
+            ),
+            {},
+        )
+
+    def test_memory_prompt_is_separate_from_current_state_and_knowledge(self):
+        animal = dev_server.get_animal("sensen")
+        retrieval = animal_knowledge.retrieve(animal, "你的学名是什么？", animal_id="sensen")
+        current = dev_server.sanitize_readonly_context(
+            {
+                "character": {"animalId": "sensen", "unlocked": True},
+                "task": {"taskId": "sensen-food", "taskTitle": "帮森森寻找食物", "completed": True},
+            },
+            "sensen",
+        )
+        memory = dev_server.sanitize_character_memory_context(
+            {
+                "schemaVersion": 1,
+                "animalId": "sensen",
+                "memoryStatus": "available",
+                "completedMissionCount": 1,
+                "memoryMilestones": [
+                    {"kind": "mission_completed", "displayLabel": "保护森森的森林"}
+                ],
+            },
+            "sensen",
+            "reunion",
+        )
+
+        prompt = dev_server.make_system_prompt(
+            animal,
+            retrieval,
+            current,
+            memory_context=memory,
+            memory_use_mode="reunion",
+        )
+
+        self.assertIn("CURRENT READ-ONLY STATE", prompt)
+        self.assertIn("PAST MILESTONE MEMORY", prompt)
+        self.assertIn("<UNTRUSTED_CHARACTER_MEMORY_CONTEXT>", prompt)
+        self.assertIn("<UNTRUSTED_KNOWLEDGE>", prompt)
+        self.assertLess(prompt.index("CURRENT READ-ONLY STATE"), prompt.index("PAST MILESTONE MEMORY"))
+        self.assertLess(prompt.index("PAST MILESTONE MEMORY"), prompt.index("UNTRUSTED_KNOWLEDGE"))
+
+    def test_local_and_cloud_receive_identical_memory_prompt_only_for_reunion(self):
+        memory = dev_server.sanitize_character_memory_context(
+            {
+                "schemaVersion": 1,
+                "animalId": "sensen",
+                "memoryStatus": "available",
+                "completedMissionCount": 1,
+                "memoryMilestones": [
+                    {"kind": "mission_completed", "displayLabel": "保护森森的森林"}
+                ],
+            },
+            "sensen",
+            "reunion",
+        )
+
+        cloud = dev_server.make_llm_payload(
+            SENSEN, "我回来了", [], memory_context=memory, memory_use_mode="reunion"
+        )
+        local = dev_server.make_local_llm_payload(
+            SENSEN, "我回来了", [], memory_context=memory, memory_use_mode="reunion"
+        )
+        without_memory = dev_server.make_llm_payload(
+            SENSEN, "你的学名是什么", [], memory_context=memory, memory_use_mode="none"
+        )
+
+        self.assertEqual(cloud["messages"], local["messages"])
+        self.assertIn("UNTRUSTED_CHARACTER_MEMORY_CONTEXT", cloud["messages"][0]["content"])
+        self.assertNotIn("UNTRUSTED_CHARACTER_MEMORY_CONTEXT", without_memory["messages"][0]["content"])
+
     def test_missing_or_wrong_animal_context_degrades_to_empty(self):
         self.assertEqual(dev_server.sanitize_readonly_context(None, "sensen"), {})
         self.assertEqual(
