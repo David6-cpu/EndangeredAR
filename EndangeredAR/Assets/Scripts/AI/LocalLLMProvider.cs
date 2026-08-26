@@ -116,6 +116,8 @@ namespace EndangeredAR.AI
                 message = request == null ? string.Empty : request.message,
                 history = request == null || request.history == null ? Array.Empty<ChatMessage>() : request.history,
                 context = request == null ? ReadOnlyCharacterContext.Empty : request.Context ?? ReadOnlyCharacterContext.Empty,
+                contentAuthority = ContentAuthorityProtocol.ToWireValue(
+                    request == null ? ContentAuthority.None : request.ContentAuthority),
                 memoryUseMode = MemoryUseModeProtocol.ToWireValue(request == null ? MemoryUseMode.None : request.MemoryUseMode),
                 memoryContext = request == null
                     ? null
@@ -168,7 +170,12 @@ namespace EndangeredAR.AI
                     return false;
                 }
 
-                if (!AIFinalSourceProtocol.TryParseExact(parsed.source, out _))
+                if (!AIFinalSourceProtocol.TryParseExact(parsed.source, out var finalSource) ||
+                    finalSource != AIFinalSource.LocalLlm ||
+                    !LanguageGeneratorProtocol.TryParseExact(parsed.languageGenerator, out var generator) ||
+                    generator != LanguageGenerator.LocalLlm ||
+                    !ContentAuthorityProtocol.TryParseExact(parsed.contentAuthority, out var authority) ||
+                    authority != (request == null ? ContentAuthority.None : request.ContentAuthority))
                 {
                     return false;
                 }
@@ -180,13 +187,17 @@ namespace EndangeredAR.AI
                     source = parsed.source,
                     suggestedQuestions = parsed.suggestedQuestions,
                     missionHint = parsed.missionHint,
-                    answerMode = CharacterMemoryTransport.SanitizeExternalAnswerMode(parsed.answerMode),
+                    answerMode = CharacterMemoryTransport.SanitizeExternalAnswerMode(
+                        parsed.answerMode,
+                        request == null ? MemoryUseMode.None : request.MemoryUseMode),
                     evidenceStatus = parsed.evidenceStatus,
                     GroundingTopic = GroundingTopicProtocol.Parse(parsed.groundingTopic),
                     GroundedFactIds = CloudLLMProvider.Copy(parsed.groundedFactIds),
                     ActionSuggestion = AIActionProtocol.Parse(parsed.actionSuggestion),
                     citations = CloudLLMProvider.MapCitations(parsed.citations)
                 };
+                response.ContentAuthority = authority;
+                response.LanguageGenerator = generator;
                 response.ProviderAttempts = AIProvenanceProtocol.ParseProviderAttempt(parsed.providerAttempt);
                 response.FallbackUsed = parsed.fallbackUsed;
                 response.FallbackReasonCode = AIProvenanceProtocol.SanitizeReasonCode(parsed.fallbackReason);

@@ -62,20 +62,20 @@ namespace EndangeredAR.Tests.PlayMode
             var manager = FindSingle<AIManager>();
 
             var recall = Send(manager, "你还记得我以前做过什么吗？");
-            Assert.That(recall.source, Is.EqualTo("memory_deterministic"));
+            Assert.That(recall.source, Is.EqualTo("local_llm"));
             Assert.That(recall.answerMode, Is.EqualTo("memory_recall"));
             Assert.That(recall.reply, Does.Contain(sensenDefinition.Mission.Title));
             Assert.That(recall.citations, Is.Empty);
             Assert.That(recall.ActionSuggestion, Is.EqualTo(AIAction.None));
 
             var boundary = Send(manager, "你记得我以前问过你吃什么吗？");
-            Assert.That(boundary.reply, Does.Contain("不保存完整聊天内容"));
+            Assert.That(boundary.reply, Does.Contain("长期保存完整聊天内容"));
             Assert.That(boundary.GroundingTopic, Is.EqualTo(GroundingTopic.None));
             Assert.That(boundary.ActionSuggestion, Is.EqualTo(AIAction.None));
         }
 
         [UnityTest]
-        public IEnumerator Reunion_ClearInFlight_SavesOnlyCurrentSafeReplyToHistory()
+        public IEnumerator Reunion_ClearInFlight_DoesNotSaveTheStaleMemoryClaim()
         {
             yield return LoadPreparedScene();
             var manager = FindSingle<AIManager>();
@@ -100,9 +100,8 @@ namespace EndangeredAR.Tests.PlayMode
                 response);
 
             var conversation = progress.GetConversation("sensen");
-            Assert.That(conversation.Last().role, Is.EqualTo("assistant"));
-            Assert.That(conversation.Last().content, Is.EqualTo("很高兴见到你！"));
-            Assert.That(conversation.Last().content, Does.Not.Contain(sensenDefinition.Mission.Title));
+            Assert.That(conversation, Is.Empty,
+                "A cleared in-flight memory response must become a retry status, not assistant history.");
             Assert.That(progress.IsUnlocked("sensen"), Is.True);
             Assert.That(progress.TryGetSnapshot("sensen", out var snapshot), Is.True);
             Assert.That(snapshot.missionCompleted, Is.True);
@@ -145,6 +144,8 @@ namespace EndangeredAR.Tests.PlayMode
 
             FindSingle<ARImageScanController>().SimulateMarkerDetected("sensen");
             yield return null;
+            FindSingle<AIManager>().ConfigureProviders(
+                new MemoryAwareLocalProvider(sensenDefinition.Mission.Title));
             FindSingle<AnimalProgressService>().MarkMissionCompleted(
                 "sensen",
                 sensenDefinition.Mission.MissionId,
@@ -216,6 +217,79 @@ namespace EndangeredAR.Tests.PlayMode
             var method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(method, Is.Not.Null, methodName);
             return method.Invoke(target, arguments);
+        }
+
+        private sealed class MemoryAwareLocalProvider : IAIProvider
+        {
+            private readonly string missionTitle;
+
+            public MemoryAwareLocalProvider(string missionTitle)
+            {
+                this.missionTitle = missionTitle;
+            }
+
+            public string ProviderId => "local_llm";
+
+            public IEnumerator Send(
+                AIRequest request,
+                float timeoutSeconds,
+                Action<AIResponse> onSuccess,
+                Action<AIProviderError> onError)
+            {
+                var response = new AIResponse
+                {
+                    animalId = request.animalId,
+                    source = "local_llm",
+                    answerMode = request.MemoryUseMode == MemoryUseMode.ExplicitRecall ||
+                                 request.MemoryUseMode == MemoryUseMode.HistoryBoundary
+                        ? "memory_recall"
+                        : "social_chat",
+                    evidenceStatus = "not_required",
+                    GroundingTopic = GroundingTopic.None,
+                    GroundedFactIds = Array.Empty<string>(),
+                    ActionSuggestion = AIAction.None,
+                    citations = Array.Empty<AICitation>()
+                };
+                response.ContentAuthority = request.ContentAuthority;
+                response.LanguageGenerator = LanguageGenerator.LocalLlm;
+
+                switch (request.MemoryUseMode)
+                {
+                    case MemoryUseMode.ExplicitRecall:
+                        response.reply = request.MemoryContext.Status == CharacterMemoryContextStatus.Available
+                            ? $"我记得你以前完成过“{missionTitle}”。"
+                            : "我目前没有可用于长期回忆的里程碑记录。";
+                        break;
+                    case MemoryUseMode.HistoryBoundary:
+                        response.reply = "我不会长期保存完整聊天内容，所以不能准确复述以前的问题。";
+                        break;
+                    case MemoryUseMode.Reunion:
+                        response.reply = request.MemoryContext.Status == CharacterMemoryContextStatus.Available
+                            ? $"欢迎回来，我记得你以前完成过“{missionTitle}”。"
+                            : "很高兴见到你！";
+                        break;
+                    default:
+                        if (request.message.Contains("学名"))
+                        {
+                            response.reply = "我的学名是 Semnopithecus priam。";
+                            response.answerMode = "grounded_fact";
+                            response.evidenceStatus = "evidence_found";
+                            response.citations = new[]
+                            {
+                                new AICitation { sourceId = "gbif-4267223", title = "GBIF" }
+                            };
+                        }
+                        else
+                        {
+                            response.reply = "我在这里陪你。";
+                        }
+
+                        break;
+                }
+
+                onSuccess(response);
+                yield break;
+            }
         }
     }
 }

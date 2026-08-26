@@ -16,6 +16,8 @@ namespace EndangeredAR.AI
         [SerializeField] private LocalKnowledgeChatService localKnowledgeService;
         private IReadOnlyCharacterContextProvider contextProvider;
         private IReadOnlyCharacterMemoryContextProvider memoryContextProvider;
+        private IAIProvider localProviderOverride;
+        private IAIProvider cloudProviderOverride;
 
         internal void ConfigureContextProvider(IReadOnlyCharacterContextProvider provider)
         {
@@ -25,6 +27,12 @@ namespace EndangeredAR.AI
         internal void ConfigureMemoryContextProvider(IReadOnlyCharacterMemoryContextProvider provider)
         {
             memoryContextProvider = provider;
+        }
+
+        internal void ConfigureProviders(IAIProvider localProvider, IAIProvider cloudProvider = null)
+        {
+            localProviderOverride = localProvider;
+            cloudProviderOverride = cloudProvider;
         }
 
         public IEnumerator Send(
@@ -49,73 +57,40 @@ namespace EndangeredAR.AI
                 memoryContext = CreateMemoryContextSnapshot(request?.animalId, currentContext);
             }
 
-            if (mentionMode == MemoryMentionMode.ExplicitRecall ||
-                mentionMode == MemoryMentionMode.ConversationHistoryBoundary)
+            if (request != null)
             {
-                var deterministicResponse = CharacterMemoryDialogueResolver.CreateDeterministicResponse(
-                    request,
-                    memoryContext,
-                    mentionMode);
-                deterministicResponse.ProvenanceRouteMode = "deterministic";
-                deterministicResponse.ElapsedMilliseconds = ElapsedMilliseconds(sendStartedAt);
-                AttachMemoryProvenance(deterministicResponse, mentionMode, memoryContext);
-                onSuccess?.Invoke(deterministicResponse);
-                yield break;
-            }
-
-            if (request != null && mentionMode == MemoryMentionMode.Reunion)
-            {
-                request.MemoryContext = memoryContext;
-                request.MemoryUseMode = MemoryUseMode.Reunion;
+                request.ContentAuthority = ContentAuthorityResolver.Resolve(request, mentionMode);
+                request.MemoryUseMode = ResolveMemoryUseMode(mentionMode);
+                request.MemoryContext = request.MemoryUseMode == MemoryUseMode.ExplicitRecall ||
+                                        request.MemoryUseMode == MemoryUseMode.Reunion
+                    ? memoryContext
+                    : null;
             }
 
             var config = aiConfig;
-            var localProvider = new LocalLLMProvider(config == null ? null : config.localServerUrl);
-            var cloudProvider = chatApiClient == null ? null : new CloudLLMProvider(chatApiClient);
-            var knowledgeProvider = new LocalKnowledgeProvider(localKnowledgeService);
-            var router = new AIRouter(localProvider, cloudProvider, knowledgeProvider);
+            var localProvider = localProviderOverride ?? new LocalLLMProvider(config == null ? null : config.localServerUrl);
+            var cloudProvider = cloudProviderOverride ?? (chatApiClient == null ? null : new CloudLLMProvider(chatApiClient));
+            var router = new AIRouter(localProvider, cloudProvider, null);
 
             Action<AIResponse> routeSuccess = response =>
             {
-                var finalResponse = mentionMode == MemoryMentionMode.Reunion
-                    ? CharacterMemoryDialogueResolver.PrepareReunionResponse(request, response, memoryContext)
-                    : response;
+                var finalResponse = CharacterMemoryDialogueResolver.PrepareGeneratedResponse(
+                    request,
+                    response,
+                    memoryContext,
+                    mentionMode);
                 AttachMemoryProvenance(finalResponse, mentionMode, memoryContext);
                 onSuccess?.Invoke(finalResponse);
             };
             Action<AIProviderError> routeError = error =>
             {
-                if (mentionMode == MemoryMentionMode.Reunion)
-                {
-                    var fallbackResponse = CharacterMemoryDialogueResolver.PrepareReunionResponse(
-                        request,
-                        new AIResponse
-                        {
-                            animalId = request?.animalId,
-                            reply = SafeReunionTailGuard.FallbackTail,
-                            source = "memory_deterministic",
-                            routeReason = "memory_reunion_provider_unavailable",
-                            ActionSuggestion = AIAction.None
-                        },
-                        memoryContext);
-                    fallbackResponse.RouteMode = error.RouteMode;
-                    fallbackResponse.ProviderAttempts = error.ProviderAttempts ?? Array.Empty<string>();
-                    fallbackResponse.FallbackUsed = true;
-                    fallbackResponse.FallbackReasonCode = AIProvenanceProtocol.SanitizeReasonCode(error.Code);
-                    fallbackResponse.ElapsedMilliseconds = Math.Max(
-                        error.ElapsedMilliseconds,
-                        ElapsedMilliseconds(sendStartedAt));
-                    AttachMemoryProvenance(fallbackResponse, mentionMode, memoryContext);
-                    onSuccess?.Invoke(fallbackResponse);
-                    return;
-                }
-
+                error.ContentAuthority = request == null ? ContentAuthority.None : request.ContentAuthority;
                 onError?.Invoke(error);
             };
 
             yield return router.Route(
                 request,
-                config == null ? AIRouteMode.CloudOnly : config.routeMode,
+                ResolveRouteMode(config),
                 config == null ? DefaultLocalTimeoutSeconds : config.localTimeoutSeconds,
                 config == null ? DefaultTotalTimeoutSeconds : config.totalTimeoutSeconds,
                 routeSuccess,
@@ -155,11 +130,37 @@ namespace EndangeredAR.AI
 
             var currentContext = CreateContextSnapshot(animalId);
             var memoryContext = CreateMemoryContextSnapshot(animalId, currentContext);
-            return CharacterMemoryDialogueResolver.Refresh(
-                response,
-                animalId,
-                originalMessage,
-                memoryContext);
+            return CharacterMemoryDialogueResolver.IsFresh(
+                    response,
+                    animalId,
+                    originalMessage,
+                    memoryContext)
+                ? response
+                : null;
+        }
+
+        private static MemoryUseMode ResolveMemoryUseMode(MemoryMentionMode mentionMode)
+        {
+            switch (mentionMode)
+            {
+                case MemoryMentionMode.ExplicitRecall:
+                    return MemoryUseMode.ExplicitRecall;
+                case MemoryMentionMode.ConversationHistoryBoundary:
+                    return MemoryUseMode.HistoryBoundary;
+                case MemoryMentionMode.Reunion:
+                    return MemoryUseMode.Reunion;
+                default:
+                    return MemoryUseMode.None;
+            }
+        }
+
+        private static AIRouteMode ResolveRouteMode(AIConfig config)
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            return config == null ? AIRouteMode.LocalOnly : config.routeMode;
+#else
+            return AIRouteMode.LocalOnly;
+#endif
         }
 
         private ReadOnlyCharacterContext CreateContextSnapshot(string animalId)

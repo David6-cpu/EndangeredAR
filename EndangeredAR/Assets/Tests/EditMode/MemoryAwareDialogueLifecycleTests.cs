@@ -25,7 +25,7 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
-        public void ExplicitRecall_IsApplicationOwnedAndProviderIndependent()
+        public void ExplicitRecall_UsesLocalLanguageGeneratorWithMemoryAuthority()
         {
             var manager = CreateManager(out var memoryProvider);
             memoryProvider.Context = AvailableContext();
@@ -35,13 +35,15 @@ namespace EndangeredAR.Tests.EditMode
             Run(manager.Send(request, value => response = value, error => Assert.Fail(error.Code)));
 
             Assert.That(response, Is.Not.Null);
-            Assert.That(response.source, Is.EqualTo("memory_deterministic"));
+            Assert.That(response.source, Is.EqualTo("local_llm"));
             Assert.That(response.answerMode, Is.EqualTo("memory_recall"));
             Assert.That(response.reply, Does.Contain("保护森森的森林"));
             Assert.That(response.citations, Is.Empty);
             Assert.That(response.GroundingTopic, Is.EqualTo(GroundingTopic.None));
             Assert.That(response.GroundedFactIds, Is.Empty);
             Assert.That(response.ActionSuggestion, Is.EqualTo(AIAction.None));
+            Assert.That(request.ContentAuthority, Is.EqualTo(ContentAuthority.CharacterMemory));
+            Assert.That(request.MemoryUseMode, Is.EqualTo(MemoryUseMode.ExplicitRecall));
         }
 
         [Test]
@@ -54,15 +56,17 @@ namespace EndangeredAR.Tests.EditMode
 
             Run(manager.Send(request, value => response = value, error => Assert.Fail(error.Code)));
 
-            Assert.That(response.source, Is.EqualTo("memory_deterministic"));
+            Assert.That(response.source, Is.EqualTo("local_llm"));
             Assert.That(response.answerMode, Is.EqualTo("memory_recall"));
-            Assert.That(response.reply, Does.Contain("不保存完整聊天内容"));
+            Assert.That(response.reply, Does.Contain("长期保存完整聊天内容"));
             Assert.That(response.GroundingTopic, Is.EqualTo(GroundingTopic.None));
             Assert.That(response.ActionSuggestion, Is.EqualTo(AIAction.None));
+            Assert.That(request.ContentAuthority, Is.EqualTo(ContentAuthority.SystemPolicy));
+            Assert.That(request.MemoryUseMode, Is.EqualTo(MemoryUseMode.HistoryBoundary));
         }
 
         [Test]
-        public void Reunion_UsesSameDeterministicFactWithUnityFallback()
+        public void Reunion_UsesLocalLanguageGeneratorWithOneTrustedMemoryClaim()
         {
             var manager = CreateManager(out var memoryProvider);
             memoryProvider.Context = AvailableContext();
@@ -73,7 +77,7 @@ namespace EndangeredAR.Tests.EditMode
 
             Assert.That(response, Is.Not.Null);
             Assert.That(response.reply, Does.Contain("保护森森的森林"));
-            Assert.That(response.reply, Does.EndWith("很高兴又见到你！"));
+            Assert.That(response.source, Is.EqualTo("local_llm"));
             Assert.That(response.answerMode, Is.EqualTo("social_chat"));
             Assert.That(response.citations, Is.Empty);
             Assert.That(response.GroundingTopic, Is.EqualTo(GroundingTopic.None));
@@ -93,9 +97,7 @@ namespace EndangeredAR.Tests.EditMode
             memoryProvider.Context = ReadOnlyCharacterMemoryContext.EmptyFor("sensen");
             var refreshed = manager.RefreshMemoryDependentResponse(response, "sensen", request.message);
 
-            Assert.That(refreshed, Is.SameAs(response));
-            Assert.That(refreshed.reply, Is.EqualTo("很高兴见到你！"));
-            Assert.That(refreshed.reply, Does.Not.Contain("保护森森的森林"));
+            Assert.That(refreshed, Is.Null);
         }
 
         [Test]
@@ -108,7 +110,8 @@ namespace EndangeredAR.Tests.EditMode
 
             Run(manager.Send(request, value => response = value, error => Assert.Fail(error.Code)));
 
-            Assert.That(response.reply, Is.EqualTo("很高兴见到你！不过我现在暂时无法读取长期记忆记录。"));
+            Assert.That(response.source, Is.EqualTo("local_llm"));
+            Assert.That(response.reply, Does.Contain("暂时无法读取长期记忆"));
             Assert.That(response.reply, Does.Not.Contain("任务"));
         }
 
@@ -172,6 +175,7 @@ namespace EndangeredAR.Tests.EditMode
             manager.ConfigureContextProvider(new StubCurrentContextProvider(CurrentContext()));
             memoryProvider = new MutableMemoryContextProvider();
             manager.ConfigureMemoryContextProvider(memoryProvider);
+            manager.ConfigureProviders(new MemoryAwareLocalProvider());
             return manager;
         }
 
@@ -263,6 +267,72 @@ namespace EndangeredAR.Tests.EditMode
             {
                 SnapshotCalls++;
                 return Context;
+            }
+        }
+
+        private sealed class MemoryAwareLocalProvider : IAIProvider
+        {
+            public string ProviderId => "local_llm";
+
+            public IEnumerator Send(
+                AIRequest request,
+                float timeoutSeconds,
+                Action<AIResponse> onSuccess,
+                Action<AIProviderError> onError)
+            {
+                var response = new AIResponse
+                {
+                    animalId = request.animalId,
+                    source = "local_llm",
+                    answerMode = request.MemoryUseMode == MemoryUseMode.ExplicitRecall ||
+                                 request.MemoryUseMode == MemoryUseMode.HistoryBoundary
+                        ? "memory_recall"
+                        : request.knowledgeProfile?.Retrieve(request.message).AnswerMode ?? "social_chat",
+                    evidenceStatus = "not_required",
+                    GroundingTopic = GroundingTopic.None,
+                    ActionSuggestion = AIAction.None,
+                    citations = Array.Empty<AICitation>()
+                };
+                response.ContentAuthority = request.ContentAuthority;
+                response.LanguageGenerator = LanguageGenerator.LocalLlm;
+
+                switch (request.MemoryUseMode)
+                {
+                    case MemoryUseMode.ExplicitRecall:
+                        response.reply = request.MemoryContext.Status == CharacterMemoryContextStatus.Available
+                            ? "我记得你以前完成过“保护森森的森林”。"
+                            : request.MemoryContext.Status == CharacterMemoryContextStatus.Empty
+                                ? "我目前没有可用于长期回忆的里程碑记录。"
+                                : "我现在暂时无法读取长期记忆记录。";
+                        break;
+                    case MemoryUseMode.HistoryBoundary:
+                        response.reply = "我不会长期保存完整聊天内容，所以不能准确复述以前的问题。";
+                        break;
+                    case MemoryUseMode.Reunion:
+                        response.reply = request.MemoryContext.Status == CharacterMemoryContextStatus.Available
+                            ? "欢迎回来，我记得你以前完成过“保护森森的森林”。"
+                            : request.MemoryContext.Status == CharacterMemoryContextStatus.Empty
+                                ? "很高兴见到你！"
+                                : "很高兴见到你，不过我现在暂时无法读取长期记忆记录。";
+                        break;
+                    default:
+                        response.reply = request.message.Contains("学名")
+                            ? "我的学名是 Semnopithecus priam。"
+                            : "我在这里陪你。";
+                        if (request.message.Contains("学名"))
+                        {
+                            response.answerMode = "grounded_fact";
+                            response.evidenceStatus = "evidence_found";
+                            response.citations = new[]
+                            {
+                                new AICitation { sourceId = "gbif-4267223", title = "GBIF" }
+                            };
+                        }
+                        break;
+                }
+
+                onSuccess(response);
+                yield break;
             }
         }
     }

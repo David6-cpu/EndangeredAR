@@ -58,7 +58,7 @@ namespace EndangeredAR.Development
             expandedRect.anchorMax = Vector2.up;
             expandedRect.pivot = Vector2.up;
             expandedRect.anchoredPosition = new Vector2(24f, -104f);
-            expandedRect.sizeDelta = new Vector2(640f, 560f);
+            expandedRect.sizeDelta = new Vector2(640f, 640f);
             var background = expandedRoot.AddComponent<Image>();
             background.color = panelColor;
             background.raycastTarget = true;
@@ -66,10 +66,10 @@ namespace EndangeredAR.Development
             var title = CreateText(expandedRect, "Title", "AI ROUTE PROVENANCE", 25, FontStyle.Bold);
             Place(title.rectTransform, 22f, -18f, 596f, 38f);
             detailsText = CreateText(expandedRect, "Route Details", "No completed reply", 20, FontStyle.Normal);
-            Place(detailsText.rectTransform, 22f, -64f, 596f, 410f);
+            Place(detailsText.rectTransform, 22f, -64f, 596f, 490f);
 
             var collapseButton = CreateButton(expandedRect, "Collapse", "COLLAPSE", mutedColor);
-            Place(collapseButton.GetComponent<RectTransform>(), 22f, -488f, 596f, 48f);
+            Place(collapseButton.GetComponent<RectTransform>(), 22f, -568f, 596f, 48f);
             collapseButton.onClick.AddListener(() => SetExpanded(false));
         }
 
@@ -89,12 +89,15 @@ namespace EndangeredAR.Development
                 "finalSource: " + value.FinalSourceWireValue + "\n" +
                 "answerMode: " + value.AnswerMode + "\n" +
                 "routeMode: " + value.RouteMode + "\n" +
+                "contentAuthority: " + value.ContentAuthority + "\n" +
+                "languageGenerator: " + value.LanguageGenerator + "\n" +
                 "providerAttempt: " + attempts + "\n" +
                 "groundingTopic: " + value.GroundingTopic + "\n" +
                 "memoryMentionPolicy: " + value.MemoryMentionPolicy + "\n" +
                 "memoryStatus: " + value.MemoryStatus + "\n" +
                 "fallbackUsed: " + (value.FallbackUsed ? "yes" : "no") + "\n" +
                 "fallbackReason: " + (string.IsNullOrEmpty(value.FallbackReasonCode) ? "none" : value.FallbackReasonCode) + "\n" +
+                "errorCode: " + (string.IsNullOrEmpty(value.ErrorCode) ? "none" : value.ErrorCode) + "\n" +
                 "elapsedMs: " + value.ElapsedMilliseconds;
         }
 

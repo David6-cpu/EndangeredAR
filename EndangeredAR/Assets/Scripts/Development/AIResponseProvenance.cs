@@ -14,17 +14,22 @@ namespace EndangeredAR.Development
             AIFinalSource finalSource,
             string answerMode,
             string routeMode,
+            string contentAuthority,
+            string languageGenerator,
             string[] providerAttempts,
             string groundingTopic,
             string memoryMentionPolicy,
             string memoryStatus,
             bool fallbackUsed,
             string fallbackReasonCode,
+            string errorCode,
             long elapsedMilliseconds)
         {
             FinalSource = finalSource;
             AnswerMode = answerMode;
             RouteMode = routeMode;
+            ContentAuthority = contentAuthority;
+            LanguageGenerator = languageGenerator;
             this.providerAttempts = providerAttempts == null
                 ? Array.Empty<string>()
                 : (string[])providerAttempts.Clone();
@@ -33,6 +38,7 @@ namespace EndangeredAR.Development
             MemoryStatus = memoryStatus;
             FallbackUsed = fallbackUsed;
             FallbackReasonCode = fallbackReasonCode;
+            ErrorCode = errorCode;
             ElapsedMilliseconds = Math.Max(0L, elapsedMilliseconds);
         }
 
@@ -40,12 +46,15 @@ namespace EndangeredAR.Development
         public string FinalSourceWireValue => AIFinalSourceProtocol.ToWireValue(FinalSource);
         public string AnswerMode { get; }
         public string RouteMode { get; }
+        public string ContentAuthority { get; }
+        public string LanguageGenerator { get; }
         public IReadOnlyList<string> ProviderAttempts => Array.AsReadOnly((string[])providerAttempts.Clone());
         public string GroundingTopic { get; }
         public string MemoryMentionPolicy { get; }
         public string MemoryStatus { get; }
         public bool FallbackUsed { get; }
         public string FallbackReasonCode { get; }
+        public string ErrorCode { get; }
         public long ElapsedMilliseconds { get; }
     }
 
@@ -65,12 +74,15 @@ namespace EndangeredAR.Development
                 finalSource,
                 CleanCode(response.answerMode, "unknown"),
                 ResolveRouteMode(response),
+                ContentAuthorityProtocol.ToWireValue(response.ContentAuthority),
+                LanguageGeneratorProtocol.ToWireValue(response.LanguageGenerator),
                 CopyKnownAttempts(response.ProviderAttempts),
                 response.GroundingTopic == GroundingTopic.Diet ? "diet" : "none",
                 MemoryMentionModeProtocol.ToWireValue(response.MemoryMentionMode),
                 CleanMemoryStatus(response.ProvenanceMemoryStatus),
                 response.FallbackUsed,
                 AIProvenanceProtocol.SanitizeReasonCode(response.FallbackReasonCode),
+                AIProvenanceProtocol.SanitizeReasonCode(response.ProvenanceErrorCode),
                 response.ElapsedMilliseconds);
             return true;
         }

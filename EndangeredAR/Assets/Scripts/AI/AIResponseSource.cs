@@ -7,7 +7,8 @@ namespace EndangeredAR.AI
         CloudLlm,
         ServerRule,
         ServerKnowledge,
-        UnityFallback
+        UnityFallback,
+        SystemStatus
     }
 
     public static class AIFinalSourceProtocol
@@ -34,6 +35,9 @@ namespace EndangeredAR.AI
                 case "unity_fallback":
                     source = AIFinalSource.UnityFallback;
                     return true;
+                case "system_status":
+                    source = AIFinalSource.SystemStatus;
+                    return true;
                 default:
                     source = default;
                     return false;
@@ -56,6 +60,8 @@ namespace EndangeredAR.AI
                     return "server_knowledge";
                 case AIFinalSource.UnityFallback:
                     return "unity_fallback";
+                case AIFinalSource.SystemStatus:
+                    return "system_status";
                 default:
                     return string.Empty;
             }

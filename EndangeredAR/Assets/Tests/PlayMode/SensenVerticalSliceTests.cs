@@ -217,20 +217,20 @@ namespace EndangeredAR.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator NetworkUnavailable_LocalFallbackStillReturnsAnswer()
+        public IEnumerator NetworkUnavailable_ShowsSystemStatusWithoutCharacterFallback()
         {
             yield return LoadDemoScene();
 
             var progress = FindSingle<AnimalProgressService>();
             var scanner = FindSingle<ARImageScanController>();
             var controller = FindSingle<DemoAppController>();
-            var chatApiClient = FindSingle<ChatApiClient>();
+            var aiManager = FindSingle<AIManager>();
             AssertRepositoryIsIsolated(progress);
 
             scanner.SimulateMarkerDetected("sensen");
             yield return null;
 
-            SetPrivateField(chatApiClient, "config", null);
+            aiManager.ConfigureProviders(new UnavailableLocalProvider());
             var chatInput = (InputField)GetPrivateField(controller, "chatInput");
             var sendButton = (Button)GetPrivateField(controller, "sendLocalChatButton");
             Assert.That(chatInput, Is.Not.Null);
@@ -242,9 +242,11 @@ namespace EndangeredAR.Tests.PlayMode
 
             var transcript = (string)GetPrivateField(controller, "chatTranscript");
             StringAssert.Contains("你：你吃什么？", transcript);
-            StringAssert.Contains("森森：", transcript);
+            StringAssert.Contains("系统：森森的本地 AI 服务暂时没有连接", transcript);
             StringAssert.DoesNotContain("正在想一想", transcript);
-            StringAssert.DoesNotContain("API 地址", transcript);
+            StringAssert.DoesNotContain("继续认识森林里的动物朋友", transcript);
+            Assert.That(progress.GetConversation("sensen"), Is.Empty,
+                "A service failure is a system status and must not become character history.");
         }
 
         [UnityTest]
@@ -461,9 +463,12 @@ namespace EndangeredAR.Tests.PlayMode
             {
                 animalId = "sensen",
                 reply = "好呀，看我的！",
+                source = "local_llm",
                 answerMode = "social_chat",
                 ActionSuggestion = AIAction.Taunt
             };
+            response.ContentAuthority = ContentAuthority.None;
+            response.LanguageGenerator = LanguageGenerator.LocalLlm;
 
             InvokePrivate(appController, "FinishCloudAnswer", ticket, "森森，给我表演一下", response);
             Assert.That(animationController.IsBusy, Is.True);
@@ -495,7 +500,7 @@ namespace EndangeredAR.Tests.PlayMode
             var history = (System.Collections.Generic.List<ChatMessage>)GetPrivateField(appController, "chatHistory");
             var requestState = (ChatRequestState)GetPrivateField(appController, "chatRequestState");
 
-            foreach (var source in new[] { "local_llm", "cloud_llm", "unity_fallback" })
+            foreach (var source in new[] { "local_llm", "cloud_llm" })
             {
                 yield return WaitForAnimatorState(animator, "Idle", 2f);
                 var historyCount = history.Count;
@@ -973,13 +978,17 @@ namespace EndangeredAR.Tests.PlayMode
 
         private static AIResponse TauntResponse()
         {
-            return new AIResponse
+            var response = new AIResponse
             {
                 animalId = "sensen",
                 reply = "好呀，看我的！",
+                source = "local_llm",
                 answerMode = "social_chat",
                 ActionSuggestion = AIAction.Taunt
             };
+            response.ContentAuthority = ContentAuthority.None;
+            response.LanguageGenerator = LanguageGenerator.LocalLlm;
+            return response;
         }
 
         private static AIResponse GroundedDietResponse(string source)
@@ -987,7 +996,7 @@ namespace EndangeredAR.Tests.PlayMode
             var profile = Resources.Load<AnimalKnowledgeProfile>("Animals/SensenKnowledge");
             Assert.That(profile, Is.Not.Null);
             var diet = profile.Entries.Single(entry => entry.KnowledgeId == "sensen.diet");
-            return new AIResponse
+            var response = new AIResponse
             {
                 animalId = "sensen",
                 reply = diet.Reply,
@@ -1003,6 +1012,11 @@ namespace EndangeredAR.Tests.PlayMode
                 }).ToArray(),
                 ActionSuggestion = AIAction.None
             };
+            response.ContentAuthority = ContentAuthority.CanonicalKnowledge;
+            response.LanguageGenerator = source == "cloud_llm"
+                ? LanguageGenerator.CloudLlm
+                : LanguageGenerator.LocalLlm;
+            return response;
         }
 
         private static AIResponse GroundedIdentityResponse()
@@ -1010,7 +1024,7 @@ namespace EndangeredAR.Tests.PlayMode
             var profile = Resources.Load<AnimalKnowledgeProfile>("Animals/SensenKnowledge");
             Assert.That(profile, Is.Not.Null);
             var identity = profile.Entries.Single(entry => entry.KnowledgeId == "sensen.scientific_name");
-            return new AIResponse
+            var response = new AIResponse
             {
                 animalId = "sensen",
                 reply = identity.Reply,
@@ -1021,21 +1035,45 @@ namespace EndangeredAR.Tests.PlayMode
                 GroundedFactIds = new[] { identity.KnowledgeId },
                 citations = identity.SourceIds.Select(sourceId => new AICitation { sourceId = sourceId }).ToArray()
             };
+            response.ContentAuthority = ContentAuthority.CanonicalKnowledge;
+            response.LanguageGenerator = LanguageGenerator.CloudLlm;
+            return response;
         }
 
         private static AIResponse InsufficientDietResponse()
         {
-            return new AIResponse
+            var response = new AIResponse
             {
                 animalId = "sensen",
                 reply = "可靠资料里没有精确食量数字，所以我不能随便编一个。",
-                source = "server_knowledge",
+                source = "local_llm",
                 answerMode = "insufficient_evidence",
                 evidenceStatus = "insufficient_evidence",
                 GroundingTopic = GroundingTopic.None,
                 GroundedFactIds = Array.Empty<string>(),
                 citations = Array.Empty<AICitation>()
             };
+            response.ContentAuthority = ContentAuthority.CanonicalKnowledge;
+            response.LanguageGenerator = LanguageGenerator.LocalLlm;
+            return response;
+        }
+
+        private sealed class UnavailableLocalProvider : IAIProvider
+        {
+            public string ProviderId => "local_llm";
+
+            public IEnumerator Send(
+                AIRequest request,
+                float timeoutSeconds,
+                Action<AIResponse> onSuccess,
+                Action<AIProviderError> onError)
+            {
+                onError?.Invoke(new AIProviderError(
+                    "local_model_unavailable",
+                    "Local model is unavailable for this test.",
+                    false));
+                yield break;
+            }
         }
 
         private readonly struct CompletionCase

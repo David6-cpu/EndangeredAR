@@ -56,6 +56,7 @@ namespace EndangeredAR.API
                 context,
                 null,
                 MemoryUseMode.None,
+                ContentAuthority.None,
                 timeoutSeconds,
                 onSuccess,
                 onError);
@@ -68,6 +69,7 @@ namespace EndangeredAR.API
             ReadOnlyCharacterContext context,
             ReadOnlyCharacterMemoryContext memoryContext,
             MemoryUseMode memoryUseMode,
+            ContentAuthority contentAuthority,
             float timeoutSeconds,
             Action<ChatResponse> onSuccess,
             Action<string> onError)
@@ -85,6 +87,7 @@ namespace EndangeredAR.API
                 message = message,
                 history = history ?? Array.Empty<ChatMessage>(),
                 context = context ?? ReadOnlyCharacterContext.Empty,
+                contentAuthority = ContentAuthorityProtocol.ToWireValue(contentAuthority),
                 memoryUseMode = MemoryUseModeProtocol.ToWireValue(memoryUseMode),
                 memoryContext = CharacterMemoryTransport.SelectContext(animalId, memoryContext, memoryUseMode)
             };
@@ -219,6 +222,7 @@ namespace EndangeredAR.API
         public string message;
         public ChatMessage[] history;
         public ReadOnlyCharacterContext context;
+        public string contentAuthority;
         public string memoryUseMode;
         public ReadOnlyCharacterMemoryContext memoryContext;
     }
@@ -241,6 +245,8 @@ namespace EndangeredAR.API
         public bool fallbackUsed;
         public string fallbackReason;
         public long elapsedMs;
+        public string contentAuthority;
+        public string languageGenerator;
         public string[] suggestedQuestions;
         public string missionHint;
         public string answerMode;

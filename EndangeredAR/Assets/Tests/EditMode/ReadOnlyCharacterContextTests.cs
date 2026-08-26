@@ -144,10 +144,8 @@ namespace EndangeredAR.Tests.EditMode
             var host = new GameObject("AIManager ReadOnly Context Tests");
             createdObjects.Add(host);
             var manager = host.AddComponent<AIManager>();
-            var knowledge = host.AddComponent<LocalKnowledgeChatService>();
-            var serialized = new SerializedObject(manager);
-            serialized.FindProperty("localKnowledgeService").objectReferenceValue = knowledge;
-            serialized.ApplyModifiedPropertiesWithoutUndo();
+            var local = new StubLocalProvider();
+            manager.ConfigureProviders(local);
             var request = new AIRequest
             {
                 animalId = "sensen",
@@ -161,7 +159,8 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(request.Context, Is.Not.Null);
             Assert.That(request.Context.IsEmpty, Is.True);
             Assert.That(response, Is.Not.Null);
-            Assert.That(response.source, Is.EqualTo("unity_fallback"));
+            Assert.That(response.source, Is.EqualTo("local_llm"));
+            Assert.That(local.LastRequest.Context.IsEmpty, Is.True);
         }
 
         [Test]
@@ -170,10 +169,8 @@ namespace EndangeredAR.Tests.EditMode
             var host = new GameObject("AIManager Context Provider Tests");
             createdObjects.Add(host);
             var manager = host.AddComponent<AIManager>();
-            var knowledge = host.AddComponent<LocalKnowledgeChatService>();
-            var serialized = new SerializedObject(manager);
-            serialized.FindProperty("localKnowledgeService").objectReferenceValue = knowledge;
-            serialized.ApplyModifiedPropertiesWithoutUndo();
+            var local = new StubLocalProvider();
+            manager.ConfigureProviders(local);
             var expected = ReadOnlyCharacterContext.Create(
                 new ReadOnlyCharacterState("sensen", true, 2, 1),
                 new ReadOnlyTaskState("food-mission", "帮森森寻找食物", false),
@@ -185,6 +182,7 @@ namespace EndangeredAR.Tests.EditMode
             Run(manager.Send(request, _ => { }, error => Assert.Fail(error.Code)));
 
             Assert.That(request.Context, Is.SameAs(expected));
+            Assert.That(local.LastRequest.Context, Is.SameAs(expected));
         }
 
         [Test]
@@ -258,6 +256,33 @@ namespace EndangeredAR.Tests.EditMode
             public ReadOnlyCharacterContext CreateSnapshot(string animalId)
             {
                 return context;
+            }
+        }
+
+        private sealed class StubLocalProvider : IAIProvider
+        {
+            public string ProviderId => "local_llm";
+            public AIRequest LastRequest { get; private set; }
+
+            public IEnumerator Send(
+                AIRequest request,
+                float timeoutSeconds,
+                Action<AIResponse> onSuccess,
+                Action<AIProviderError> onError)
+            {
+                LastRequest = request;
+                var response = new AIResponse
+                {
+                    animalId = request?.animalId,
+                    reply = "Local reply.",
+                    source = "local_llm"
+                };
+                response.LanguageGenerator = LanguageGenerator.LocalLlm;
+                response.ContentAuthority = request == null
+                    ? ContentAuthority.None
+                    : request.ContentAuthority;
+                onSuccess?.Invoke(response);
+                yield break;
             }
         }
     }

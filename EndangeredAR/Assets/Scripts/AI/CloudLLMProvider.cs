@@ -44,7 +44,7 @@ namespace EndangeredAR.AI
                     }
 
                     callbackCompleted = true;
-                    var mapped = ToAIResponse(response);
+                    var mapped = ToAIResponse(response, request);
                     if (mapped == null)
                     {
                         onError?.Invoke(new AIProviderError(
@@ -66,25 +66,17 @@ namespace EndangeredAR.AI
                     callbackCompleted = true;
                     onError?.Invoke(ToProviderError(error));
                 };
-                routine = request != null && request.MemoryUseMode == MemoryUseMode.Reunion
-                    ? chatApiClient.SendMessage(
-                        animalId,
-                        message,
-                        history,
-                        context,
-                        request.MemoryContext,
-                        request.MemoryUseMode,
-                        timeoutSeconds,
-                        success,
-                        failure)
-                    : chatApiClient.SendMessage(
-                        animalId,
-                        message,
-                        history,
-                        context,
-                        timeoutSeconds,
-                        success,
-                        failure);
+                routine = chatApiClient.SendMessage(
+                    animalId,
+                    message,
+                    history,
+                    context,
+                    request?.MemoryContext,
+                    request == null ? MemoryUseMode.None : request.MemoryUseMode,
+                    request == null ? ContentAuthority.None : request.ContentAuthority,
+                    timeoutSeconds,
+                    success,
+                    failure);
 
             }
             catch (Exception exception)
@@ -144,9 +136,19 @@ namespace EndangeredAR.AI
 
         internal static AIResponse ToAIResponse(ChatResponse response)
         {
+            return ToAIResponse(response, null);
+        }
+
+        internal static AIResponse ToAIResponse(ChatResponse response, AIRequest request)
+        {
             if (response == null ||
                 string.IsNullOrWhiteSpace(response.reply) ||
-                !AIFinalSourceProtocol.TryParseExact(response.source, out _))
+                !AIFinalSourceProtocol.TryParseExact(response.source, out var finalSource) ||
+                finalSource != AIFinalSource.CloudLlm ||
+                !LanguageGeneratorProtocol.TryParseExact(response.languageGenerator, out var generator) ||
+                generator != LanguageGenerator.CloudLlm ||
+                !ContentAuthorityProtocol.TryParseExact(response.contentAuthority, out var authority) ||
+                (request != null && authority != request.ContentAuthority))
             {
                 return null;
             }
@@ -158,13 +160,17 @@ namespace EndangeredAR.AI
                 source = response.source,
                 suggestedQuestions = response.suggestedQuestions,
                 missionHint = response.missionHint,
-                answerMode = CharacterMemoryTransport.SanitizeExternalAnswerMode(response.answerMode),
+                answerMode = CharacterMemoryTransport.SanitizeExternalAnswerMode(
+                    response.answerMode,
+                    request == null ? MemoryUseMode.None : request.MemoryUseMode),
                 evidenceStatus = response.evidenceStatus,
                 GroundingTopic = GroundingTopicProtocol.Parse(response.groundingTopic),
                 GroundedFactIds = Copy(response.groundedFactIds),
                 ActionSuggestion = AIActionProtocol.Parse(response.actionSuggestion),
                 citations = MapCitations(response.citations)
             };
+            mapped.ContentAuthority = authority;
+            mapped.LanguageGenerator = generator;
             mapped.ProviderAttempts = AIProvenanceProtocol.ParseProviderAttempt(response.providerAttempt);
             mapped.FallbackUsed = response.fallbackUsed;
             mapped.FallbackReasonCode = AIProvenanceProtocol.SanitizeReasonCode(response.fallbackReason);

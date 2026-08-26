@@ -4,6 +4,69 @@ namespace EndangeredAR.AI
 {
     internal static class CharacterMemoryDialogueResolver
     {
+        public static AIResponse PrepareGeneratedResponse(
+            AIRequest request,
+            AIResponse response,
+            ReadOnlyCharacterMemoryContext context,
+            MemoryMentionMode mentionMode)
+        {
+            if (response == null)
+            {
+                return null;
+            }
+
+            response.animalId = request?.animalId;
+            if (mentionMode == MemoryMentionMode.ExplicitRecall ||
+                mentionMode == MemoryMentionMode.ConversationHistoryBoundary)
+            {
+                response.answerMode = CharacterMemoryAnswerBuilder.MemoryRecallAnswerMode;
+                response.evidenceStatus = "not_required";
+                response.GroundingTopic = GroundingTopic.None;
+                response.GroundedFactIds = Array.Empty<string>();
+                response.citations = Array.Empty<AICitation>();
+                response.ActionSuggestion = mentionMode == MemoryMentionMode.ExplicitRecall
+                    ? AIActionPolicy.SelectDeterministicIntent(request?.message, request?.animalId)
+                    : AIAction.None;
+            }
+            else if (mentionMode == MemoryMentionMode.Reunion)
+            {
+                response.answerMode = "social_chat";
+                response.evidenceStatus = "not_required";
+                response.GroundingTopic = GroundingTopic.None;
+                response.GroundedFactIds = Array.Empty<string>();
+                response.citations = Array.Empty<AICitation>();
+                response.ActionSuggestion = AIAction.None;
+            }
+
+            AttachSnapshot(response, mentionMode, context, string.Empty);
+            return response;
+        }
+
+        public static bool IsFresh(
+            AIResponse response,
+            string animalId,
+            string originalMessage,
+            ReadOnlyCharacterMemoryContext currentContext)
+        {
+            if (response == null)
+            {
+                return false;
+            }
+
+            if (response.MemoryMentionMode == MemoryMentionMode.None)
+            {
+                return true;
+            }
+
+            return MemoryMentionPolicy.Classify(originalMessage) == response.MemoryMentionMode &&
+                   currentContext != null &&
+                   string.Equals(currentContext.AnimalId, animalId, StringComparison.Ordinal) &&
+                   string.Equals(
+                       response.MemoryContextFingerprint,
+                       currentContext.Fingerprint,
+                       StringComparison.Ordinal);
+        }
+
         public static AIResponse CreateDeterministicResponse(
             AIRequest request,
             ReadOnlyCharacterMemoryContext context,

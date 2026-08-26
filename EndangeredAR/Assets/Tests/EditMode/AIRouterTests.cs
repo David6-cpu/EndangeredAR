@@ -28,22 +28,19 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
-        public void CloudOnly_WhenCloudFails_UsesKnowledgeFallback()
+        public void CloudOnly_WhenCloudFails_ReturnsUnavailableWithoutKnowledgeFallback()
         {
             var cloud = FakeProvider.Error("cloud_llm");
             var knowledge = FakeProvider.Success("unity_fallback", "unity_fallback", "knowledge reply");
             var router = new AIRouter(null, cloud, knowledge, () => 0f);
-            AIResponse response = null;
+            AIProviderError error = null;
 
-            Run(router.Route(Request(), AIRouteMode.CloudOnly, 8f, 38f, value => response = value, Fail));
+            Run(router.Route(Request(), AIRouteMode.CloudOnly, 8f, 38f, Ignore, value => error = value));
 
             Assert.That(cloud.CallCount, Is.EqualTo(1));
-            Assert.That(knowledge.CallCount, Is.EqualTo(1));
-            Assert.That(response.source, Is.EqualTo("unity_fallback"));
-            Assert.That(response.routeReason, Is.EqualTo("cloud_only_knowledge_fallback"));
-            Assert.That(response.ProviderAttempts, Is.EqualTo(new[] { "cloud_llm", "unity_fallback" }));
-            Assert.That(response.FallbackUsed, Is.True);
-            Assert.That(response.FallbackReasonCode, Is.EqualTo("provider_failed"));
+            Assert.That(knowledge.CallCount, Is.EqualTo(0));
+            Assert.That(error.Code, Is.EqualTo("cloud_model_unavailable"));
+            Assert.That(error.ProviderAttempts, Is.EqualTo(new[] { "cloud_llm" }));
         }
 
         [Test]
@@ -67,23 +64,21 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
-        public void LocalOnly_WhenLocalFails_UsesKnowledgeWithoutCloud()
+        public void LocalOnly_WhenLocalFails_ReturnsUnavailableWithoutFallback()
         {
             var local = FakeProvider.Error("local_llm");
             var cloud = FakeProvider.Success("cloud_llm", "cloud_llm", "cloud reply");
             var knowledge = FakeProvider.Success("unity_fallback", "unity_fallback", "knowledge reply");
             var router = new AIRouter(local, cloud, knowledge, () => 0f);
-            AIResponse response = null;
+            AIProviderError error = null;
 
-            Run(router.Route(Request(), AIRouteMode.LocalOnly, 8f, 38f, value => response = value, Fail));
+            Run(router.Route(Request(), AIRouteMode.LocalOnly, 8f, 38f, Ignore, value => error = value));
 
             Assert.That(local.CallCount, Is.EqualTo(1));
             Assert.That(cloud.CallCount, Is.EqualTo(0));
-            Assert.That(knowledge.CallCount, Is.EqualTo(1));
-            Assert.That(response.source, Is.EqualTo("unity_fallback"));
-            Assert.That(response.routeReason, Is.EqualTo("local_only_knowledge_fallback"));
-            Assert.That(response.ProviderAttempts, Is.EqualTo(new[] { "local_llm", "unity_fallback" }));
-            Assert.That(response.FallbackUsed, Is.True);
+            Assert.That(knowledge.CallCount, Is.EqualTo(0));
+            Assert.That(error.Code, Is.EqualTo("local_model_unavailable"));
+            Assert.That(error.ProviderAttempts, Is.EqualTo(new[] { "local_llm" }));
         }
 
         [Test]
@@ -101,47 +96,45 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(cloud.CallCount, Is.EqualTo(0));
             Assert.That(knowledge.CallCount, Is.EqualTo(0));
             Assert.That(response.source, Is.EqualTo("local_llm"));
-            Assert.That(response.routeReason, Is.EqualTo("local_first"));
+            Assert.That(response.routeReason, Is.EqualTo("local_only"));
         }
 
         [Test]
-        public void LocalFirst_WhenLocalFails_UsesCloudFallback()
+        public void LocalFirst_WhenLocalFails_DoesNotCallCloudOrKnowledge()
         {
             var local = FakeProvider.Error("local_llm");
             var cloud = FakeProvider.Success("cloud_llm", "cloud_llm", "cloud reply");
             var knowledge = FakeProvider.Success("unity_fallback", "unity_fallback", "knowledge reply");
             var router = new AIRouter(local, cloud, knowledge, () => 0f);
-            AIResponse response = null;
+            AIProviderError error = null;
 
-            Run(router.Route(Request(), AIRouteMode.LocalFirstCloudFallback, 8f, 38f, value => response = value, Fail));
+            Run(router.Route(Request(), AIRouteMode.LocalFirstCloudFallback, 8f, 38f, Ignore, value => error = value));
 
             Assert.That(local.CallCount, Is.EqualTo(1));
-            Assert.That(cloud.CallCount, Is.EqualTo(1));
+            Assert.That(cloud.CallCount, Is.EqualTo(0));
             Assert.That(knowledge.CallCount, Is.EqualTo(0));
-            Assert.That(response.source, Is.EqualTo("cloud_llm"));
-            Assert.That(response.routeReason, Is.EqualTo("local_first_cloud_fallback"));
+            Assert.That(error.Code, Is.EqualTo("local_model_unavailable"));
         }
 
         [Test]
-        public void LocalFirst_WhenHttpProvidersFail_UsesKnowledgeFallback()
+        public void LocalFirst_WhenLocalFails_NeverAttemptsOtherProviders()
         {
             var local = FakeProvider.Error("local_llm");
             var cloud = FakeProvider.Error("cloud_llm");
             var knowledge = FakeProvider.Success("unity_fallback", "unity_fallback", "knowledge reply");
             var router = new AIRouter(local, cloud, knowledge, () => 0f);
-            AIResponse response = null;
+            AIProviderError error = null;
 
-            Run(router.Route(Request(), AIRouteMode.LocalFirstCloudFallback, 8f, 38f, value => response = value, Fail));
+            Run(router.Route(Request(), AIRouteMode.LocalFirstCloudFallback, 8f, 38f, Ignore, value => error = value));
 
             Assert.That(local.CallCount, Is.EqualTo(1));
-            Assert.That(cloud.CallCount, Is.EqualTo(1));
-            Assert.That(knowledge.CallCount, Is.EqualTo(1));
-            Assert.That(response.source, Is.EqualTo("unity_fallback"));
-            Assert.That(response.routeReason, Is.EqualTo("local_first_knowledge_fallback"));
+            Assert.That(cloud.CallCount, Is.EqualTo(0));
+            Assert.That(knowledge.CallCount, Is.EqualTo(0));
+            Assert.That(error.Code, Is.EqualTo("local_model_unavailable"));
         }
 
         [Test]
-        public void LocalCloudAndKnowledgeReceiveTheSameReadOnlyContextSnapshot()
+        public void LocalOnly_PassesTheContextOnlyToTheSelectedLocalProvider()
         {
             var local = FakeProvider.Error("local_llm");
             var cloud = FakeProvider.Error("cloud_llm");
@@ -153,16 +146,16 @@ namespace EndangeredAR.Tests.EditMode
                 new ReadOnlyTaskState("food-mission", "帮森森寻找食物", true),
                 ReadOnlyInteractionState.Empty);
 
-            Run(router.Route(request, AIRouteMode.LocalFirstCloudFallback, 8f, 38f, Ignore, Fail));
+            Run(router.Route(request, AIRouteMode.LocalFirstCloudFallback, 8f, 38f, Ignore, _ => { }));
 
             Assert.That(local.LastRequest, Is.SameAs(request));
-            Assert.That(cloud.LastRequest, Is.SameAs(request));
-            Assert.That(knowledge.LastRequest, Is.SameAs(request));
+            Assert.That(cloud.LastRequest, Is.Null);
+            Assert.That(knowledge.LastRequest, Is.Null);
             Assert.That(local.LastRequest.Context, Is.SameAs(request.Context));
         }
 
         [Test]
-        public void LocalFirst_GivesCloudOnlyRemainingTotalBudget()
+        public void LocalFirst_DoesNotReserveOrSpendACloudFallbackBudget()
         {
             var now = 0f;
             var local = FakeProvider.Error("local_llm", () => now = 3f);
@@ -170,27 +163,29 @@ namespace EndangeredAR.Tests.EditMode
             var knowledge = FakeProvider.Success("unity_fallback", "unity_fallback", "knowledge reply");
             var router = new AIRouter(local, cloud, knowledge, () => now);
 
-            Run(router.Route(Request(), AIRouteMode.LocalFirstCloudFallback, 8f, 10f, Ignore, Fail));
+            Run(router.Route(Request(), AIRouteMode.LocalFirstCloudFallback, 8f, 10f, Ignore, _ => { }));
 
             Assert.That(local.LastTimeoutSeconds, Is.EqualTo(8f));
-            Assert.That(cloud.LastTimeoutSeconds, Is.EqualTo(7f));
+            Assert.That(cloud.CallCount, Is.EqualTo(0));
+            Assert.That(knowledge.CallCount, Is.EqualTo(0));
         }
 
         [Test]
-        public void LocalFirst_WhenBudgetIsExhausted_UsesKnowledgeWithoutCloud()
+        public void LocalFirst_WhenBudgetIsExhausted_ReturnsTimeoutWithoutFallback()
         {
             var now = 0f;
             var local = FakeProvider.Error("local_llm", () => now = 10f);
             var cloud = FakeProvider.Success("cloud_llm", "cloud_llm", "cloud reply");
             var knowledge = FakeProvider.Success("unity_fallback", "unity_fallback", "knowledge reply");
             var router = new AIRouter(local, cloud, knowledge, () => now);
-            AIResponse response = null;
+            AIProviderError error = null;
 
-            Run(router.Route(Request(), AIRouteMode.LocalFirstCloudFallback, 8f, 10f, value => response = value, Fail));
+            Run(router.Route(Request(), AIRouteMode.LocalFirstCloudFallback, 8f, 10f, Ignore, value => error = value));
 
             Assert.That(cloud.CallCount, Is.EqualTo(0));
-            Assert.That(knowledge.CallCount, Is.EqualTo(1));
-            Assert.That(response.routeReason, Is.EqualTo("local_first_knowledge_fallback"));
+            Assert.That(knowledge.CallCount, Is.EqualTo(0));
+            Assert.That(error.Code, Is.EqualTo("local_model_unavailable"));
+            Assert.That(error.IsTimeout, Is.True);
         }
 
         [Test]
@@ -228,20 +223,20 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
-        public void CloudOnly_WhenProviderRunsPastDeadline_DisposesAndUsesKnowledge()
+        public void CloudOnly_WhenProviderRunsPastDeadline_DisposesAndReturnsError()
         {
             var now = 0f;
             var cloud = new DeadlineIgnoringProvider(seconds => now += seconds);
             var knowledge = FakeProvider.Success("unity_fallback", "unity_fallback", "knowledge reply");
             var router = new AIRouter(null, cloud, knowledge, () => now);
-            AIResponse response = null;
+            AIProviderError error = null;
 
-            Run(router.Route(Request(), AIRouteMode.CloudOnly, 8f, 1f, value => response = value, Fail));
+            Run(router.Route(Request(), AIRouteMode.CloudOnly, 8f, 1f, Ignore, value => error = value));
 
             Assert.That(cloud.Disposed, Is.True);
-            Assert.That(knowledge.CallCount, Is.EqualTo(1));
-            Assert.That(response.source, Is.EqualTo("unity_fallback"));
-            Assert.That(response.routeReason, Is.EqualTo("cloud_only_knowledge_fallback"));
+            Assert.That(knowledge.CallCount, Is.EqualTo(0));
+            Assert.That(error.Code, Is.EqualTo("cloud_model_unavailable"));
+            Assert.That(error.IsTimeout, Is.True);
         }
 
         [Test]
@@ -260,28 +255,27 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
-        public void CloudOnly_WhenProviderMoveNextThrows_UsesKnowledgeFallback()
+        public void CloudOnly_WhenProviderMoveNextThrows_ReturnsErrorWithoutFallback()
         {
             var cloud = new ThrowingProvider();
             var knowledge = FakeProvider.Success("unity_fallback", "unity_fallback", "knowledge reply");
             var router = new AIRouter(null, cloud, knowledge, () => 0f);
-            AIResponse response = null;
+            AIProviderError error = null;
 
-            Assert.DoesNotThrow(() => Run(router.Route(Request(), AIRouteMode.CloudOnly, 8f, 38f, value => response = value, Fail)));
+            Assert.DoesNotThrow(() => Run(router.Route(Request(), AIRouteMode.CloudOnly, 8f, 38f, Ignore, value => error = value)));
 
-            Assert.That(knowledge.CallCount, Is.EqualTo(1));
-            Assert.That(response.source, Is.EqualTo("unity_fallback"));
+            Assert.That(knowledge.CallCount, Is.EqualTo(0));
+            Assert.That(error.Code, Is.EqualTo("cloud_model_unavailable"));
         }
 
         [Test]
-        public void CoroutineTimeProviderError_DisposesBeforeLateSuccessAndUsesFallback()
+        public void CoroutineTimeProviderError_DisposesBeforeLateSuccessAndReturnsError()
         {
             var cloud = new ErrorThenLateSuccessProvider();
             var knowledge = FakeProvider.Success("unity_fallback", "unity_fallback", "knowledge reply");
             var router = new AIRouter(null, cloud, knowledge, () => 0f);
             var successCount = 0;
             var errorCount = 0;
-            AIResponse response = null;
 
             Run(router.Route(
                 Request(),
@@ -291,14 +285,13 @@ namespace EndangeredAR.Tests.EditMode
                 value =>
                 {
                     successCount++;
-                    response = value;
                 },
                 error => errorCount++));
 
             Assert.That(cloud.LateSuccessAttempted, Is.False);
-            Assert.That(successCount, Is.EqualTo(1));
-            Assert.That(errorCount, Is.EqualTo(0));
-            Assert.That(response.source, Is.EqualTo("unity_fallback"));
+            Assert.That(successCount, Is.EqualTo(0));
+            Assert.That(errorCount, Is.EqualTo(1));
+            Assert.That(knowledge.CallCount, Is.EqualTo(0));
         }
 
         [Test]
@@ -320,36 +313,36 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
-        public void CloudOnly_ErrorCallbackFollowedByInfiniteYields_FallsBackAndDisposesImmediately()
+        public void CloudOnly_ErrorCallbackFollowedByInfiniteYields_ReturnsErrorAndDisposesImmediately()
         {
             var cloud = CallbackThenInfiniteProvider.Error();
             var knowledge = FakeProvider.Success("unity_fallback", "unity_fallback", "knowledge reply");
             var router = new AIRouter(null, cloud, knowledge, () => 0f);
-            AIResponse response = null;
+            AIProviderError error = null;
 
             var completed = RunFor(
-                router.Route(Request(), AIRouteMode.CloudOnly, 8f, 38f, value => response = value, Fail),
+                router.Route(Request(), AIRouteMode.CloudOnly, 8f, 38f, Ignore, value => error = value),
                 12);
 
             Assert.That(completed, Is.True);
             Assert.That(cloud.Disposed, Is.True);
-            Assert.That(knowledge.CallCount, Is.EqualTo(1));
-            Assert.That(response.source, Is.EqualTo("unity_fallback"));
+            Assert.That(knowledge.CallCount, Is.EqualTo(0));
+            Assert.That(error.Code, Is.EqualTo("cloud_model_unavailable"));
         }
 
         [Test]
-        public void CloudOnly_NonNullProviderYield_IsRejectedAndFallsBack()
+        public void CloudOnly_NonNullProviderYield_IsRejectedWithoutFallback()
         {
             var cloud = new NonNullYieldThenSuccessProvider();
             var knowledge = FakeProvider.Success("unity_fallback", "unity_fallback", "knowledge reply");
             var router = new AIRouter(null, cloud, knowledge, () => 0f);
-            AIResponse response = null;
+            AIProviderError error = null;
 
-            Run(router.Route(Request(), AIRouteMode.CloudOnly, 8f, 38f, value => response = value, Fail));
+            Run(router.Route(Request(), AIRouteMode.CloudOnly, 8f, 38f, Ignore, value => error = value));
 
             Assert.That(cloud.Disposed, Is.True);
-            Assert.That(knowledge.CallCount, Is.EqualTo(1));
-            Assert.That(response.source, Is.EqualTo("unity_fallback"));
+            Assert.That(knowledge.CallCount, Is.EqualTo(0));
+            Assert.That(error.Code, Is.EqualTo("cloud_model_unavailable"));
         }
 
         private static AIRequest Request()
@@ -447,7 +440,9 @@ namespace EndangeredAR.Tests.EditMode
 
             public static FakeProvider Success(string providerId, string source, string reply)
             {
-                return new FakeProvider(providerId, new AIResponse { source = source, reply = reply }, null, null, false);
+                var response = new AIResponse { source = source, reply = reply };
+                response.LanguageGenerator = GeneratorFor(providerId);
+                return new FakeProvider(providerId, response, null, null, false);
             }
 
             public static FakeProvider Error(string providerId, Action beforeCallback = null)
@@ -457,12 +452,23 @@ namespace EndangeredAR.Tests.EditMode
 
             public static FakeProvider SuccessThenError(string providerId, string source, string reply)
             {
+                var response = new AIResponse { source = source, reply = reply };
+                response.LanguageGenerator = GeneratorFor(providerId);
                 return new FakeProvider(
                     providerId,
-                    new AIResponse { source = source, reply = reply },
+                    response,
                     new AIProviderError("provider_failed", "Provider failed.", false),
                     null,
                     true);
+            }
+
+            private static LanguageGenerator GeneratorFor(string providerId)
+            {
+                return providerId == "local_llm"
+                    ? LanguageGenerator.LocalLlm
+                    : providerId == "cloud_llm"
+                        ? LanguageGenerator.CloudLlm
+                        : LanguageGenerator.None;
             }
 
             public IEnumerator Send(
@@ -692,7 +698,9 @@ namespace EndangeredAR.Tests.EditMode
                         callbackSent = true;
                         if (succeeds)
                         {
-                            onSuccess?.Invoke(new AIResponse { source = "cloud_llm", reply = "cloud reply" });
+                            var response = new AIResponse { source = "cloud_llm", reply = "cloud reply" };
+                            response.LanguageGenerator = LanguageGenerator.CloudLlm;
+                            onSuccess?.Invoke(response);
                         }
                         else
                         {

@@ -1635,19 +1635,12 @@ namespace EndangeredAR.UI
 
             if (aiManager == null)
             {
-                var fallbackResponse = new AIResponse
-                {
-                    reply = BuildFallbackReply(message),
-                    source = "unity_fallback",
-                    routeReason = "ai_manager_unavailable",
-                    answerMode = "social_chat",
-                    evidenceStatus = "not_required",
-                    missionHint = $"AI 服务还没配置好，{CurrentShortName}先用本地知识陪你继续。"
-                };
-                fallbackResponse.ProviderAttempts = new[] { "unity_fallback" };
-                fallbackResponse.FallbackUsed = true;
-                fallbackResponse.FallbackReasonCode = "ai_manager_unavailable";
-                FinishCloudAnswer(request, message, fallbackResponse);
+                FinishAIStatus(
+                    request,
+                    new AIProviderError(
+                        "local_model_unavailable",
+                        "Local AI manager is unavailable.",
+                        false));
                 return;
             }
 
@@ -1665,21 +1658,7 @@ namespace EndangeredAR.UI
                 },
                 error =>
                 {
-                    var fallbackResponse = new AIResponse
-                    {
-                        reply = BuildFallbackReply(message),
-                        source = "unity_fallback",
-                        routeReason = "all_providers_failed",
-                        answerMode = "social_chat",
-                        evidenceStatus = "not_required",
-                        missionHint = $"AI 服务暂时不稳定，{CurrentShortName}先用本地知识陪你继续。"
-                    };
-                    fallbackResponse.RouteMode = error.RouteMode;
-                    fallbackResponse.ProviderAttempts = error.ProviderAttempts ?? Array.Empty<string>();
-                    fallbackResponse.FallbackUsed = true;
-                    fallbackResponse.FallbackReasonCode = AIProvenanceProtocol.SanitizeReasonCode(error.Code);
-                    fallbackResponse.ElapsedMilliseconds = error.ElapsedMilliseconds;
-                    StartCoroutine(FinishCloudAnswerAfterDelay(request, message, fallbackResponse));
+                    FinishAIStatus(request, error);
                 }
             ));
         }
@@ -1701,20 +1680,14 @@ namespace EndangeredAR.UI
                 yield break;
             }
 
-            var fallbackResponse = new AIResponse
-            {
-                reply = BuildFallbackReply(userMessage),
-                source = "unity_fallback",
-                routeReason = "client_timeout",
-                answerMode = "social_chat",
-                evidenceStatus = "not_required",
-                missionHint = $"网络有点慢，{CurrentShortName}先用本地知识回答你。"
-            };
-            fallbackResponse.ProviderAttempts = new[] { "unity_fallback" };
-            fallbackResponse.FallbackUsed = true;
-            fallbackResponse.FallbackReasonCode = "client_timeout";
-            fallbackResponse.ElapsedMilliseconds = (long)(CloudAnswerTimeoutSeconds * 1000f);
-            FinishCloudAnswer(request, userMessage, fallbackResponse);
+            var error = new AIProviderError(
+                "local_model_unavailable",
+                "Local AI request timed out.",
+                true);
+            error.RouteMode = AIRouteMode.LocalOnly;
+            error.ProviderAttempts = new[] { "local_llm" };
+            error.ElapsedMilliseconds = (long)(CloudAnswerTimeoutSeconds * 1000f);
+            FinishAIStatus(request, error);
         }
 
         private void StartCloudAnswerTimeout(ChatRequestTicket request, string userMessage)
@@ -1757,6 +1730,16 @@ namespace EndangeredAR.UI
             response = aiManager == null
                 ? response
                 : aiManager.RefreshMemoryDependentResponse(response, CurrentAnimalId, userMessage);
+            if (response == null)
+            {
+                FinishAIStatus(
+                    request,
+                    new AIProviderError(
+                        "memory_context_changed_retry",
+                        "Memory context changed while the reply was in flight.",
+                        false));
+                return;
+            }
             var modelLoader = animalPlaceholder == null
                 ? null
                 : animalPlaceholder.GetComponent<AnimalModelLoader>();
@@ -1772,7 +1755,6 @@ namespace EndangeredAR.UI
                     response,
                     userMessage,
                     CurrentAnimal?.Knowledge,
-                    BuildFallbackReply,
                     out var reply,
                     out var validatedAction,
                     out var validationResult))
@@ -1815,6 +1797,57 @@ namespace EndangeredAR.UI
             }
         }
 
+        private void FinishAIStatus(ChatRequestTicket request, AIProviderError error)
+        {
+            if (!chatRequestState.TryComplete(request, CurrentAnimalId))
+            {
+                return;
+            }
+
+            StopCloudAnswerTimeout();
+            var errorCode = AIProvenanceProtocol.SanitizeReasonCode(error?.Code);
+            if (string.IsNullOrEmpty(errorCode))
+            {
+                errorCode = "local_model_unavailable";
+            }
+
+            var statusTextValue = errorCode == "ai_response_validation_failed"
+                ? "森森的回答没有通过可信性校验，请重试。"
+                : errorCode == "memory_context_changed_retry"
+                    ? "长期记忆状态刚刚发生变化，请重新发送这条消息。"
+                    : "森森的本地 AI 服务暂时没有连接，请检查本地模型服务后再试。";
+            var statusResponse = new AIResponse
+            {
+                animalId = CurrentAnimalId,
+                reply = statusTextValue,
+                source = "system_status",
+                answerMode = "system_status",
+                evidenceStatus = "not_required",
+                GroundingTopic = GroundingTopic.None,
+                ActionSuggestion = AIAction.None
+            };
+            statusResponse.RouteMode = error == null || error.ProviderAttempts == null || error.ProviderAttempts.Length == 0
+                ? AIRouteMode.LocalOnly
+                : error.RouteMode;
+            statusResponse.ProviderAttempts = error?.ProviderAttempts ?? Array.Empty<string>();
+            statusResponse.ContentAuthority = error == null ? ContentAuthority.None : error.ContentAuthority;
+            statusResponse.LanguageGenerator = LanguageGenerator.None;
+            statusResponse.FallbackUsed = false;
+            statusResponse.ElapsedMilliseconds = error?.ElapsedMilliseconds ?? 0L;
+            statusResponse.ProvenanceErrorCode = errorCode;
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            EndangeredAR.Development.AIResponseProvenanceRecorder.TryRecord(statusResponse);
+#endif
+
+            ReplaceLastThinkingLine($"系统：{statusTextValue}");
+            SetText(chatPageText, chatTranscript);
+            SetText(chatText, "");
+            SetModelChatText(statusTextValue);
+            SetChatInputEnabled(true);
+            ScrollChatToBottom();
+        }
+
         internal static AIRequest BuildAIRequest(
             string animalId,
             string message,
@@ -1845,8 +1878,6 @@ namespace EndangeredAR.UI
             ChatRequestTicket request,
             string currentAnimalId,
             AIResponse response,
-            string userMessage,
-            Func<string, string> fallbackReply,
             out string displayReply)
         {
             displayReply = null;
@@ -1856,14 +1887,14 @@ namespace EndangeredAR.UI
             }
 
             var reply = response?.reply;
-            if (string.IsNullOrWhiteSpace(reply) || LooksTechnical(reply))
+            if (string.IsNullOrWhiteSpace(reply) || LooksTechnical(reply) ||
+                !AIFinalSourceProtocol.TryParseExact(response?.source, out var finalSource) ||
+                !IsMatchingLanguageGenerator(finalSource, response.LanguageGenerator))
             {
-                reply = fallbackReply?.Invoke(userMessage);
+                return false;
             }
 
-            reply = string.IsNullOrWhiteSpace(reply)
-                ? "我暂时无法回答这个问题，不过我们可以继续了解栖息地和保护行动。"
-                : reply.Trim();
+            reply = reply.Trim();
 
             var missionHint = response?.missionHint;
             if (!string.IsNullOrWhiteSpace(missionHint) && !LooksTechnical(missionHint))
@@ -1881,6 +1912,14 @@ namespace EndangeredAR.UI
             return true;
         }
 
+        private static bool IsMatchingLanguageGenerator(
+            AIFinalSource source,
+            LanguageGenerator generator)
+        {
+            return (source == AIFinalSource.LocalLlm && generator == LanguageGenerator.LocalLlm) ||
+                   (source == AIFinalSource.CloudLlm && generator == LanguageGenerator.CloudLlm);
+        }
+
         internal static bool TryResolveAICompletionWithAction(
             ChatRequestState requestState,
             ChatRequestTicket request,
@@ -1889,7 +1928,6 @@ namespace EndangeredAR.UI
             AnimalModelLoader modelLoader,
             AIResponse response,
             string userMessage,
-            Func<string, string> fallbackReply,
             out string displayReply,
             out ValidatedAIAction validatedAction,
             out AIInteractionValidationResult validationResult)
@@ -1903,7 +1941,6 @@ namespace EndangeredAR.UI
                 response,
                 userMessage,
                 null,
-                fallbackReply,
                 out displayReply,
                 out validatedAction,
                 out validationResult);
@@ -1918,7 +1955,6 @@ namespace EndangeredAR.UI
             AIResponse response,
             string userMessage,
             AnimalKnowledgeProfile knowledgeProfile,
-            Func<string, string> fallbackReply,
             out string displayReply,
             out ValidatedAIAction validatedAction,
             out AIInteractionValidationResult validationResult)
@@ -1977,8 +2013,6 @@ namespace EndangeredAR.UI
                     request,
                     currentAnimalId,
                     response,
-                    userMessage,
-                    fallbackReply,
                     out displayReply))
             {
                 return false;
@@ -2051,25 +2085,6 @@ namespace EndangeredAR.UI
                    value.IndexOf("Exception", StringComparison.OrdinalIgnoreCase) >= 0 ||
                    value.IndexOf("stack", StringComparison.OrdinalIgnoreCase) >= 0 ||
                    value.IndexOf("api.moonshot", StringComparison.OrdinalIgnoreCase) >= 0;
-        }
-
-        private string BuildFallbackReply(string message)
-        {
-            var answer = localChatService == null
-                ? new ChatAnswer("我还在整理这个问题，不过保护森林、拒绝投喂野生动物，就是帮我的好办法。", Array.Empty<string>(), false)
-                : localChatService.Answer(CurrentAnimal?.Knowledge, message);
-
-            var reply = answer.Reply;
-            if (string.IsNullOrWhiteSpace(reply))
-            {
-                reply = "我暂时无法回答这个问题，不过我们可以继续了解栖息地和保护行动。";
-            }
-            else if (!reply.Contains(CurrentShortName) && !reply.Contains("我"))
-            {
-                reply = $"我悄悄告诉你：{reply}";
-            }
-
-            return $"{reply}\n你愿意继续帮我完成“{CurrentMissionTitle}”任务吗？";
         }
 
         private void SelectMissionOption(string optionId)

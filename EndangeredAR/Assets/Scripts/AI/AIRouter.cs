@@ -7,8 +7,6 @@ namespace EndangeredAR.AI
 {
     public sealed class AIRouter
     {
-        private const string FinalErrorCode = "all_providers_failed";
-        private const string FinalErrorMessage = "No AI provider could answer the request.";
         private const string ProviderTimeoutCode = "provider_timeout";
         private const string ProviderTimeoutMessage = "Provider request timed out.";
 
@@ -46,62 +44,20 @@ namespace EndangeredAR.AI
             switch (mode)
             {
                 case AIRouteMode.LocalOnly:
-                    var localOnlyAttempt = new ProviderAttempt();
-                    var localOnlyDeadline = Mathf.Min(Now() + localTimeout, routeDeadline);
-                    yield return TryProvider(local, request, localOnlyDeadline, true, localOnlyAttempt);
-                    if (TryCompleteSuccess(route, local, localOnlyAttempt, "local_only", mode, routeStartedAt, localOnlyAttempt))
-                    {
-                        yield break;
-                    }
-
-                    var localOnlyKnowledgeAttempt = new ProviderAttempt();
-                    yield return TryKnowledge(request, localOnlyKnowledgeAttempt);
-                    if (TryCompleteSuccess(route, knowledge, localOnlyKnowledgeAttempt, "local_only_knowledge_fallback", mode, routeStartedAt, localOnlyAttempt, localOnlyKnowledgeAttempt))
-                    {
-                        yield break;
-                    }
-
-                    route.CompleteError(AttachErrorProvenance(
-                        FinalError(localOnlyAttempt, localOnlyKnowledgeAttempt),
-                        mode,
-                        routeStartedAt,
-                        localOnlyAttempt,
-                        localOnlyKnowledgeAttempt));
-                    yield break;
-
                 case AIRouteMode.LocalFirstCloudFallback:
-                    var initialLocalDeadline = Mathf.Min(Now() + localTimeout, routeDeadline);
-                    var localFirstAttempt = new ProviderAttempt();
-                    yield return TryProvider(local, request, initialLocalDeadline, true, localFirstAttempt);
-                    if (TryCompleteSuccess(route, local, localFirstAttempt, "local_first", mode, routeStartedAt, localFirstAttempt))
-                    {
-                        yield break;
-                    }
-
-                    var cloudAttempt = new ProviderAttempt();
-                    if (!HasExpired(routeDeadline))
-                    {
-                        yield return TryProvider(cloud, request, routeDeadline, true, cloudAttempt);
-                        if (TryCompleteSuccess(route, cloud, cloudAttempt, "local_first_cloud_fallback", mode, routeStartedAt, localFirstAttempt, cloudAttempt))
-                        {
-                            yield break;
-                        }
-                    }
-
-                    var localFirstKnowledgeAttempt = new ProviderAttempt();
-                    yield return TryKnowledge(request, localFirstKnowledgeAttempt);
-                    if (TryCompleteSuccess(route, knowledge, localFirstKnowledgeAttempt, "local_first_knowledge_fallback", mode, routeStartedAt, localFirstAttempt, cloudAttempt, localFirstKnowledgeAttempt))
+                    var localAttempt = new ProviderAttempt();
+                    var localDeadline = Mathf.Min(Now() + localTimeout, routeDeadline);
+                    yield return TryProvider(local, request, localDeadline, true, localAttempt);
+                    if (TryCompleteSuccess(route, local, localAttempt, "local_only", mode, routeStartedAt, localAttempt))
                     {
                         yield break;
                     }
 
                     route.CompleteError(AttachErrorProvenance(
-                        FinalError(localFirstAttempt, cloudAttempt, localFirstKnowledgeAttempt),
+                        UnavailableError("local_model_unavailable", localAttempt),
                         mode,
                         routeStartedAt,
-                        localFirstAttempt,
-                        cloudAttempt,
-                        localFirstKnowledgeAttempt));
+                        localAttempt));
                     yield break;
 
                 case AIRouteMode.CloudOnly:
@@ -113,26 +69,13 @@ namespace EndangeredAR.AI
                         yield break;
                     }
 
-                    var cloudOnlyKnowledgeAttempt = new ProviderAttempt();
-                    yield return TryKnowledge(request, cloudOnlyKnowledgeAttempt);
-                    if (TryCompleteSuccess(route, knowledge, cloudOnlyKnowledgeAttempt, "cloud_only_knowledge_fallback", mode, routeStartedAt, cloudOnlyAttempt, cloudOnlyKnowledgeAttempt))
-                    {
-                        yield break;
-                    }
-
                     route.CompleteError(AttachErrorProvenance(
-                        FinalError(cloudOnlyAttempt, cloudOnlyKnowledgeAttempt),
+                        UnavailableError("cloud_model_unavailable", cloudOnlyAttempt),
                         mode,
                         routeStartedAt,
-                        cloudOnlyAttempt,
-                        cloudOnlyKnowledgeAttempt));
+                        cloudOnlyAttempt));
                     yield break;
             }
-        }
-
-        private IEnumerator TryKnowledge(AIRequest request, ProviderAttempt attempt)
-        {
-            yield return TryProvider(knowledge, request, 0f, false, attempt);
         }
 
         private IEnumerator TryProvider(
@@ -254,7 +197,9 @@ namespace EndangeredAR.AI
                 attempt.Response.source = provider.ProviderId;
             }
 
-            if (!AIFinalSourceProtocol.TryParseExact(attempt.Response.source, out _))
+            if (!AIFinalSourceProtocol.TryParseExact(attempt.Response.source, out var finalSource) ||
+                !MatchesProvider(finalSource, provider?.ProviderId) ||
+                !MatchesLanguageGenerator(finalSource, attempt.Response.LanguageGenerator))
             {
                 attempt.RejectResponse(new AIProviderError(
                     "invalid_final_source",
@@ -307,7 +252,7 @@ namespace EndangeredAR.AI
             }
 
             response.ProviderAttempts = providerAttempts.ToArray();
-            response.FallbackUsed = response.FallbackUsed || !string.IsNullOrEmpty(lastErrorCode);
+            response.FallbackUsed = false;
             if (string.IsNullOrEmpty(response.FallbackReasonCode))
             {
                 response.FallbackReasonCode = AIProvenanceProtocol.SanitizeReasonCode(lastErrorCode);
@@ -394,17 +339,34 @@ namespace EndangeredAR.AI
             return new AIProviderError(ProviderTimeoutCode, ProviderTimeoutMessage, true);
         }
 
-        private static AIProviderError FinalError(params ProviderAttempt[] attempts)
+        private static AIProviderError UnavailableError(string code, ProviderAttempt attempt)
         {
-            foreach (var attempt in attempts)
+            if (attempt?.Error?.Code == "ai_response_validation_failed")
             {
-                if (attempt != null && attempt.Error != null && attempt.Error.IsTimeout)
-                {
-                    return new AIProviderError(FinalErrorCode, FinalErrorMessage, true);
-                }
+                return new AIProviderError(
+                    "ai_response_validation_failed",
+                    "The generated response did not pass trusted-context validation.",
+                    false);
             }
 
-            return new AIProviderError(FinalErrorCode, FinalErrorMessage, false);
+            return new AIProviderError(
+                code,
+                "The selected AI language generator is unavailable.",
+                attempt?.Error?.IsTimeout == true);
+        }
+
+        private static bool MatchesProvider(AIFinalSource source, string providerId)
+        {
+            return (source == AIFinalSource.LocalLlm && providerId == "local_llm") ||
+                   (source == AIFinalSource.CloudLlm && providerId == "cloud_llm");
+        }
+
+        private static bool MatchesLanguageGenerator(
+            AIFinalSource source,
+            LanguageGenerator generator)
+        {
+            return (source == AIFinalSource.LocalLlm && generator == LanguageGenerator.LocalLlm) ||
+                   (source == AIFinalSource.CloudLlm && generator == LanguageGenerator.CloudLlm);
         }
 
         private sealed class ProviderAttempt

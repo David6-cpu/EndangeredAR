@@ -22,6 +22,7 @@ namespace EndangeredAR.AI
         [NonSerialized] public ReadOnlyCharacterContext Context;
         [NonSerialized] public ReadOnlyCharacterMemoryContext MemoryContext;
         [NonSerialized] public MemoryUseMode MemoryUseMode;
+        [NonSerialized] public ContentAuthority ContentAuthority;
         [NonSerialized] public AnimalKnowledgeProfile knowledgeProfile;
     }
 
@@ -51,6 +52,9 @@ namespace EndangeredAR.AI
         [NonSerialized] internal string FallbackReasonCode;
         [NonSerialized] internal long ElapsedMilliseconds;
         [NonSerialized] internal string ProvenanceMemoryStatus = "not_read";
+        [NonSerialized] internal ContentAuthority ContentAuthority;
+        [NonSerialized] internal LanguageGenerator LanguageGenerator;
+        [NonSerialized] internal string ProvenanceErrorCode;
     }
 
     [Serializable]
@@ -77,6 +81,7 @@ namespace EndangeredAR.AI
         internal AIRouteMode RouteMode { get; set; }
         internal string[] ProviderAttempts { get; set; } = Array.Empty<string>();
         internal long ElapsedMilliseconds { get; set; }
+        internal ContentAuthority ContentAuthority { get; set; }
     }
 
     public interface IAIProvider

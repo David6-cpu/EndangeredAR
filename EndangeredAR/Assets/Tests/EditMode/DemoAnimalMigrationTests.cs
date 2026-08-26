@@ -115,8 +115,10 @@ namespace EndangeredAR.Tests.EditMode
             {
                 animalId = "sensen",
                 reply = "我最喜欢嫩叶和花朵。",
+                source = "local_llm",
                 missionHint = "要不要帮我寻找食物？"
             };
+            response.LanguageGenerator = LanguageGenerator.LocalLlm;
 
             Assert.That(TryResolveAICompletion(
                 state,
@@ -146,6 +148,7 @@ namespace EndangeredAR.Tests.EditMode
             {
                 animalId = "sensen",
                 reply = "我的学名是 Semnopithecus priam。",
+                source = "local_llm",
                 answerMode = "grounded_fact",
                 evidenceStatus = "evidence_found",
                 citations = new[]
@@ -154,6 +157,7 @@ namespace EndangeredAR.Tests.EditMode
                     new AICitation { sourceId = "mdd-1000692", title = "MDD taxon", organization = "Mammal Diversity Database" }
                 }
             };
+            response.LanguageGenerator = LanguageGenerator.LocalLlm;
 
             Assert.That(TryResolveAICompletion(
                 state,
@@ -193,11 +197,9 @@ namespace EndangeredAR.Tests.EditMode
                 "sensen",
                 response,
                 "你吃什么？",
-                out var displayReply), Is.True);
-            Assert.That(displayReply, Is.EqualTo("安全的本地知识回答"));
-            StringAssert.DoesNotContain("HTTP", displayReply);
-            StringAssert.DoesNotContain("Exception", displayReply);
-            StringAssert.DoesNotContain("stack", displayReply);
+                out var displayReply), Is.False);
+            Assert.That(displayReply, Is.Null,
+                "Technical provider content must become an explicit system status, never a character fallback reply.");
         }
 
         [Test]
@@ -230,8 +232,6 @@ namespace EndangeredAR.Tests.EditMode
                 ticket,
                 currentAnimalId,
                 response,
-                userMessage,
-                new Func<string, string>(_ => "安全的本地知识回答"),
                 out displayReply);
         }
 
@@ -275,12 +275,12 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
-        public void LocalAIConfig_DefaultsPreserveCurrentCloudBehaviorAndR1Budgets()
+        public void LocalAIConfig_DefaultsToLocalOnlyAndPreservesR1Budgets()
         {
             var config = AssetDatabase.LoadAssetAtPath<AIConfig>(AIConfigPath);
 
             Assert.That(config, Is.Not.Null);
-            Assert.That(config.routeMode, Is.EqualTo(AIRouteMode.CloudOnly));
+            Assert.That(config.routeMode, Is.EqualTo(AIRouteMode.LocalOnly));
             Assert.That(config.localServerUrl, Is.EqualTo("http://127.0.0.1:8000"));
             Assert.That(config.localTimeoutSeconds, Is.EqualTo(8f));
             Assert.That(config.totalTimeoutSeconds, Is.EqualTo(38f));

@@ -26,12 +26,12 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
-        public void AIConfig_HasHybridRoutingDefaults()
+        public void AIConfig_DefaultsToLocalOnlyWithExistingBudgets()
         {
             var config = ScriptableObject.CreateInstance<AIConfig>();
             createdObjects.Add(config);
 
-            Assert.That(config.routeMode, Is.EqualTo(AIRouteMode.CloudOnly));
+            Assert.That(config.routeMode, Is.EqualTo(AIRouteMode.LocalOnly));
             Assert.That(config.localServerUrl, Is.EqualTo("http://127.0.0.1:8000"));
             Assert.That(config.localTimeoutSeconds, Is.EqualTo(8f));
             Assert.That(config.totalTimeoutSeconds, Is.EqualTo(38f));
@@ -101,7 +101,9 @@ namespace EndangeredAR.Tests.EditMode
             {
                 animalId = "sensen",
                 reply = "Cloud reply.",
-                source = "server_rule",
+                source = "cloud_llm",
+                contentAuthority = "none",
+                languageGenerator = "cloud_llm",
                 routeReason = "server_reason",
                 suggestedQuestions = new[] { "Why?" },
                 missionHint = "Protect forest.",
@@ -132,7 +134,7 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(callbacks, Is.EqualTo(1));
             Assert.That(response.animalId, Is.EqualTo("sensen"));
             Assert.That(response.reply, Is.EqualTo("Cloud reply."));
-            Assert.That(response.source, Is.EqualTo("server_rule"));
+            Assert.That(response.source, Is.EqualTo("cloud_llm"));
             Assert.That(response.routeReason, Is.Null);
             Assert.That(response.suggestedQuestions, Is.EqualTo(new[] { "Why?" }));
             Assert.That(response.answerMode, Is.EqualTo("grounded_fact"));
@@ -207,6 +209,8 @@ namespace EndangeredAR.Tests.EditMode
                 animalId = "sensen",
                 reply = "Reply.",
                 source = "cloud_llm",
+                contentAuthority = "none",
+                languageGenerator = "cloud_llm",
                 actionSuggestion = raw
             });
 
@@ -220,7 +224,9 @@ namespace EndangeredAR.Tests.EditMode
             {
                 animalId = "sensen",
                 reply = "Reply.",
-                source = "server_knowledge",
+                source = "cloud_llm",
+                contentAuthority = "none",
+                languageGenerator = "cloud_llm",
                 groundingTopic = "diet",
                 groundedFactIds = new[] { "sensen.diet", "", "sensen.diet", null }
             });
@@ -236,19 +242,22 @@ namespace EndangeredAR.Tests.EditMode
             {
                 animalId = "sensen",
                 reply = "Same text could come from any route.",
-                source = "server_rule",
+                source = "cloud_llm",
+                contentAuthority = "none",
+                languageGenerator = "cloud_llm",
                 providerAttempt = "cloud_llm",
-                fallbackUsed = true,
-                fallbackReason = "cloud_provider_unavailable",
+                fallbackUsed = false,
+                fallbackReason = "",
                 elapsedMs = 87
             });
 
             Assert.That(response, Is.Not.Null);
-            Assert.That(response.source, Is.EqualTo("server_rule"));
+            Assert.That(response.source, Is.EqualTo("cloud_llm"));
             Assert.That(response.ProviderAttempts, Is.EqualTo(new[] { "cloud_llm" }));
-            Assert.That(response.FallbackUsed, Is.True);
-            Assert.That(response.FallbackReasonCode, Is.EqualTo("cloud_provider_unavailable"));
+            Assert.That(response.FallbackUsed, Is.False);
+            Assert.That(response.FallbackReasonCode, Is.Empty);
             Assert.That(response.ElapsedMilliseconds, Is.EqualTo(87));
+            Assert.That(response.LanguageGenerator, Is.EqualTo(LanguageGenerator.CloudLlm));
         }
 
         [TestCase(null)]
@@ -374,7 +383,7 @@ namespace EndangeredAR.Tests.EditMode
             AIResponse response;
             var parsed = LocalLLMProvider.TryParseResponse(
                 Request(),
-                "{\"animalId\":\"sensen\",\"reply\":\"Local reply.\",\"source\":\"local_llm\",\"answerMode\":\"grounded_fact\",\"evidenceStatus\":\"evidence_found\",\"citations\":[{\"sourceId\":\"gbif-4267223\",\"title\":\"GBIF taxon\",\"organization\":\"GBIF\",\"url\":\"https://example.test/gbif\"}],\"suggestedQuestions\":[\"How?\"],\"missionHint\":\"Protect habitat.\"}",
+                "{\"animalId\":\"sensen\",\"reply\":\"Local reply.\",\"source\":\"local_llm\",\"contentAuthority\":\"none\",\"languageGenerator\":\"local_llm\",\"answerMode\":\"grounded_fact\",\"evidenceStatus\":\"evidence_found\",\"citations\":[{\"sourceId\":\"gbif-4267223\",\"title\":\"GBIF taxon\",\"organization\":\"GBIF\",\"url\":\"https://example.test/gbif\"}],\"suggestedQuestions\":[\"How?\"],\"missionHint\":\"Protect habitat.\"}",
                 out response);
 
             Assert.That(parsed, Is.True);
@@ -389,13 +398,13 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
-        public void LocalProvider_OldResponseWithoutGroundingFieldsRemainsReadable()
+        public void LocalProvider_ResponseWithoutOptionalGroundingFieldsRemainsReadable()
         {
             AIResponse response;
 
             var parsed = LocalLLMProvider.TryParseResponse(
                 Request(),
-                "{\"animalId\":\"sensen\",\"reply\":\"Legacy reply.\",\"source\":\"local_llm\"}",
+                "{\"animalId\":\"sensen\",\"reply\":\"Legacy reply.\",\"source\":\"local_llm\",\"contentAuthority\":\"none\",\"languageGenerator\":\"local_llm\"}",
                 out response);
 
             Assert.That(parsed, Is.True);
@@ -420,7 +429,7 @@ namespace EndangeredAR.Tests.EditMode
         public void LocalProvider_UsesSameStrictGroundingMappingAndFactIdDeduplication()
         {
             AIResponse response;
-            const string json = "{\"animalId\":\"sensen\",\"reply\":\"Reply.\",\"source\":\"local_llm\",\"groundingTopic\":\"diet\",\"groundedFactIds\":[\"sensen.diet\",\"sensen.diet\",\"\"]}";
+            const string json = "{\"animalId\":\"sensen\",\"reply\":\"Reply.\",\"source\":\"local_llm\",\"contentAuthority\":\"none\",\"languageGenerator\":\"local_llm\",\"groundingTopic\":\"diet\",\"groundedFactIds\":[\"sensen.diet\",\"sensen.diet\",\"\"]}";
 
             Assert.That(LocalLLMProvider.TryParseResponse(Request(), json, out response), Is.True);
             Assert.That(response.GroundingTopic, Is.EqualTo(GroundingTopic.Diet));
@@ -440,7 +449,7 @@ namespace EndangeredAR.Tests.EditMode
         public void LocalProvider_MapsTransportActionWithSameStrictParser(string raw, AIAction expected)
         {
             AIResponse response;
-            var json = $"{{\"animalId\":\"sensen\",\"reply\":\"Reply.\",\"source\":\"local_llm\",\"actionSuggestion\":\"{raw}\"}}";
+            var json = $"{{\"animalId\":\"sensen\",\"reply\":\"Reply.\",\"source\":\"local_llm\",\"contentAuthority\":\"none\",\"languageGenerator\":\"local_llm\",\"actionSuggestion\":\"{raw}\"}}";
 
             Assert.That(LocalLLMProvider.TryParseResponse(Request(), json, out response), Is.True);
             Assert.That(response.ActionSuggestion, Is.EqualTo(expected));
@@ -568,7 +577,7 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
-        public void AIManager_MissingConfigAndHttpClientFallsBackToKnowledgeWithoutThrowing()
+        public void AIManager_MissingConfigReturnsLocalUnavailableWithoutKnowledgeReply()
         {
             var gameObject = new GameObject("AIManagerTests");
             createdObjects.Add(gameObject);
@@ -578,10 +587,15 @@ namespace EndangeredAR.Tests.EditMode
             serializedManager.FindProperty("localKnowledgeService").objectReferenceValue = knowledgeService;
             serializedManager.ApplyModifiedPropertiesWithoutUndo();
             AIResponse response = null;
+            AIProviderError providerError = null;
 
-            Assert.DoesNotThrow(() => RunCoroutine(manager.Send(Request(), value => response = value, Fail)));
-            Assert.That(response, Is.Not.Null);
-            Assert.That(response.source, Is.EqualTo("unity_fallback"));
+            Assert.DoesNotThrow(() => RunCoroutine(manager.Send(
+                Request(),
+                value => response = value,
+                value => providerError = value)));
+            Assert.That(response, Is.Null);
+            Assert.That(providerError, Is.Not.Null);
+            Assert.That(providerError.Code, Is.EqualTo("local_model_unavailable"));
         }
 
         private static AIRequest Request()
@@ -664,6 +678,9 @@ namespace EndangeredAR.Tests.EditMode
                 string message,
                 ChatMessage[] history,
                 ReadOnlyCharacterContext context,
+                ReadOnlyCharacterMemoryContext memoryContext,
+                MemoryUseMode memoryUseMode,
+                ContentAuthority contentAuthority,
                 float timeoutSeconds,
                 Action<ChatResponse> onSuccess,
                 Action<string> onError)
@@ -686,7 +703,9 @@ namespace EndangeredAR.Tests.EditMode
                 {
                     animalId = animalId,
                     reply = "Default reply.",
-                    source = "cloud_llm"
+                    source = "cloud_llm",
+                    contentAuthority = "none",
+                    languageGenerator = "cloud_llm"
                 }, onSuccess);
             }
         }
@@ -702,6 +721,7 @@ namespace EndangeredAR.Tests.EditMode
                 ReadOnlyCharacterContext context,
                 ReadOnlyCharacterMemoryContext memoryContext,
                 MemoryUseMode memoryUseMode,
+                ContentAuthority contentAuthority,
                 float timeoutSeconds,
                 Action<ChatResponse> onSuccess,
                 Action<string> onError)
@@ -711,7 +731,9 @@ namespace EndangeredAR.Tests.EditMode
                 {
                     animalId = animalId,
                     reply = "Cloud reply.",
-                    source = "cloud_llm"
+                    source = "cloud_llm",
+                    contentAuthority = ContentAuthorityProtocol.ToWireValue(contentAuthority),
+                    languageGenerator = "cloud_llm"
                 }, onSuccess);
             }
         }

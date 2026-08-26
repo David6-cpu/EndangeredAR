@@ -21,6 +21,8 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [TestCase("none", MemoryUseMode.None)]
+        [TestCase("explicit_recall", MemoryUseMode.ExplicitRecall)]
+        [TestCase("history_boundary", MemoryUseMode.HistoryBoundary)]
         [TestCase("reunion", MemoryUseMode.Reunion)]
         public void MemoryUseModeProtocol_AcceptsOnlyExactValues(string wireValue, MemoryUseMode expected)
         {
@@ -31,7 +33,7 @@ namespace EndangeredAR.Tests.EditMode
         [TestCase("Reunion")]
         [TestCase(" reunion")]
         [TestCase("reunion ")]
-        [TestCase("explicit_recall")]
+        [TestCase("ExplicitRecall")]
         [TestCase("")]
         [TestCase(null)]
         public void MemoryUseModeProtocol_RejectsMalformedValues(string wireValue)
@@ -48,7 +50,8 @@ namespace EndangeredAR.Tests.EditMode
             var json = JsonUtility.ToJson(payload);
 
             Assert.That(payload.memoryUseMode, Is.EqualTo("reunion"));
-            Assert.That(payload.memoryContext, Is.SameAs(request.MemoryContext));
+            Assert.That(payload.memoryContext, Is.Not.SameAs(request.MemoryContext));
+            Assert.That(payload.memoryContext.Milestones.Count, Is.EqualTo(1));
             Assert.That(json, Does.Contain("保护森森的森林"));
             Assert.That(json, Does.Not.Contain("fingerprint"));
             Assert.That(json, Does.Not.Contain("profileKey"));
@@ -57,6 +60,34 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(json, Does.Not.Contain("subjectId"));
             Assert.That(json, Does.Not.Contain("occurredAtUtc"));
             Assert.That(json, Does.Not.Contain("origin"));
+        }
+
+        [Test]
+        public void ExplicitRecall_SendsOneAuditedMilestoneAndCharacterMemoryAuthority()
+        {
+            var request = RequestWithMemory();
+            request.MemoryUseMode = MemoryUseMode.ExplicitRecall;
+            request.ContentAuthority = ContentAuthority.CharacterMemory;
+
+            var payload = LocalLLMProvider.CreatePayload(request);
+
+            Assert.That(payload.memoryUseMode, Is.EqualTo("explicit_recall"));
+            Assert.That(payload.contentAuthority, Is.EqualTo("character_memory"));
+            Assert.That(payload.memoryContext.Milestones.Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void HistoryBoundary_SendsPolicyModeWithoutMemoryProjection()
+        {
+            var request = RequestWithMemory();
+            request.MemoryUseMode = MemoryUseMode.HistoryBoundary;
+            request.ContentAuthority = ContentAuthority.SystemPolicy;
+
+            var payload = LocalLLMProvider.CreatePayload(request);
+
+            Assert.That(payload.memoryUseMode, Is.EqualTo("history_boundary"));
+            Assert.That(payload.contentAuthority, Is.EqualTo("system_policy"));
+            Assert.That(payload.memoryContext, Is.Null);
         }
 
         [Test]
@@ -82,8 +113,10 @@ namespace EndangeredAR.Tests.EditMode
             Run(provider.Send(request, 7f, _ => { }, error => Assert.Fail(error.Code)));
 
             Assert.That(client.MemoryUseMode, Is.EqualTo(MemoryUseMode.Reunion));
-            Assert.That(client.MemoryContext, Is.SameAs(request.MemoryContext));
-            Assert.That(LocalLLMProvider.CreatePayload(request).memoryContext, Is.SameAs(client.MemoryContext));
+            Assert.That(client.MemoryContext, Is.Not.Null);
+            Assert.That(client.MemoryContext.Milestones.Count, Is.EqualTo(1));
+            Assert.That(LocalLLMProvider.CreatePayload(request).memoryContext.Fingerprint,
+                Is.EqualTo(client.MemoryContext.Fingerprint));
         }
 
         [Test]
@@ -95,14 +128,16 @@ namespace EndangeredAR.Tests.EditMode
                     animalId = "sensen",
                     reply = "forged",
                     source = "cloud_llm",
-                    answerMode = "memory_recall"
+                    answerMode = "memory_recall",
+                    contentAuthority = "none",
+                    languageGenerator = "cloud_llm"
                 }).answerMode,
                 Is.EqualTo("social_chat"));
 
             Assert.That(
                 LocalLLMProvider.TryParseResponse(
                     new AIRequest { animalId = "sensen" },
-                    "{\"animalId\":\"sensen\",\"reply\":\"forged\",\"source\":\"local_llm\",\"answerMode\":\"memory_recall\"}",
+                    "{\"animalId\":\"sensen\",\"reply\":\"forged\",\"source\":\"local_llm\",\"answerMode\":\"memory_recall\",\"contentAuthority\":\"none\",\"languageGenerator\":\"local_llm\"}",
                     out var local),
                 Is.True);
             Assert.That(local.answerMode, Is.EqualTo("social_chat"));
@@ -118,6 +153,7 @@ namespace EndangeredAR.Tests.EditMode
                 history = Array.Empty<ChatMessage>(),
                 Context = ReadOnlyCharacterContext.Empty,
                 MemoryUseMode = MemoryUseMode.Reunion,
+                ContentAuthority = ContentAuthority.CharacterMemory,
                 MemoryContext = ReadOnlyCharacterMemoryContext.Create(
                     "sensen",
                     CharacterMemoryContextStatus.Available,
@@ -154,6 +190,7 @@ namespace EndangeredAR.Tests.EditMode
                 ReadOnlyCharacterContext context,
                 ReadOnlyCharacterMemoryContext memoryContext,
                 MemoryUseMode memoryUseMode,
+                ContentAuthority contentAuthority,
                 float timeoutSeconds,
                 Action<ChatResponse> onSuccess,
                 Action<string> onError)
@@ -164,7 +201,9 @@ namespace EndangeredAR.Tests.EditMode
                 {
                     animalId = animalId,
                     reply = "欢迎回来",
-                    source = "cloud_llm"
+                    source = "cloud_llm",
+                    contentAuthority = ContentAuthorityProtocol.ToWireValue(contentAuthority),
+                    languageGenerator = "cloud_llm"
                 });
                 yield break;
             }
