@@ -15,7 +15,7 @@ namespace EndangeredAR.AI
             this.localKnowledgeService = localKnowledgeService;
         }
 
-        public string ProviderId => "unity_knowledge";
+        public string ProviderId => "unity_fallback";
 
         public IEnumerator Send(
             AIRequest request,

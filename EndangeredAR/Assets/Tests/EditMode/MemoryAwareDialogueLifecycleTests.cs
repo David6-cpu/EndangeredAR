@@ -35,7 +35,7 @@ namespace EndangeredAR.Tests.EditMode
             Run(manager.Send(request, value => response = value, error => Assert.Fail(error.Code)));
 
             Assert.That(response, Is.Not.Null);
-            Assert.That(response.source, Is.EqualTo("unity_memory"));
+            Assert.That(response.source, Is.EqualTo("memory_deterministic"));
             Assert.That(response.answerMode, Is.EqualTo("memory_recall"));
             Assert.That(response.reply, Does.Contain("保护森森的森林"));
             Assert.That(response.citations, Is.Empty);
@@ -54,7 +54,7 @@ namespace EndangeredAR.Tests.EditMode
 
             Run(manager.Send(request, value => response = value, error => Assert.Fail(error.Code)));
 
-            Assert.That(response.source, Is.EqualTo("unity_memory"));
+            Assert.That(response.source, Is.EqualTo("memory_deterministic"));
             Assert.That(response.answerMode, Is.EqualTo("memory_recall"));
             Assert.That(response.reply, Does.Contain("不保存完整聊天内容"));
             Assert.That(response.GroundingTopic, Is.EqualTo(GroundingTopic.None));

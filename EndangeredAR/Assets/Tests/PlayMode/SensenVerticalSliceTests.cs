@@ -495,7 +495,7 @@ namespace EndangeredAR.Tests.PlayMode
             var history = (System.Collections.Generic.List<ChatMessage>)GetPrivateField(appController, "chatHistory");
             var requestState = (ChatRequestState)GetPrivateField(appController, "chatRequestState");
 
-            foreach (var source in new[] { "local_llm", "cloud_llm", "unity_knowledge" })
+            foreach (var source in new[] { "local_llm", "cloud_llm", "unity_fallback" })
             {
                 yield return WaitForAnimatorState(animator, "Idle", 2f);
                 var historyCount = history.Count;

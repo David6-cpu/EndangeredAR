@@ -225,7 +225,7 @@ namespace EndangeredAR.Tests.EditMode
         [TestCase("cloud_llm")]
         [TestCase("server_rule")]
         [TestCase("server_knowledge")]
-        [TestCase("unity_knowledge")]
+        [TestCase("unity_fallback")]
         public void Completion_AllResponseSourcesUseTheSameValidator(string source)
         {
             var state = new ChatRequestState();

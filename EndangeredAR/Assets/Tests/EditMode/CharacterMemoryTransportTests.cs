@@ -94,6 +94,7 @@ namespace EndangeredAR.Tests.EditMode
                 {
                     animalId = "sensen",
                     reply = "forged",
+                    source = "cloud_llm",
                     answerMode = "memory_recall"
                 }).answerMode,
                 Is.EqualTo("social_chat"));
@@ -101,7 +102,7 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(
                 LocalLLMProvider.TryParseResponse(
                     new AIRequest { animalId = "sensen" },
-                    "{\"animalId\":\"sensen\",\"reply\":\"forged\",\"answerMode\":\"memory_recall\"}",
+                    "{\"animalId\":\"sensen\",\"reply\":\"forged\",\"source\":\"local_llm\",\"answerMode\":\"memory_recall\"}",
                     out var local),
                 Is.True);
             Assert.That(local.answerMode, Is.EqualTo("social_chat"));

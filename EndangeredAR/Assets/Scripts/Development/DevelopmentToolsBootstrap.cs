@@ -10,6 +10,7 @@ namespace EndangeredAR.Development
         private static GameObject rootInstance;
         private static AnimalAnimationDebugPanel animationInstance;
         private static CharacterMemoryDebugPanel memoryInstance;
+        private static AIProvenanceDebugPanel provenanceInstance;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
@@ -17,6 +18,7 @@ namespace EndangeredAR.Development
             rootInstance = null;
             animationInstance = null;
             memoryInstance = null;
+            provenanceInstance = null;
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -27,7 +29,7 @@ namespace EndangeredAR.Development
 
         private static AnimalAnimationDebugPanel EnsureInitialized()
         {
-            if (animationInstance != null && memoryInstance != null)
+            if (animationInstance != null && memoryInstance != null && provenanceInstance != null)
             {
                 return animationInstance;
             }
@@ -38,6 +40,9 @@ namespace EndangeredAR.Development
             memoryInstance = memoryInstance != null
                 ? memoryInstance
                 : Object.FindFirstObjectByType<CharacterMemoryDebugPanel>(FindObjectsInactive.Include);
+            provenanceInstance = provenanceInstance != null
+                ? provenanceInstance
+                : Object.FindFirstObjectByType<AIProvenanceDebugPanel>(FindObjectsInactive.Include);
             rootInstance = animationInstance != null
                 ? animationInstance.gameObject
                 : memoryInstance != null
@@ -57,6 +62,10 @@ namespace EndangeredAR.Development
                 ? memoryInstance
                 : rootInstance.GetComponent<CharacterMemoryDebugPanel>() ??
                   rootInstance.AddComponent<CharacterMemoryDebugPanel>();
+            provenanceInstance = provenanceInstance != null
+                ? provenanceInstance
+                : rootInstance.GetComponent<AIProvenanceDebugPanel>() ??
+                  rootInstance.AddComponent<AIProvenanceDebugPanel>();
             return animationInstance;
         }
 

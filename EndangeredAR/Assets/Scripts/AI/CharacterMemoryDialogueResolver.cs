@@ -12,7 +12,7 @@ namespace EndangeredAR.AI
             var response = new AIResponse
             {
                 animalId = request?.animalId,
-                source = "unity_memory",
+                source = "memory_deterministic",
                 routeReason = mentionMode == MemoryMentionMode.ConversationHistoryBoundary
                     ? "deterministic_conversation_history_boundary"
                     : "deterministic_memory_recall",
@@ -39,7 +39,7 @@ namespace EndangeredAR.AI
             var providerTail = response.reply ?? string.Empty;
             response.animalId = request?.animalId;
             response.reply = CharacterMemoryAnswerBuilder.BuildReunion(context, providerTail);
-            response.source = string.IsNullOrWhiteSpace(response.source) ? "unity_memory" : response.source;
+            response.source = string.IsNullOrWhiteSpace(response.source) ? "memory_deterministic" : response.source;
             response.routeReason = string.IsNullOrWhiteSpace(response.routeReason)
                 ? "memory_reunion_safe_reply"
                 : response.routeReason;

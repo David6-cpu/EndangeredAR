@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Globalization;
 using System.Text;
 using EndangeredAR.AI;
 using UnityEngine;
@@ -13,12 +14,12 @@ namespace EndangeredAR.API
 
         public IEnumerator SendMessage(string animalId, string message, Action<ChatResponse> onSuccess, Action<string> onError)
         {
-            yield return SendMessage(animalId, message, Array.Empty<ChatMessage>(), 35f, onSuccess, onError);
+            return SendMessage(animalId, message, Array.Empty<ChatMessage>(), 35f, onSuccess, onError);
         }
 
         public IEnumerator SendMessage(string animalId, string message, ChatMessage[] history, Action<ChatResponse> onSuccess, Action<string> onError)
         {
-            yield return SendMessage(animalId, message, history, 35f, onSuccess, onError);
+            return SendMessage(animalId, message, history, 35f, onSuccess, onError);
         }
 
         public virtual IEnumerator SendMessage(
@@ -29,7 +30,7 @@ namespace EndangeredAR.API
             Action<ChatResponse> onSuccess,
             Action<string> onError)
         {
-            yield return SendMessage(
+            return SendMessage(
                 animalId,
                 message,
                 history,
@@ -48,7 +49,7 @@ namespace EndangeredAR.API
             Action<ChatResponse> onSuccess,
             Action<string> onError)
         {
-            yield return SendMessage(
+            return SendMessage(
                 animalId,
                 message,
                 history,
@@ -73,12 +74,13 @@ namespace EndangeredAR.API
         {
             if (config == null || string.IsNullOrWhiteSpace(config.baseUrl))
             {
-                onError?.Invoke("API 地址没有配置。请在 Unity 里执行 Endangered AR > Set Local API To Mac LAN IP。");
+                onError?.Invoke("cloud_configuration_error");
                 yield break;
             }
 
             var request = new ChatRequest
             {
+                requestId = string.Empty,
                 animalId = animalId,
                 message = message,
                 history = history ?? Array.Empty<ChatMessage>(),
@@ -105,14 +107,17 @@ namespace EndangeredAR.API
 
                 if (webRequest.result != UnityWebRequest.Result.Success)
                 {
-                    onError?.Invoke($"{webRequest.error}\nURL: {url}\nHTTP: {webRequest.responseCode}\n{webRequest.downloadHandler.text}");
+                    onError?.Invoke(ClassifyTransportFailure(
+                        webRequest.result,
+                        webRequest.responseCode,
+                        webRequest.error));
                     yield break;
                 }
 
                 var response = JsonUtility.FromJson<ChatResponse>(webRequest.downloadHandler.text);
                 if (response == null || string.IsNullOrWhiteSpace(response.reply))
                 {
-                    onError?.Invoke($"云端返回为空。\nURL: {url}\n{webRequest.downloadHandler.text}");
+                    onError?.Invoke("cloud_invalid_response");
                     yield break;
                 }
 
@@ -132,6 +137,55 @@ namespace EndangeredAR.API
             }
 
             return timeoutSeconds >= int.MaxValue ? int.MaxValue : Mathf.Max(1, Mathf.CeilToInt(timeoutSeconds));
+        }
+
+        internal static string ClassifyTransportFailure(
+            UnityWebRequest.Result result,
+            long responseCode,
+            string error)
+        {
+            if (Contains(error, "timeout") || Contains(error, "timed out"))
+            {
+                return "cloud_timeout";
+            }
+
+            switch (result)
+            {
+                case UnityWebRequest.Result.ConnectionError:
+                    if (Contains(error, "resolve"))
+                    {
+                        return "cloud_dns_failed";
+                    }
+
+                    if (Contains(error, "local network"))
+                    {
+                        return "cloud_local_network_denied";
+                    }
+
+                    if (Contains(error, "insecure connection") || Contains(error, "app transport security"))
+                    {
+                        return "cloud_transport_security_blocked";
+                    }
+
+                    return "cloud_connection_failed";
+
+                case UnityWebRequest.Result.ProtocolError:
+                    return responseCode > 0L
+                        ? $"cloud_http_{responseCode.ToString(CultureInfo.InvariantCulture)}"
+                        : "cloud_http_error";
+
+                case UnityWebRequest.Result.DataProcessingError:
+                    return "cloud_data_processing_error";
+
+                default:
+                    return "cloud_request_failed";
+            }
+        }
+
+        private static bool Contains(string value, string expected)
+        {
+            return !string.IsNullOrEmpty(value) &&
+                value.IndexOf(expected, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         internal static void AbortAndDispose(UnityWebRequest webRequest)
@@ -160,6 +214,7 @@ namespace EndangeredAR.API
     [Serializable]
     public class ChatRequest
     {
+        public string requestId;
         public string animalId;
         public string message;
         public ChatMessage[] history;
@@ -182,6 +237,10 @@ namespace EndangeredAR.API
         public string reply;
         public string source;
         public string routeReason;
+        public string providerAttempt;
+        public bool fallbackUsed;
+        public string fallbackReason;
+        public long elapsedMs;
         public string[] suggestedQuestions;
         public string missionHint;
         public string answerMode;

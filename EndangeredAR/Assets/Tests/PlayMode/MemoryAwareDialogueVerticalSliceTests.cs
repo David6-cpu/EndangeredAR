@@ -62,7 +62,7 @@ namespace EndangeredAR.Tests.PlayMode
             var manager = FindSingle<AIManager>();
 
             var recall = Send(manager, "你还记得我以前做过什么吗？");
-            Assert.That(recall.source, Is.EqualTo("unity_memory"));
+            Assert.That(recall.source, Is.EqualTo("memory_deterministic"));
             Assert.That(recall.answerMode, Is.EqualTo("memory_recall"));
             Assert.That(recall.reply, Does.Contain(sensenDefinition.Mission.Title));
             Assert.That(recall.citations, Is.Empty);

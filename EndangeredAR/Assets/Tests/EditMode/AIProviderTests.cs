@@ -55,6 +55,14 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
+        public void DevelopmentPlayers_AllowHttpOnlyForLocalDeviceValidation()
+        {
+            Assert.That(
+                PlayerSettings.insecureHttpOption,
+                Is.EqualTo(InsecureHttpOption.DevelopmentOnly));
+        }
+
+        [Test]
         public void ChatApiClient_LegacyOverloadsForwardThirtyFiveSecondTimeout()
         {
             var client = CreateControlledChatClient();
@@ -67,6 +75,22 @@ namespace EndangeredAR.Tests.EditMode
             RunCoroutine(client.SendMessage("sensen", "Second", history, IgnoreChatResponse, FailChat));
             Assert.That(client.LastTimeoutSeconds, Is.EqualTo(35f));
             Assert.That(client.LastHistory, Is.SameAs(history));
+        }
+
+        [TestCase(UnityEngine.Networking.UnityWebRequest.Result.ConnectionError, 0L, "Request timeout", "cloud_timeout")]
+        [TestCase(UnityEngine.Networking.UnityWebRequest.Result.ConnectionError, 0L, "Cannot resolve destination host", "cloud_dns_failed")]
+        [TestCase(UnityEngine.Networking.UnityWebRequest.Result.ConnectionError, 0L, "Local network access denied", "cloud_local_network_denied")]
+        [TestCase(UnityEngine.Networking.UnityWebRequest.Result.ConnectionError, 0L, "Insecure connection not allowed", "cloud_transport_security_blocked")]
+        [TestCase(UnityEngine.Networking.UnityWebRequest.Result.ConnectionError, 0L, "Cannot connect to destination host", "cloud_connection_failed")]
+        [TestCase(UnityEngine.Networking.UnityWebRequest.Result.ProtocolError, 503L, "HTTP/1.1 503", "cloud_http_503")]
+        [TestCase(UnityEngine.Networking.UnityWebRequest.Result.DataProcessingError, 200L, "Malformed data", "cloud_data_processing_error")]
+        public void ChatApiClient_ClassifiesTransportFailuresWithoutExposingRequestData(
+            UnityEngine.Networking.UnityWebRequest.Result result,
+            long responseCode,
+            string error,
+            string expected)
+        {
+            Assert.That(ChatApiClient.ClassifyTransportFailure(result, responseCode, error), Is.EqualTo(expected));
         }
 
         [Test]
@@ -118,6 +142,22 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
+        public void CloudProvider_TraversesTheRealChatClientOverloadChain()
+        {
+            var gameObject = new GameObject("DeepControlledChatApiClientTests");
+            createdObjects.Add(gameObject);
+            var client = gameObject.AddComponent<DeepControlledChatApiClient>();
+            var provider = new CloudLLMProvider(client);
+            AIResponse response = null;
+
+            RunProviderStrict(provider.Send(Request(), 7f, value => response = value, Fail));
+
+            Assert.That(response, Is.Not.Null);
+            Assert.That(response.source, Is.EqualTo("cloud_llm"));
+            Assert.That(client.DeepestOverloadCalls, Is.EqualTo(1));
+        }
+
+        [Test]
         public void CloudProvider_ForwardsTheRequestReadOnlyContext()
         {
             var client = CreateControlledChatClient();
@@ -166,6 +206,7 @@ namespace EndangeredAR.Tests.EditMode
             {
                 animalId = "sensen",
                 reply = "Reply.",
+                source = "cloud_llm",
                 actionSuggestion = raw
             });
 
@@ -179,12 +220,49 @@ namespace EndangeredAR.Tests.EditMode
             {
                 animalId = "sensen",
                 reply = "Reply.",
+                source = "server_knowledge",
                 groundingTopic = "diet",
                 groundedFactIds = new[] { "sensen.diet", "", "sensen.diet", null }
             });
 
             Assert.That(response.GroundingTopic, Is.EqualTo(GroundingTopic.Diet));
             Assert.That(response.GroundedFactIds, Is.EqualTo(new[] { "sensen.diet" }));
+        }
+
+        [Test]
+        public void CloudProvider_MapsExecutionProvenanceWithoutGuessingFromReply()
+        {
+            var response = CloudLLMProvider.ToAIResponse(new ChatResponse
+            {
+                animalId = "sensen",
+                reply = "Same text could come from any route.",
+                source = "server_rule",
+                providerAttempt = "cloud_llm",
+                fallbackUsed = true,
+                fallbackReason = "cloud_provider_unavailable",
+                elapsedMs = 87
+            });
+
+            Assert.That(response, Is.Not.Null);
+            Assert.That(response.source, Is.EqualTo("server_rule"));
+            Assert.That(response.ProviderAttempts, Is.EqualTo(new[] { "cloud_llm" }));
+            Assert.That(response.FallbackUsed, Is.True);
+            Assert.That(response.FallbackReasonCode, Is.EqualTo("cloud_provider_unavailable"));
+            Assert.That(response.ElapsedMilliseconds, Is.EqualTo(87));
+        }
+
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase("cloud")]
+        [TestCase(" Cloud_llm")]
+        public void CloudProvider_RejectsMissingOrMalformedFinalSource(string source)
+        {
+            Assert.That(CloudLLMProvider.ToAIResponse(new ChatResponse
+            {
+                animalId = "sensen",
+                reply = "Reply.",
+                source = source
+            }), Is.Null);
         }
 
         [Test]
@@ -200,6 +278,50 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(error, Is.Not.Null);
             Assert.That(error.Code, Is.EqualTo("cloud_timeout"));
             Assert.That(error.IsTimeout, Is.True);
+        }
+
+        [Test]
+        public void CloudProvider_PreservesStructuredTransportErrorCode()
+        {
+            var client = CreateControlledChatClient();
+            client.RoutineFactory = (onSuccess, onError) =>
+                ControlledChatEnumerator.Error("cloud_connection_failed", onError);
+            var provider = new CloudLLMProvider(client);
+            AIProviderError error = null;
+
+            RunProviderStrict(provider.Send(Request(), 7f, Ignore, value => error = value));
+
+            Assert.That(error, Is.Not.Null);
+            Assert.That(error.Code, Is.EqualTo("cloud_connection_failed"));
+            Assert.That(error.IsTimeout, Is.False);
+        }
+
+        [Test]
+        public void CloudProvider_ReportsSanitizedRoutineExceptionStage()
+        {
+            var client = CreateControlledChatClient();
+            client.RoutineFactory = (onSuccess, onError) => new ThrowingChatEnumerator();
+            var provider = new CloudLLMProvider(client);
+            AIProviderError error = null;
+
+            RunProviderStrict(provider.Send(Request(), 7f, Ignore, value => error = value));
+
+            Assert.That(error, Is.Not.Null);
+            Assert.That(error.Code, Is.EqualTo("cloud_routine_invalid_operation"));
+        }
+
+        [Test]
+        public void CloudProvider_RejectsOpaqueClientYieldWithSpecificCode()
+        {
+            var client = CreateControlledChatClient();
+            client.RoutineFactory = (onSuccess, onError) => new OpaqueChatEnumerator();
+            var provider = new CloudLLMProvider(client);
+            AIProviderError error = null;
+
+            RunProviderStrict(provider.Send(Request(), 7f, Ignore, value => error = value));
+
+            Assert.That(error, Is.Not.Null);
+            Assert.That(error.Code, Is.EqualTo("cloud_opaque_yield"));
         }
 
         [Test]
@@ -286,11 +408,19 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(response.GroundedFactIds, Is.Empty);
         }
 
+        [TestCase("{\"animalId\":\"sensen\",\"reply\":\"Reply.\"}")]
+        [TestCase("{\"animalId\":\"sensen\",\"reply\":\"Reply.\",\"source\":\"local\"}")]
+        [TestCase("{\"animalId\":\"sensen\",\"reply\":\"Reply.\",\"source\":\" local_llm\"}")]
+        public void LocalProvider_RejectsMissingOrMalformedFinalSource(string json)
+        {
+            Assert.That(LocalLLMProvider.TryParseResponse(Request(), json, out _), Is.False);
+        }
+
         [Test]
         public void LocalProvider_UsesSameStrictGroundingMappingAndFactIdDeduplication()
         {
             AIResponse response;
-            const string json = "{\"animalId\":\"sensen\",\"reply\":\"Reply.\",\"groundingTopic\":\"diet\",\"groundedFactIds\":[\"sensen.diet\",\"sensen.diet\",\"\"]}";
+            const string json = "{\"animalId\":\"sensen\",\"reply\":\"Reply.\",\"source\":\"local_llm\",\"groundingTopic\":\"diet\",\"groundedFactIds\":[\"sensen.diet\",\"sensen.diet\",\"\"]}";
 
             Assert.That(LocalLLMProvider.TryParseResponse(Request(), json, out response), Is.True);
             Assert.That(response.GroundingTopic, Is.EqualTo(GroundingTopic.Diet));
@@ -310,7 +440,7 @@ namespace EndangeredAR.Tests.EditMode
         public void LocalProvider_MapsTransportActionWithSameStrictParser(string raw, AIAction expected)
         {
             AIResponse response;
-            var json = $"{{\"animalId\":\"sensen\",\"reply\":\"Reply.\",\"actionSuggestion\":\"{raw}\"}}";
+            var json = $"{{\"animalId\":\"sensen\",\"reply\":\"Reply.\",\"source\":\"local_llm\",\"actionSuggestion\":\"{raw}\"}}";
 
             Assert.That(LocalLLMProvider.TryParseResponse(Request(), json, out response), Is.True);
             Assert.That(response.ActionSuggestion, Is.EqualTo(expected));
@@ -356,7 +486,7 @@ namespace EndangeredAR.Tests.EditMode
             RunProviderStrict(provider.Send(Request(), 0f, value => response = value, Fail));
 
             Assert.That(response, Is.Not.Null);
-            Assert.That(response.source, Is.EqualTo("unity_knowledge"));
+            Assert.That(response.source, Is.EqualTo("unity_fallback"));
             Assert.That(response.routeReason, Is.Null);
             Assert.That(response.reply, Is.EqualTo(ChatAnswer.GenericFallback.Reply));
             Assert.That(response.citations, Is.Empty);
@@ -451,7 +581,7 @@ namespace EndangeredAR.Tests.EditMode
 
             Assert.DoesNotThrow(() => RunCoroutine(manager.Send(Request(), value => response = value, Fail)));
             Assert.That(response, Is.Not.Null);
-            Assert.That(response.source, Is.EqualTo("unity_knowledge"));
+            Assert.That(response.source, Is.EqualTo("unity_fallback"));
         }
 
         private static AIRequest Request()
@@ -561,6 +691,31 @@ namespace EndangeredAR.Tests.EditMode
             }
         }
 
+        private sealed class DeepControlledChatApiClient : ChatApiClient
+        {
+            public int DeepestOverloadCalls { get; private set; }
+
+            public override IEnumerator SendMessage(
+                string animalId,
+                string message,
+                ChatMessage[] history,
+                ReadOnlyCharacterContext context,
+                ReadOnlyCharacterMemoryContext memoryContext,
+                MemoryUseMode memoryUseMode,
+                float timeoutSeconds,
+                Action<ChatResponse> onSuccess,
+                Action<string> onError)
+            {
+                DeepestOverloadCalls++;
+                return ControlledChatEnumerator.Success(new ChatResponse
+                {
+                    animalId = animalId,
+                    reply = "Cloud reply.",
+                    source = "cloud_llm"
+                }, onSuccess);
+            }
+        }
+
         private sealed class ControlledChatEnumerator : IEnumerator, IDisposable
         {
             private readonly Action<ChatResponse> onSuccess;
@@ -647,6 +802,44 @@ namespace EndangeredAR.Tests.EditMode
             public void Dispose()
             {
                 Disposed = true;
+            }
+        }
+
+        private sealed class ThrowingChatEnumerator : IEnumerator
+        {
+            public object Current => null;
+
+            public bool MoveNext()
+            {
+                throw new InvalidOperationException("Sensitive implementation detail");
+            }
+
+            public void Reset()
+            {
+                throw new NotSupportedException();
+            }
+        }
+
+        private sealed class OpaqueChatEnumerator : IEnumerator
+        {
+            private bool yielded;
+
+            public object Current => new object();
+
+            public bool MoveNext()
+            {
+                if (yielded)
+                {
+                    return false;
+                }
+
+                yielded = true;
+                return true;
+            }
+
+            public void Reset()
+            {
+                throw new NotSupportedException();
             }
         }
     }

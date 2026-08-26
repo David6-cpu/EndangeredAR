@@ -44,7 +44,17 @@ namespace EndangeredAR.AI
                     }
 
                     callbackCompleted = true;
-                    onSuccess?.Invoke(ToAIResponse(response));
+                    var mapped = ToAIResponse(response);
+                    if (mapped == null)
+                    {
+                        onError?.Invoke(new AIProviderError(
+                            "cloud_invalid_response",
+                            "Cloud AI returned an invalid response.",
+                            false));
+                        return;
+                    }
+
+                    onSuccess?.Invoke(mapped);
                 };
                 Action<string> failure = error =>
                 {
@@ -77,15 +87,15 @@ namespace EndangeredAR.AI
                         failure);
 
             }
-            catch (Exception)
+            catch (Exception exception)
             {
-                onError?.Invoke(new AIProviderError("cloud_request_failed", "Cloud AI request failed.", false));
+                onError?.Invoke(RoutineError(exception));
                 yield break;
             }
 
             if (routine == null)
             {
-                onError?.Invoke(new AIProviderError("cloud_request_failed", "Cloud AI request failed.", false));
+                onError?.Invoke(new AIProviderError("cloud_routine_missing", "Cloud AI request failed.", false));
                 yield break;
             }
 
@@ -95,11 +105,12 @@ namespace EndangeredAR.AI
                 {
                     bool hasNext;
                     object yielded;
-                    if (!TryMoveNext(routine, out hasNext, out yielded))
+                    Exception routineException;
+                    if (!TryMoveNext(routine, out hasNext, out yielded, out routineException))
                     {
                         if (!callbackCompleted)
                         {
-                            onError?.Invoke(new AIProviderError("cloud_request_failed", "Cloud AI request failed.", false));
+                            onError?.Invoke(RoutineError(routineException));
                         }
 
                         yield break;
@@ -112,7 +123,7 @@ namespace EndangeredAR.AI
 
                     if (yielded != null)
                     {
-                        onError?.Invoke(new AIProviderError("cloud_request_failed", "Cloud AI request failed.", false));
+                        onError?.Invoke(new AIProviderError("cloud_opaque_yield", "Cloud AI request failed.", false));
                         yield break;
                     }
 
@@ -121,7 +132,7 @@ namespace EndangeredAR.AI
 
                 if (!callbackCompleted)
                 {
-                    onError?.Invoke(new AIProviderError("cloud_request_failed", "Cloud AI request failed.", false));
+                    onError?.Invoke(new AIProviderError("cloud_no_callback", "Cloud AI request failed.", false));
                 }
             }
             finally
@@ -133,20 +144,32 @@ namespace EndangeredAR.AI
 
         internal static AIResponse ToAIResponse(ChatResponse response)
         {
-            return new AIResponse
+            if (response == null ||
+                string.IsNullOrWhiteSpace(response.reply) ||
+                !AIFinalSourceProtocol.TryParseExact(response.source, out _))
             {
-                animalId = response == null ? null : response.animalId,
-                reply = response == null ? null : response.reply,
-                source = response == null ? null : response.source,
-                suggestedQuestions = response == null ? null : response.suggestedQuestions,
-                missionHint = response == null ? null : response.missionHint,
-                answerMode = CharacterMemoryTransport.SanitizeExternalAnswerMode(response == null ? null : response.answerMode),
-                evidenceStatus = response == null ? null : response.evidenceStatus,
-                GroundingTopic = GroundingTopicProtocol.Parse(response == null ? null : response.groundingTopic),
-                GroundedFactIds = Copy(response == null ? null : response.groundedFactIds),
-                ActionSuggestion = AIActionProtocol.Parse(response == null ? null : response.actionSuggestion),
-                citations = MapCitations(response == null ? null : response.citations)
+                return null;
+            }
+
+            var mapped = new AIResponse
+            {
+                animalId = response.animalId,
+                reply = response.reply,
+                source = response.source,
+                suggestedQuestions = response.suggestedQuestions,
+                missionHint = response.missionHint,
+                answerMode = CharacterMemoryTransport.SanitizeExternalAnswerMode(response.answerMode),
+                evidenceStatus = response.evidenceStatus,
+                GroundingTopic = GroundingTopicProtocol.Parse(response.groundingTopic),
+                GroundedFactIds = Copy(response.groundedFactIds),
+                ActionSuggestion = AIActionProtocol.Parse(response.actionSuggestion),
+                citations = MapCitations(response.citations)
             };
+            mapped.ProviderAttempts = AIProvenanceProtocol.ParseProviderAttempt(response.providerAttempt);
+            mapped.FallbackUsed = response.fallbackUsed;
+            mapped.FallbackReasonCode = AIProvenanceProtocol.SanitizeReasonCode(response.fallbackReason);
+            mapped.ElapsedMilliseconds = Math.Max(0L, response.elapsedMs);
+            return mapped;
         }
 
         internal static AICitation[] MapCitations(ChatCitation[] citations)
@@ -198,24 +221,64 @@ namespace EndangeredAR.AI
         {
             var isTimeout = !string.IsNullOrWhiteSpace(error) &&
                 error.IndexOf("timeout", StringComparison.OrdinalIgnoreCase) >= 0;
+            var sanitized = AIProvenanceProtocol.SanitizeReasonCode(error);
+            var hasStructuredCode = !string.IsNullOrWhiteSpace(error) &&
+                error.StartsWith("cloud_", StringComparison.Ordinal) &&
+                string.Equals(error, sanitized, StringComparison.Ordinal);
+            var code = isTimeout
+                ? "cloud_timeout"
+                : hasStructuredCode ? sanitized : "cloud_request_failed";
             return new AIProviderError(
-                isTimeout ? "cloud_timeout" : "cloud_request_failed",
+                code,
                 isTimeout ? "Cloud AI request timed out." : "Cloud AI request failed.",
                 isTimeout);
         }
 
-        private static bool TryMoveNext(IEnumerator routine, out bool hasNext, out object yielded)
+        private static AIProviderError RoutineError(Exception exception)
+        {
+            string code;
+            if (exception is NullReferenceException)
+            {
+                code = "cloud_routine_null_reference";
+            }
+            else if (exception is ArgumentException)
+            {
+                code = "cloud_routine_argument";
+            }
+            else if (exception is InvalidOperationException)
+            {
+                code = "cloud_routine_invalid_operation";
+            }
+            else if (exception is UnityEngine.UnityException)
+            {
+                code = "cloud_routine_unity_exception";
+            }
+            else
+            {
+                code = "cloud_routine_exception";
+            }
+
+            return new AIProviderError(code, "Cloud AI request failed.", false);
+        }
+
+        private static bool TryMoveNext(
+            IEnumerator routine,
+            out bool hasNext,
+            out object yielded,
+            out Exception exception)
         {
             hasNext = false;
             yielded = null;
+            exception = null;
             try
             {
                 hasNext = routine.MoveNext();
                 yielded = hasNext ? routine.Current : null;
                 return true;
             }
-            catch (Exception)
+            catch (Exception caught)
             {
+                exception = caught;
                 return false;
             }
         }

@@ -3,6 +3,7 @@ import math
 import os
 import re
 import socket
+import time
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -526,6 +527,9 @@ def make_chat_response(
     route_reason: str,
     user_message: str,
     retrieval: Optional[animal_knowledge.RetrievalResult] = None,
+    provider_attempt: str = "none",
+    fallback_used: bool = False,
+    fallback_reason: str = "",
 ) -> Dict:
     nickname = animal_value(animal, "nickname", "identity", "nickname", "动物朋友")
     presentation = animal.get("presentation") if isinstance(animal.get("presentation"), dict) else {}
@@ -543,6 +547,10 @@ def make_chat_response(
         "missionHint": f"可以去完成“帮{nickname}寻找食物”任务。",
         "source": source,
         "routeReason": route_reason,
+        "providerAttempt": provider_attempt,
+        "fallbackUsed": bool(fallback_used),
+        "fallbackReason": fallback_reason,
+        "elapsedMs": 0,
         "answerMode": answer_mode,
         "evidenceStatus": retrieval.evidence_status if retrieval else "not_required",
         "groundingTopic": retrieval.grounding_topic if retrieval else "none",
@@ -643,6 +651,7 @@ def process_chat_request(path: str, payload: Dict) -> tuple[Dict, int]:
             "local_provider_succeeded",
             message,
             retrieval,
+            "local_llm",
         ), 200
 
     if path == "/chat":
@@ -663,6 +672,7 @@ def process_chat_request(path: str, payload: Dict) -> tuple[Dict, int]:
                 "cloud_provider_succeeded",
                 message,
                 retrieval,
+                "cloud_llm",
             ), 200
         return make_chat_response(
             animal,
@@ -671,9 +681,34 @@ def process_chat_request(path: str, payload: Dict) -> tuple[Dict, int]:
             "cloud_provider_unavailable_server_rule_fallback",
             message,
             retrieval,
+            "cloud_llm",
+            True,
+            "cloud_provider_unavailable",
         ), 200
 
     return {"error": "not_found"}, 404
+
+
+def make_route_provenance_log(
+    request_id: str,
+    response: Dict,
+    status: int,
+    elapsed_ms: int,
+) -> Dict:
+    safe_request_id = str(request_id or "")
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", safe_request_id):
+        safe_request_id = "unavailable"
+    return {
+        "event": "ai_route_provenance",
+        "requestId": safe_request_id,
+        "status": int(status),
+        "finalSource": str(response.get("source") or ""),
+        "answerMode": str(response.get("answerMode") or ""),
+        "providerAttempt": str(response.get("providerAttempt") or "none"),
+        "fallbackUsed": bool(response.get("fallbackUsed")),
+        "fallbackReason": str(response.get("fallbackReason") or ""),
+        "elapsedMs": max(0, int(elapsed_ms)),
+    }
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -707,7 +742,19 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"error": "invalid_json"}, status=400)
             return
 
+        started_at = time.monotonic()
         response, status = process_chat_request(path, payload)
+        elapsed_ms = max(0, int(round((time.monotonic() - started_at) * 1000)))
+        if isinstance(response, dict) and status == 200:
+            response["elapsedMs"] = elapsed_ms
+        print(
+            json.dumps(
+                make_route_provenance_log(payload.get("requestId"), response, status, elapsed_ms),
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ),
+            flush=True,
+        )
         self.send_json(response, status=status)
 
     def log_message(self, format_string: str, *args) -> None:

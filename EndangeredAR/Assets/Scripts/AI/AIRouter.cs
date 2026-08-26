@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace EndangeredAR.AI
@@ -39,7 +40,8 @@ namespace EndangeredAR.AI
             var route = new RouteCompletion(onSuccess, onError);
             var localTimeout = ClampTimeout(localTimeoutSeconds);
             var totalTimeout = ClampTimeout(totalTimeoutSeconds);
-            var routeDeadline = Now() + totalTimeout;
+            var routeStartedAt = Now();
+            var routeDeadline = routeStartedAt + totalTimeout;
 
             switch (mode)
             {
@@ -47,26 +49,31 @@ namespace EndangeredAR.AI
                     var localOnlyAttempt = new ProviderAttempt();
                     var localOnlyDeadline = Mathf.Min(Now() + localTimeout, routeDeadline);
                     yield return TryProvider(local, request, localOnlyDeadline, true, localOnlyAttempt);
-                    if (TryCompleteSuccess(route, local, localOnlyAttempt, "local_only"))
+                    if (TryCompleteSuccess(route, local, localOnlyAttempt, "local_only", mode, routeStartedAt, localOnlyAttempt))
                     {
                         yield break;
                     }
 
                     var localOnlyKnowledgeAttempt = new ProviderAttempt();
                     yield return TryKnowledge(request, localOnlyKnowledgeAttempt);
-                    if (TryCompleteSuccess(route, knowledge, localOnlyKnowledgeAttempt, "local_only_knowledge_fallback"))
+                    if (TryCompleteSuccess(route, knowledge, localOnlyKnowledgeAttempt, "local_only_knowledge_fallback", mode, routeStartedAt, localOnlyAttempt, localOnlyKnowledgeAttempt))
                     {
                         yield break;
                     }
 
-                    route.CompleteError(FinalError(localOnlyAttempt, localOnlyKnowledgeAttempt));
+                    route.CompleteError(AttachErrorProvenance(
+                        FinalError(localOnlyAttempt, localOnlyKnowledgeAttempt),
+                        mode,
+                        routeStartedAt,
+                        localOnlyAttempt,
+                        localOnlyKnowledgeAttempt));
                     yield break;
 
                 case AIRouteMode.LocalFirstCloudFallback:
                     var initialLocalDeadline = Mathf.Min(Now() + localTimeout, routeDeadline);
                     var localFirstAttempt = new ProviderAttempt();
                     yield return TryProvider(local, request, initialLocalDeadline, true, localFirstAttempt);
-                    if (TryCompleteSuccess(route, local, localFirstAttempt, "local_first"))
+                    if (TryCompleteSuccess(route, local, localFirstAttempt, "local_first", mode, routeStartedAt, localFirstAttempt))
                     {
                         yield break;
                     }
@@ -75,7 +82,7 @@ namespace EndangeredAR.AI
                     if (!HasExpired(routeDeadline))
                     {
                         yield return TryProvider(cloud, request, routeDeadline, true, cloudAttempt);
-                        if (TryCompleteSuccess(route, cloud, cloudAttempt, "local_first_cloud_fallback"))
+                        if (TryCompleteSuccess(route, cloud, cloudAttempt, "local_first_cloud_fallback", mode, routeStartedAt, localFirstAttempt, cloudAttempt))
                         {
                             yield break;
                         }
@@ -83,31 +90,42 @@ namespace EndangeredAR.AI
 
                     var localFirstKnowledgeAttempt = new ProviderAttempt();
                     yield return TryKnowledge(request, localFirstKnowledgeAttempt);
-                    if (TryCompleteSuccess(route, knowledge, localFirstKnowledgeAttempt, "local_first_knowledge_fallback"))
+                    if (TryCompleteSuccess(route, knowledge, localFirstKnowledgeAttempt, "local_first_knowledge_fallback", mode, routeStartedAt, localFirstAttempt, cloudAttempt, localFirstKnowledgeAttempt))
                     {
                         yield break;
                     }
 
-                    route.CompleteError(FinalError(localFirstAttempt, cloudAttempt, localFirstKnowledgeAttempt));
+                    route.CompleteError(AttachErrorProvenance(
+                        FinalError(localFirstAttempt, cloudAttempt, localFirstKnowledgeAttempt),
+                        mode,
+                        routeStartedAt,
+                        localFirstAttempt,
+                        cloudAttempt,
+                        localFirstKnowledgeAttempt));
                     yield break;
 
                 case AIRouteMode.CloudOnly:
                 default:
                     var cloudOnlyAttempt = new ProviderAttempt();
                     yield return TryProvider(cloud, request, routeDeadline, true, cloudOnlyAttempt);
-                    if (TryCompleteSuccess(route, cloud, cloudOnlyAttempt, "cloud_only"))
+                    if (TryCompleteSuccess(route, cloud, cloudOnlyAttempt, "cloud_only", mode, routeStartedAt, cloudOnlyAttempt))
                     {
                         yield break;
                     }
 
                     var cloudOnlyKnowledgeAttempt = new ProviderAttempt();
                     yield return TryKnowledge(request, cloudOnlyKnowledgeAttempt);
-                    if (TryCompleteSuccess(route, knowledge, cloudOnlyKnowledgeAttempt, "cloud_only_knowledge_fallback"))
+                    if (TryCompleteSuccess(route, knowledge, cloudOnlyKnowledgeAttempt, "cloud_only_knowledge_fallback", mode, routeStartedAt, cloudOnlyAttempt, cloudOnlyKnowledgeAttempt))
                     {
                         yield break;
                     }
 
-                    route.CompleteError(FinalError(cloudOnlyAttempt, cloudOnlyKnowledgeAttempt));
+                    route.CompleteError(AttachErrorProvenance(
+                        FinalError(cloudOnlyAttempt, cloudOnlyKnowledgeAttempt),
+                        mode,
+                        routeStartedAt,
+                        cloudOnlyAttempt,
+                        cloudOnlyKnowledgeAttempt));
                     yield break;
             }
         }
@@ -124,6 +142,7 @@ namespace EndangeredAR.AI
             bool enforceDeadline,
             ProviderAttempt result)
         {
+            result.ProviderId = provider == null ? string.Empty : provider.ProviderId;
             if (provider == null)
             {
                 result.CompleteError(new AIProviderError("provider_unavailable", "Provider is unavailable.", false));
@@ -215,21 +234,116 @@ namespace EndangeredAR.AI
             }
         }
 
-        private static bool TryCompleteSuccess(RouteCompletion route, IAIProvider provider, ProviderAttempt attempt, string reason)
+        private bool TryCompleteSuccess(
+            RouteCompletion route,
+            IAIProvider provider,
+            ProviderAttempt attempt,
+            string reason,
+            AIRouteMode mode,
+            float routeStartedAt,
+            params ProviderAttempt[] attempts)
         {
             if (attempt.Response == null || string.IsNullOrWhiteSpace(attempt.Response.reply))
             {
                 return false;
             }
 
-            if (string.IsNullOrWhiteSpace(attempt.Response.source))
+            if (string.IsNullOrWhiteSpace(attempt.Response.source) &&
+                AIFinalSourceProtocol.TryParseExact(provider.ProviderId, out _))
             {
-                attempt.Response.source = string.IsNullOrWhiteSpace(provider.ProviderId) ? "unknown_provider" : provider.ProviderId;
+                attempt.Response.source = provider.ProviderId;
+            }
+
+            if (!AIFinalSourceProtocol.TryParseExact(attempt.Response.source, out _))
+            {
+                attempt.RejectResponse(new AIProviderError(
+                    "invalid_final_source",
+                    "Provider returned an unsupported final source.",
+                    false));
+                return false;
             }
 
             attempt.Response.routeReason = reason;
+            ApplyRouteProvenance(attempt.Response, mode, routeStartedAt, attempts);
             route.CompleteSuccess(attempt.Response);
             return true;
+        }
+
+        private void ApplyRouteProvenance(
+            AIResponse response,
+            AIRouteMode mode,
+            float routeStartedAt,
+            ProviderAttempt[] attempts)
+        {
+            response.RouteMode = mode;
+            var providerAttempts = new List<string>();
+            string lastErrorCode = null;
+            foreach (var attempt in attempts ?? Array.Empty<ProviderAttempt>())
+            {
+                if (attempt == null)
+                {
+                    continue;
+                }
+
+                if (attempt.Error != null)
+                {
+                    AddAttempt(providerAttempts, attempt.ProviderId);
+                    lastErrorCode = attempt.Error.Code;
+                    continue;
+                }
+
+                if (attempt.Response == response)
+                {
+                    foreach (var providerAttempt in response.ProviderAttempts ?? Array.Empty<string>())
+                    {
+                        AddAttempt(providerAttempts, providerAttempt);
+                    }
+
+                    if (response.ProviderAttempts == null || response.ProviderAttempts.Length == 0)
+                    {
+                        AddAttempt(providerAttempts, attempt.ProviderId);
+                    }
+                }
+            }
+
+            response.ProviderAttempts = providerAttempts.ToArray();
+            response.FallbackUsed = response.FallbackUsed || !string.IsNullOrEmpty(lastErrorCode);
+            if (string.IsNullOrEmpty(response.FallbackReasonCode))
+            {
+                response.FallbackReasonCode = AIProvenanceProtocol.SanitizeReasonCode(lastErrorCode);
+            }
+
+            var routeElapsed = Math.Max(0L, (long)Math.Round((Now() - routeStartedAt) * 1000f));
+            response.ElapsedMilliseconds = Math.Max(response.ElapsedMilliseconds, routeElapsed);
+        }
+
+        private static void AddAttempt(List<string> attempts, string providerId)
+        {
+            if (string.IsNullOrEmpty(providerId) ||
+                (attempts.Count > 0 && string.Equals(attempts[attempts.Count - 1], providerId, StringComparison.Ordinal)))
+            {
+                return;
+            }
+
+            attempts.Add(providerId);
+        }
+
+        private AIProviderError AttachErrorProvenance(
+            AIProviderError error,
+            AIRouteMode mode,
+            float routeStartedAt,
+            params ProviderAttempt[] attempts)
+        {
+            var providers = new List<string>();
+            foreach (var attempt in attempts ?? Array.Empty<ProviderAttempt>())
+            {
+                AddAttempt(providers, attempt?.ProviderId);
+            }
+
+            error.RouteMode = mode;
+            error.ProviderAttempts = providers.ToArray();
+            error.ElapsedMilliseconds = Math.Max(0L, (long)Math.Round((Now() - routeStartedAt) * 1000f));
+            return error;
         }
 
         private void CompleteProviderSuccess(ProviderAttempt result, AIResponse response, float deadline, bool enforceDeadline)
@@ -295,9 +409,16 @@ namespace EndangeredAR.AI
 
         private sealed class ProviderAttempt
         {
+            public string ProviderId { get; set; }
             public AIResponse Response { get; private set; }
             public AIProviderError Error { get; private set; }
             public bool IsComplete { get; private set; }
+
+            public void RejectResponse(AIProviderError error)
+            {
+                Response = null;
+                Error = error;
+            }
 
             public void CompleteSuccess(AIResponse response)
             {

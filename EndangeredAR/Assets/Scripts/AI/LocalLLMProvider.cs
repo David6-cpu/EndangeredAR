@@ -111,6 +111,7 @@ namespace EndangeredAR.AI
         {
             return new ChatRequest
             {
+                requestId = request == null ? string.Empty : request.requestId,
                 animalId = request == null ? string.Empty : request.animalId,
                 message = request == null ? string.Empty : request.message,
                 history = request == null || request.history == null ? Array.Empty<ChatMessage>() : request.history,
@@ -167,11 +168,16 @@ namespace EndangeredAR.AI
                     return false;
                 }
 
+                if (!AIFinalSourceProtocol.TryParseExact(parsed.source, out _))
+                {
+                    return false;
+                }
+
                 response = new AIResponse
                 {
                     animalId = string.IsNullOrWhiteSpace(parsed.animalId) ? request?.animalId : parsed.animalId,
                     reply = parsed.reply,
-                    source = string.IsNullOrWhiteSpace(parsed.source) ? "local_llm" : parsed.source,
+                    source = parsed.source,
                     suggestedQuestions = parsed.suggestedQuestions,
                     missionHint = parsed.missionHint,
                     answerMode = CharacterMemoryTransport.SanitizeExternalAnswerMode(parsed.answerMode),
@@ -181,6 +187,10 @@ namespace EndangeredAR.AI
                     ActionSuggestion = AIActionProtocol.Parse(parsed.actionSuggestion),
                     citations = CloudLLMProvider.MapCitations(parsed.citations)
                 };
+                response.ProviderAttempts = AIProvenanceProtocol.ParseProviderAttempt(parsed.providerAttempt);
+                response.FallbackUsed = parsed.fallbackUsed;
+                response.FallbackReasonCode = AIProvenanceProtocol.SanitizeReasonCode(parsed.fallbackReason);
+                response.ElapsedMilliseconds = Math.Max(0L, parsed.elapsedMs);
                 return true;
             }
             catch (ArgumentException)

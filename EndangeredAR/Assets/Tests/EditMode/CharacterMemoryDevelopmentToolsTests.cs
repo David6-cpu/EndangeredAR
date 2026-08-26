@@ -15,6 +15,7 @@ namespace EndangeredAR.Tests.EditMode
         private const string BootstrapPath = "Assets/Scripts/Development/DevelopmentToolsBootstrap.cs";
         private const string AnimationPanelPath = "Assets/Scripts/Development/AnimalAnimationDebugPanel.cs";
         private const string MemoryPanelPath = "Assets/Scripts/Development/CharacterMemoryDebugPanel.cs";
+        private const string ProvenancePanelPath = "Assets/Scripts/Development/AIProvenanceDebugPanel.cs";
 
         [TearDown]
         public void TearDown()
@@ -32,11 +33,19 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(File.Exists(BootstrapPath), Is.True);
             Assert.That(File.Exists(AnimationPanelPath), Is.True);
             Assert.That(File.Exists(MemoryPanelPath), Is.True);
+            Assert.That(File.Exists(ProvenancePanelPath), Is.True);
 
             var bootstrap = File.ReadAllText(BootstrapPath);
             var memoryPanel = File.ReadAllText(MemoryPanelPath);
+            var provenancePanel = File.ReadAllText(ProvenancePanelPath);
             Assert.That(bootstrap.TrimStart(), Does.StartWith("#if UNITY_EDITOR || DEVELOPMENT_BUILD"));
             Assert.That(memoryPanel.TrimStart(), Does.StartWith("#if UNITY_EDITOR || DEVELOPMENT_BUILD"));
+            Assert.That(provenancePanel.TrimStart(), Does.StartWith("#if UNITY_EDITOR || DEVELOPMENT_BUILD"));
+
+            StringAssert.DoesNotContain("message", provenancePanel.ToLowerInvariant());
+            StringAssert.DoesNotContain("prompt", provenancePanel.ToLowerInvariant());
+            StringAssert.DoesNotContain("apikey", provenancePanel.ToLowerInvariant());
+            StringAssert.DoesNotContain("authorization", provenancePanel.ToLowerInvariant());
 
             var combined = bootstrap + memoryPanel;
             StringAssert.DoesNotContain("character-memory.json", combined);
@@ -50,7 +59,7 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
-        public void Bootstrap_CreatesExactlyOneAnimationPanelAndOneMemoryPanelOnOneRoot()
+        public void Bootstrap_CreatesExactlyOnePanelOfEachDevelopmentToolOnOneRoot()
         {
             var bootstrapType = Type.GetType(
                 "EndangeredAR.Development.DevelopmentToolsBootstrap, EndangeredAR.Runtime");
@@ -58,9 +67,12 @@ namespace EndangeredAR.Tests.EditMode
                 "EndangeredAR.Development.AnimalAnimationDebugPanel, EndangeredAR.Runtime");
             var memoryPanelType = Type.GetType(
                 "EndangeredAR.Development.CharacterMemoryDebugPanel, EndangeredAR.Runtime");
+            var provenancePanelType = Type.GetType(
+                "EndangeredAR.Development.AIProvenanceDebugPanel, EndangeredAR.Runtime");
             Assert.That(bootstrapType, Is.Not.Null);
             Assert.That(animationPanelType, Is.Not.Null);
             Assert.That(memoryPanelType, Is.Not.Null);
+            Assert.That(provenancePanelType, Is.Not.Null);
 
             var ensure = bootstrapType.GetMethod(
                 "EnsureInitialized",
@@ -74,9 +86,12 @@ namespace EndangeredAR.Tests.EditMode
                 FindObjectsSortMode.None);
             var animationPanels = components.Where(value => value.GetType() == animationPanelType).ToArray();
             var memoryPanels = components.Where(value => value.GetType() == memoryPanelType).ToArray();
+            var provenancePanels = components.Where(value => value.GetType() == provenancePanelType).ToArray();
             Assert.That(animationPanels, Has.Length.EqualTo(1));
             Assert.That(memoryPanels, Has.Length.EqualTo(1));
+            Assert.That(provenancePanels, Has.Length.EqualTo(1));
             Assert.That(memoryPanels[0].gameObject, Is.SameAs(animationPanels[0].gameObject));
+            Assert.That(provenancePanels[0].gameObject, Is.SameAs(animationPanels[0].gameObject));
             Assert.That(animationPanels[0].GetComponent<Canvas>(), Is.Not.Null);
         }
 

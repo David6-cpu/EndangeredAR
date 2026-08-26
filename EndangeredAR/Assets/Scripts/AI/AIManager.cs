@@ -32,6 +32,7 @@ namespace EndangeredAR.AI
             Action<AIResponse> onSuccess,
             Action<AIProviderError> onError)
         {
+            var sendStartedAt = Time.realtimeSinceStartup;
             var currentContext = ReadOnlyCharacterContext.Empty;
             if (request != null)
             {
@@ -51,10 +52,14 @@ namespace EndangeredAR.AI
             if (mentionMode == MemoryMentionMode.ExplicitRecall ||
                 mentionMode == MemoryMentionMode.ConversationHistoryBoundary)
             {
-                onSuccess?.Invoke(CharacterMemoryDialogueResolver.CreateDeterministicResponse(
+                var deterministicResponse = CharacterMemoryDialogueResolver.CreateDeterministicResponse(
                     request,
                     memoryContext,
-                    mentionMode));
+                    mentionMode);
+                deterministicResponse.ProvenanceRouteMode = "deterministic";
+                deterministicResponse.ElapsedMilliseconds = ElapsedMilliseconds(sendStartedAt);
+                AttachMemoryProvenance(deterministicResponse, mentionMode, memoryContext);
+                onSuccess?.Invoke(deterministicResponse);
                 yield break;
             }
 
@@ -72,25 +77,36 @@ namespace EndangeredAR.AI
 
             Action<AIResponse> routeSuccess = response =>
             {
-                onSuccess?.Invoke(mentionMode == MemoryMentionMode.Reunion
+                var finalResponse = mentionMode == MemoryMentionMode.Reunion
                     ? CharacterMemoryDialogueResolver.PrepareReunionResponse(request, response, memoryContext)
-                    : response);
+                    : response;
+                AttachMemoryProvenance(finalResponse, mentionMode, memoryContext);
+                onSuccess?.Invoke(finalResponse);
             };
             Action<AIProviderError> routeError = error =>
             {
                 if (mentionMode == MemoryMentionMode.Reunion)
                 {
-                    onSuccess?.Invoke(CharacterMemoryDialogueResolver.PrepareReunionResponse(
+                    var fallbackResponse = CharacterMemoryDialogueResolver.PrepareReunionResponse(
                         request,
                         new AIResponse
                         {
                             animalId = request?.animalId,
                             reply = SafeReunionTailGuard.FallbackTail,
-                            source = "unity_memory",
+                            source = "memory_deterministic",
                             routeReason = "memory_reunion_provider_unavailable",
                             ActionSuggestion = AIAction.None
                         },
-                        memoryContext));
+                        memoryContext);
+                    fallbackResponse.RouteMode = error.RouteMode;
+                    fallbackResponse.ProviderAttempts = error.ProviderAttempts ?? Array.Empty<string>();
+                    fallbackResponse.FallbackUsed = true;
+                    fallbackResponse.FallbackReasonCode = AIProvenanceProtocol.SanitizeReasonCode(error.Code);
+                    fallbackResponse.ElapsedMilliseconds = Math.Max(
+                        error.ElapsedMilliseconds,
+                        ElapsedMilliseconds(sendStartedAt));
+                    AttachMemoryProvenance(fallbackResponse, mentionMode, memoryContext);
+                    onSuccess?.Invoke(fallbackResponse);
                     return;
                 }
 
@@ -104,6 +120,27 @@ namespace EndangeredAR.AI
                 config == null ? DefaultTotalTimeoutSeconds : config.totalTimeoutSeconds,
                 routeSuccess,
                 routeError);
+        }
+
+        private static void AttachMemoryProvenance(
+            AIResponse response,
+            MemoryMentionMode mentionMode,
+            ReadOnlyCharacterMemoryContext memoryContext)
+        {
+            if (response == null)
+            {
+                return;
+            }
+
+            response.MemoryMentionMode = mentionMode;
+            response.ProvenanceMemoryStatus = memoryContext == null
+                ? "not_read"
+                : CharacterMemoryContextStatusProtocol.ToWireValue(memoryContext.Status);
+        }
+
+        private static long ElapsedMilliseconds(float startedAt)
+        {
+            return Math.Max(0L, (long)Math.Round((Time.realtimeSinceStartup - startedAt) * 1000f));
         }
 
         internal AIResponse RefreshMemoryDependentResponse(

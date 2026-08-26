@@ -1635,11 +1635,19 @@ namespace EndangeredAR.UI
 
             if (aiManager == null)
             {
-                FinishCloudAnswer(request, message, new AIResponse
+                var fallbackResponse = new AIResponse
                 {
                     reply = BuildFallbackReply(message),
+                    source = "unity_fallback",
+                    routeReason = "ai_manager_unavailable",
+                    answerMode = "social_chat",
+                    evidenceStatus = "not_required",
                     missionHint = $"AI 服务还没配置好，{CurrentShortName}先用本地知识陪你继续。"
-                });
+                };
+                fallbackResponse.ProviderAttempts = new[] { "unity_fallback" };
+                fallbackResponse.FallbackUsed = true;
+                fallbackResponse.FallbackReasonCode = "ai_manager_unavailable";
+                FinishCloudAnswer(request, message, fallbackResponse);
                 return;
             }
 
@@ -1655,11 +1663,24 @@ namespace EndangeredAR.UI
                         message,
                         response));
                 },
-                error => StartCoroutine(FinishCloudAnswerAfterDelay(request, message, new AIResponse
+                error =>
                 {
-                    reply = BuildFallbackReply(message),
-                    missionHint = $"AI 服务暂时不稳定，{CurrentShortName}先用本地知识陪你继续。"
-                }))
+                    var fallbackResponse = new AIResponse
+                    {
+                        reply = BuildFallbackReply(message),
+                        source = "unity_fallback",
+                        routeReason = "all_providers_failed",
+                        answerMode = "social_chat",
+                        evidenceStatus = "not_required",
+                        missionHint = $"AI 服务暂时不稳定，{CurrentShortName}先用本地知识陪你继续。"
+                    };
+                    fallbackResponse.RouteMode = error.RouteMode;
+                    fallbackResponse.ProviderAttempts = error.ProviderAttempts ?? Array.Empty<string>();
+                    fallbackResponse.FallbackUsed = true;
+                    fallbackResponse.FallbackReasonCode = AIProvenanceProtocol.SanitizeReasonCode(error.Code);
+                    fallbackResponse.ElapsedMilliseconds = error.ElapsedMilliseconds;
+                    StartCoroutine(FinishCloudAnswerAfterDelay(request, message, fallbackResponse));
+                }
             ));
         }
 
@@ -1680,11 +1701,20 @@ namespace EndangeredAR.UI
                 yield break;
             }
 
-            FinishCloudAnswer(request, userMessage, new AIResponse
+            var fallbackResponse = new AIResponse
             {
                 reply = BuildFallbackReply(userMessage),
+                source = "unity_fallback",
+                routeReason = "client_timeout",
+                answerMode = "social_chat",
+                evidenceStatus = "not_required",
                 missionHint = $"网络有点慢，{CurrentShortName}先用本地知识回答你。"
-            });
+            };
+            fallbackResponse.ProviderAttempts = new[] { "unity_fallback" };
+            fallbackResponse.FallbackUsed = true;
+            fallbackResponse.FallbackReasonCode = "client_timeout";
+            fallbackResponse.ElapsedMilliseconds = (long)(CloudAnswerTimeoutSeconds * 1000f);
+            FinishCloudAnswer(request, userMessage, fallbackResponse);
         }
 
         private void StartCloudAnswerTimeout(ChatRequestTicket request, string userMessage)
@@ -1751,6 +1781,10 @@ namespace EndangeredAR.UI
             }
 
             StopCloudAnswerTimeout();
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            EndangeredAR.Development.AIResponseProvenanceRecorder.TryRecord(response);
+#endif
 
             ReplaceLastThinkingLine($"{CurrentShortName}：{reply}");
             SetText(chatPageText, chatTranscript);

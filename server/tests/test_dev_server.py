@@ -553,6 +553,67 @@ class DevServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(payload["source"], "server_rule")
         self.assertEqual(payload["routeReason"], "cloud_provider_unavailable_server_rule_fallback")
+        self.assertEqual(payload["providerAttempt"], "cloud_llm")
+        self.assertTrue(payload["fallbackUsed"])
+        self.assertEqual(payload["fallbackReason"], "cloud_provider_unavailable")
+
+    def test_local_model_completion_has_unambiguous_provenance(self):
+        animal = animal_knowledge.load_animal_knowledge("sensen")
+        with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
+            "server.dev_server.call_local_llm",
+            return_value=dev_server.ProviderResult(reply="我可以陪你安静聊一会儿。"),
+        ):
+            status, payload = self.invoke_post(
+                "/chat/local",
+                {"requestId": "route-local-1", "animalId": "sensen", "message": "我今天有一点累"},
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["source"], "local_llm")
+        self.assertEqual(payload["providerAttempt"], "local_llm")
+        self.assertFalse(payload["fallbackUsed"])
+        self.assertEqual(payload["fallbackReason"], "")
+
+    def test_cloud_model_completion_has_unambiguous_provenance(self):
+        animal = animal_knowledge.load_animal_knowledge("sensen")
+        with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
+            "server.dev_server.call_moonshot",
+            return_value="我想陪你慢慢看看森林。",
+        ):
+            status, payload = self.invoke_post(
+                "/chat",
+                {"requestId": "route-cloud-1", "animalId": "sensen", "message": "今天陪我随便聊聊"},
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["source"], "cloud_llm")
+        self.assertEqual(payload["providerAttempt"], "cloud_llm")
+        self.assertFalse(payload["fallbackUsed"])
+        self.assertEqual(payload["fallbackReason"], "")
+
+    def test_safe_route_log_contains_metadata_without_user_text(self):
+        response = {
+            "source": "local_llm",
+            "answerMode": "social_chat",
+            "providerAttempt": "local_llm",
+            "fallbackUsed": False,
+            "fallbackReason": "",
+        }
+
+        record = dev_server.make_route_provenance_log(
+            "route-local-1",
+            response,
+            200,
+            1250,
+        )
+
+        self.assertEqual(record["finalSource"], "local_llm")
+        self.assertEqual(record["providerAttempt"], "local_llm")
+        self.assertEqual(record["elapsedMs"], 1250)
+        serialized = json.dumps(record, ensure_ascii=False)
+        self.assertNotIn("message", serialized.lower())
+        self.assertNotIn("prompt", serialized.lower())
+        self.assertNotIn("我今天有一点累", serialized)
 
     def test_local_and_cloud_action_metadata_uses_original_user_intent(self):
         animal = animal_knowledge.load_animal_knowledge("sensen")

@@ -161,7 +161,7 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(request.Context, Is.Not.Null);
             Assert.That(request.Context.IsEmpty, Is.True);
             Assert.That(response, Is.Not.Null);
-            Assert.That(response.source, Is.EqualTo("unity_knowledge"));
+            Assert.That(response.source, Is.EqualTo("unity_fallback"));
         }
 
         [Test]

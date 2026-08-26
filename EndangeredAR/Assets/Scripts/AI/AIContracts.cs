@@ -44,6 +44,13 @@ namespace EndangeredAR.AI
         [NonSerialized] internal MemoryMentionMode MemoryMentionMode;
         [NonSerialized] internal string MemoryContextFingerprint;
         [NonSerialized] internal string ReunionProviderTail;
+        [NonSerialized] internal AIRouteMode RouteMode;
+        [NonSerialized] internal string ProvenanceRouteMode;
+        [NonSerialized] internal string[] ProviderAttempts = Array.Empty<string>();
+        [NonSerialized] internal bool FallbackUsed;
+        [NonSerialized] internal string FallbackReasonCode;
+        [NonSerialized] internal long ElapsedMilliseconds;
+        [NonSerialized] internal string ProvenanceMemoryStatus = "not_read";
     }
 
     [Serializable]
@@ -67,6 +74,9 @@ namespace EndangeredAR.AI
         public string Code { get; }
         public string Message { get; }
         public bool IsTimeout { get; }
+        internal AIRouteMode RouteMode { get; set; }
+        internal string[] ProviderAttempts { get; set; } = Array.Empty<string>();
+        internal long ElapsedMilliseconds { get; set; }
     }
 
     public interface IAIProvider
