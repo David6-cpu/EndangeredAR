@@ -113,7 +113,7 @@ curl -sS -X POST http://127.0.0.1:8000/chat/local \
   -d '{"animalId":"sensen","message":"森森，你平时吃什么？","history":[]}'
 ```
 
-Existing Moonshot/Python-rule path:
+Development-only explicit Moonshot path:
 
 ```bash
 curl -sS -X POST http://127.0.0.1:8000/chat \
@@ -121,7 +121,7 @@ curl -sS -X POST http://127.0.0.1:8000/chat \
   -d '{"animalId":"sensen","message":"森森，你平时吃什么？","history":[]}'
 ```
 
-A successful response includes `reply`, `source`, `routeReason`, `answerMode`, `evidenceStatus`, and `citations`. Direct `/chat/local` success uses `source: local_llm`. Direct `/chat` uses `source: cloud_llm` when Moonshot answers or `source: server_rule` when its built-in fallback answers. `citations` are resolved from canonical source metadata by application code; providers cannot create accepted source IDs or URLs.
+A successful response includes `reply`, `source`, `routeReason`, `contentAuthority`, `languageGenerator`, `answerMode`, `evidenceStatus`, and `citations`. Direct `/chat/local` success requires a real llama.cpp completion and uses `source: local_llm`. Direct `/chat` succeeds only after a real Moonshot completion and uses `source: cloud_llm`; it is reserved for explicit Development testing. Neither endpoint returns Python rule text as a successful chat completion. `citations` are resolved from canonical source metadata by application code; providers cannot create accepted source IDs or URLs.
 
 ## 5. Grounded knowledge contract
 
@@ -135,12 +135,12 @@ Retrieval returns one of:
 
 | `answerMode` | `evidenceStatus` | Behavior |
 | --- | --- | --- |
-| `grounded_fact` | `evidence_found` | return the approved fact and canonical citations |
-| `grounded_fact` | `insufficient_evidence` | explain that reliable evidence is unavailable; never invent a number or behavior |
-| `social_chat` | `not_required` | allow short role conversation without fabricated citations |
-| `off_domain` | `not_required` | redirect unrelated or prompt-extraction requests |
+| `grounded_fact` | `evidence_found` | give canonical evidence to the selected LLM, validate its wording, and attach canonical citations |
+| `grounded_fact` | `insufficient_evidence` | require the selected LLM to state that evidence is unavailable; never invent a number or behavior |
+| `social_chat` | `not_required` | allow the selected LLM to produce short role conversation without fabricated facts or citations |
+| `off_domain` | `not_required` | give the selected LLM a system-policy boundary for a safe natural-language response |
 
-The Unity fallback profile is generated from the same JSON through `Endangered AR > Data > Rebuild Sensen Content`. Do not edit the generated knowledge asset as a separate source of truth.
+The Unity knowledge profile is generated from the same JSON through `Endangered AR > Data > Rebuild Sensen Content`. It remains useful for retrieval, metadata validation, deterministic tests, and diagnostics, but it no longer has user-facing chat authority. Do not edit the generated knowledge asset as a separate source of truth.
 
 ## 6. Unity routing
 
@@ -148,11 +148,11 @@ Configure `EndangeredAR/Assets/Config/LocalAIConfig.asset`:
 
 | RouteMode | Order |
 | --- | --- |
-| `CloudOnly` | `/chat` -> Unity `LocalKnowledgeChatService` |
-| `LocalOnly` | `/chat/local` -> Unity `LocalKnowledgeChatService`; Cloud is never called |
-| `LocalFirstCloudFallback` | `/chat/local` -> `/chat` -> Unity `LocalKnowledgeChatService` |
+| `LocalOnly` | `/chat/local`; failure becomes `system_status` and never calls Cloud or Unity chat fallback |
+| `CloudOnly` | `/chat`; available only when explicitly selected in Editor or a Development Build |
+| `LocalFirstCloudFallback` | retained for configuration compatibility but currently executes as fail-closed Local-only |
 
-The checked-in default remains `CloudOnly`. Default budgets are 8 seconds for the local attempt and 38 seconds for the complete Provider route. The existing chat UI guard is 40 seconds, so a failed local attempt does not start a new full 40-second Cloud wait.
+The checked-in and non-Development default is `LocalOnly`. Default budgets are 8 seconds for the local attempt and 38 seconds for the complete Provider route. A Local failure becomes an explicit `local_model_unavailable` system status; it does not start a Cloud request or synthesize a character reply.
 
 Unity Editor configuration:
 
@@ -172,10 +172,10 @@ On a phone, `127.0.0.1` is the phone itself, not the Mac. Keep the phone and Mac
 
 ## 7. Manual R1 cases
 
-- **Case A:** run llama.cpp and Python, configure Moonshot, choose `LocalFirstCloudFallback`. Ask “森森，你平时吃什么？”. Unity should log `source=local_llm` and `routeReason=local_first`.
-- **Case B:** stop llama.cpp but keep Python running. In `LocalFirstCloudFallback`, Unity should continue through `/chat`; the source is `cloud_llm` when Moonshot succeeds, otherwise `server_rule` by existing `/chat` behavior.
-- **Case C:** make both Python HTTP paths unavailable, for example by stopping Python. Unity should return its `LocalKnowledgeChatService` answer with `source=unity_knowledge`.
-- **Case D:** run llama.cpp and Python, choose `LocalOnly`, then disconnect Internet. Chat should still answer locally and must not access Cloud.
+- **Case A:** run llama.cpp and Python with the default `LocalOnly`, then ask “森森，你平时吃什么？”. Unity must report `contentAuthority=canonical_knowledge`, `languageGenerator=local_llm`, `source=local_llm`, preserve citations, and keep Eat authorization in application metadata.
+- **Case B:** stop llama.cpp but keep Python and the App running, then ask an open social question. Unity must report `source=system_status`, `errorCode=local_model_unavailable`, and must not call Cloud, Python rule chat, or Unity chat fallback.
+- **Case C:** restart llama.cpp and resend the question. The same App session must recover to `source=local_llm` without changing Progress or reinstalling.
+- **Case D:** explicitly select `CloudOnly` in a Development Build to compare Moonshot. A successful real model completion reports `source=cloud_llm`; a failure reports system status rather than a deterministic chat reply.
 
 Unity logs the selected `source` and `routeReason`; raw technical errors are not shown in the chat UI.
 
@@ -186,7 +186,8 @@ Unity logs the selected `source` and `routeReason`; raw technical errors are not
 - `local_llm_timeout` (504): confirm llama.cpp is responsive or adjust `LOCAL_LLM_TIMEOUT`; Unity still enforces its own route budget.
 - `local_llm_unavailable` / 502: confirm `llama-server` is running on port 8080 and the `/v1` prefix matches the server.
 - Phone cannot connect: replace phone-side localhost with the Mac LAN IP, use the same port 8000, confirm both devices are on the same network, and check the macOS firewall.
-- `/chat` returns `server_rule`: Moonshot is unconfigured or unavailable; this is the intended backwards-compatible fallback.
+- `local_model_unavailable` / 503: the adapter could not obtain a real llama.cpp completion. The product shows an explicit system status and does not fall back to another chat source.
+- `ai_response_validation_failed` / 422: both the initial completion and one stricter retry violated the trusted-context response contract. The product shows a validation status and does not substitute fixed character text.
 
 R2 deliberately does not implement vector databases, embeddings, streaming responses, native mobile inference, fine-tuning, or AI-driven animation/task mutation.
 

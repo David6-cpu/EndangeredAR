@@ -129,11 +129,11 @@ cd EndangeredAR
 
 ### 3. 启动 AI 服务
 
-仅使用云端或 Unity 知识兜底时，项目不需要第三方 Python 包：
+当前默认聊天链路需要在开发机上同时运行 Python adapter 和 llama.cpp：
 
 ```bash
 cp server/.env.example .env.local
-# 在 .env.local 中填写 MOONSHOT_API_KEY；不配置也可使用本地知识兜底
+# 默认 LocalOnly 不需要 MOONSHOT_API_KEY
 python3 server/dev_server.py
 ```
 
@@ -168,7 +168,7 @@ LOCAL_LLM_TIMEOUT=7
 
 `LOCAL_LLM_MODEL` 可留空；是否需要模型名取决于所使用的兼容服务。完整启动、接口调用和故障排查见 [`server/README.md`](server/README.md)。
 
-Unity 的默认路由仍是 `CloudOnly`。在 `EndangeredAR/Assets/Config/LocalAIConfig.asset` 中可选择 `CloudOnly`、`LocalOnly` 或 `LocalFirstCloudFallback`。Unity Editor 的本地服务地址和云端代理地址都可使用 `http://127.0.0.1:8000`。
+Unity 的正式默认路由是 `LocalOnly`。面向用户的自然语言由开发机上的 llama.cpp + Qwen2.5-1.5B 生成；这不是 iPhone 内嵌推理。`CloudOnly` 仅供 Editor 或 Development Build 显式对照测试，默认链路不会自动切换 Cloud。Unity Editor 的本地服务地址可使用 `http://127.0.0.1:8000`。
 
 iPhone 真机中的 `localhost` 指向手机自身，因此 `LocalAIConfig.localServerUrl` 和现有 `LocalApiConfig.baseUrl` 都必须填写开发电脑在同一局域网内可达的地址，例如 `http://192.168.1.20:8000`。Python 代理仍可通过 Mac 自己的 `127.0.0.1:8080` 访问 llama.cpp。现有菜单可设置 `LocalApiConfig` 的云端代理地址：
 
@@ -178,7 +178,7 @@ Endangered AR > Set Local API To Mac LAN IP
 
 该菜单当前不会同步更新 `LocalAIConfig.localServerUrl`；使用本地路由进行真机测试前，请在 Inspector 中单独填写同一个 Mac 局域网地址。
 
-生产环境应将代理部署到 HTTPS 服务，不应依赖开发电脑的局域网地址。
+当前本地模型路径属于开发与演示部署。未来产品化需要把推理服务改为正式受控部署；不能把当前结构描述为手机端侧模型。
 
 ### 4. 构建 iOS
 
@@ -204,16 +204,17 @@ LOCAL_LLM_TIMEOUT=7
 
 - `.env.local` 已被 `.gitignore` 排除，**不要提交真实密钥**。
 - Unity 客户端不保存 Moonshot Key，也不发送 `Authorization: Bearer` 到供应商。
-- `CloudOnly`：Python `/chat` → Moonshot；Moonshot 不可用时保持现有 Python 规则回答；代理不可达时使用 Unity 知识兜底。
-- `LocalOnly`：Python `/chat/local` → llama.cpp；失败后直接使用 Unity 知识兜底，绝不访问 Cloud。
-- `LocalFirstCloudFallback`：先尝试本地模型，再使用剩余预算请求 `/chat`，最后使用 Unity 知识兜底。
-- `source` 标识实际答案来源（如 `local_llm`、`cloud_llm`、`server_rule`、`unity_knowledge`），`routeReason` 标识命中的路由路径。
+- `LocalOnly`：默认路径为 Unity → Python `/chat/local` → Mac llama.cpp → Qwen2.5-1.5B。失败时显示明确的系统不可用状态，不访问 Cloud，也不使用固定角色话术伪装成功。
+- `CloudOnly`：仅允许在 Editor 或 Development Build 中显式选择，用于 Moonshot 对照验证，不是默认 fallback。
+- `LocalFirstCloudFallback`：保留旧枚举以兼容历史配置，但当前执行语义按 Local-only fail-closed 处理，不再自动尝试 Cloud 或 Unity 聊天兜底。
+- `contentAuthority` 标识事实权限来源：R2 canonical knowledge、R3.3A current progress、R3.3B character memory 或 system policy；`languageGenerator` 标识实际语言生成器。
+- 正常默认回复必须为 `source=local_llm`、`languageGenerator=local_llm`。服务失败时为 `source=system_status`，错误状态不作为森森回复写入聊天历史。
 - `answerMode` 区分 `grounded_fact`、`social_chat` 和 `off_domain`；`evidenceStatus` 区分有证据、证据不足和无需证据。
 - `citations` 由应用根据检索结果生成，包含稳定 `sourceId`、标题、机构和 URL；模型输出中的伪造引用不会进入响应。
 - 森森唯一人工维护知识源是 [`content/animals/sensen.json`](content/animals/sensen.json)。Unity 的 `Sensen.asset` 与 `SensenKnowledge.asset` 由 `AnimalContentAssetBuilder` 从该文件生成，不应手工维护第二份事实。
 - 默认预算为本地 8 秒、整条 Provider 路由 38 秒；聊天 UI 另有 40 秒总保护，不会让 Local 与 Cloud 各自等待完整 40 秒。
 - 后端最多保留请求中最近 20 条受支持的用户/角色消息。
-- 当前知识系统使用小型确定性检索，不包含向量数据库、Embedding、流式输出或移动端原生推理。角色动作只能由应用生成候选并经过 Policy、Capability、Validator 和角色控制器，模型不能直接控制动画或任务。
+- 当前知识系统使用小型确定性检索，不包含向量数据库、Embedding、流式输出或移动端原生推理。R2 提供可信事实和引用，Qwen 只负责最终语言表达。角色动作只能由应用生成候选并经过 Policy、Capability、Validator 和角色控制器，模型不能直接控制动画或任务。
 
 更完整的后端说明见 [`server/README.md`](server/README.md)。
 
