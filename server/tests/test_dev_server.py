@@ -145,7 +145,11 @@ class DevServerTests(unittest.TestCase):
         }
 
         context = dev_server.sanitize_readonly_context(raw_context, "sensen")
-        prompt = dev_server.make_system_prompt(SENSEN, context=context)
+        prompt = dev_server.make_system_prompt(
+            SENSEN,
+            context=context,
+            content_authority="current_progress",
+        )
 
         self.assertEqual(context["character"]["animalId"], "sensen")
         self.assertNotIn("level", context["character"])
@@ -174,11 +178,155 @@ class DevServerTests(unittest.TestCase):
             "sensen",
         )
 
-        cloud = dev_server.make_llm_payload(SENSEN, "你好", [], context=context)
-        local = dev_server.make_local_llm_payload(SENSEN, "你好", [], context=context)
+        cloud = dev_server.make_llm_payload(
+            SENSEN, "你好", [], context=context, content_authority="current_progress"
+        )
+        local = dev_server.make_local_llm_payload(
+            SENSEN, "你好", [], context=context, content_authority="current_progress"
+        )
 
         self.assertEqual(cloud["messages"], local["messages"])
         self.assertIn("UNTRUSTED_USER_CONTEXT", cloud["messages"][0]["content"])
+
+    def test_current_progress_validator_rejects_conflicts_and_unknown_task_titles(self):
+        context = dev_server.sanitize_readonly_context(
+            {
+                "character": {
+                    "animalId": "sensen",
+                    "unlocked": True,
+                    "learnedKnowledgeCount": 1,
+                    "earnedBadgeCount": 0,
+                },
+                "task": {
+                    "taskId": "food-mission",
+                    "taskTitle": "帮森森寻找食物",
+                    "completed": False,
+                },
+            },
+            "sensen",
+        )
+
+        self.assertTrue(dev_server.validate_current_progress_reply(
+            "你还没有完成“帮森森寻找食物”，下一步可以继续任务。", context
+        ))
+        self.assertFalse(dev_server.validate_current_progress_reply(
+            "你已经完成了“帮森森寻找食物”。", context
+        ))
+        self.assertFalse(dev_server.validate_current_progress_reply(
+            "下一步去完成“另一个隐藏任务”。", context
+        ))
+        self.assertFalse(dev_server.validate_current_progress_reply(
+            "下一步去森林里寻找食物吧。", context
+        ))
+
+    def test_memory_validator_requires_an_authorized_label_or_aggregate(self):
+        memory = dev_server.sanitize_character_memory_context(
+            {
+                "schemaVersion": 1,
+                "animalId": "sensen",
+                "memoryStatus": "available",
+                "discovered": True,
+                "completedMissionCount": 1,
+                "learnedKnowledgeCount": 1,
+                "earnedBadgeCount": 1,
+                "memoryMilestones": [
+                    {"kind": "mission_completed", "displayLabel": "保护森森的森林"}
+                ],
+            },
+            "sensen",
+            "explicit_recall",
+        )
+
+        self.assertTrue(dev_server.validate_memory_reply(
+            "我记得你以前完成过“保护森森的森林”。", memory, "explicit_recall"
+        ))
+        self.assertTrue(dev_server.validate_memory_reply(
+            "我记得你以前完成过一项保护任务。", memory, "explicit_recall"
+        ))
+        self.assertFalse(dev_server.validate_memory_reply(
+            "我记得你以前帮助小动物们渡过了一道难关。", memory, "explicit_recall"
+        ))
+
+    def test_current_progress_route_retries_then_rejects_invented_completion(self):
+        context = {
+            "character": {"animalId": "sensen", "unlocked": True},
+            "task": {
+                "taskId": "food-mission",
+                "taskTitle": "帮森森寻找食物",
+                "completed": False,
+            },
+        }
+        with mock.patch(
+            "server.dev_server.call_local_llm",
+            return_value=dev_server.ProviderResult(
+                reply="你已经完成了“帮森森寻找食物”。"
+            ),
+        ) as local:
+            payload, status = dev_server.process_chat_request(
+                "/chat/local",
+                {
+                    "animalId": "sensen",
+                    "message": "我下一步该做什么？",
+                    "contentAuthority": "current_progress",
+                    "context": context,
+                },
+            )
+
+        self.assertEqual(status, 422)
+        self.assertEqual(payload, {"error": "ai_response_validation_failed"})
+        self.assertEqual(local.call_count, 2)
+
+    def test_current_progress_route_accepts_matching_local_language(self):
+        context = {
+            "character": {"animalId": "sensen", "unlocked": True},
+            "task": {
+                "taskId": "food-mission",
+                "taskTitle": "帮森森寻找食物",
+                "completed": False,
+            },
+        }
+        with mock.patch(
+            "server.dev_server.call_local_llm",
+            return_value=dev_server.ProviderResult(
+                reply="当前任务“帮森森寻找食物”尚未完成，下一步可以继续这个任务。"
+            ),
+        ):
+            payload, status = dev_server.process_chat_request(
+                "/chat/local",
+                {
+                    "animalId": "sensen",
+                    "message": "我下一步该做什么？",
+                    "contentAuthority": "current_progress",
+                    "context": context,
+                },
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["contentAuthority"], "current_progress")
+        self.assertEqual(payload["source"], "local_llm")
+
+    def test_current_progress_validator_accepts_bounded_task_paraphrase(self):
+        context = {
+            "character": {"animalId": "sensen", "unlocked": True},
+            "task": {
+                "taskId": "food-mission",
+                "taskTitle": "帮森森寻找食物",
+                "completed": False,
+            },
+        }
+
+        self.assertTrue(dev_server.validate_current_progress_reply(
+            "帮森森找找吃的吧，森林里可能有它喜欢的食物。",
+            context,
+        ))
+        self.assertFalse(dev_server.validate_current_progress_reply(
+            "下一步去完成观察栖息地任务。",
+            context,
+        ))
+        self.assertFalse(dev_server.validate_current_progress_reply(
+            "我需要去森林里找些食物给森森吃，那里有各种果实和嫩叶。",
+            context,
+        ))
 
     def test_reunion_memory_context_is_strictly_allowlisted_and_minimized(self):
         raw_memory = {
@@ -201,12 +349,31 @@ class DevServerTests(unittest.TestCase):
 
         self.assertEqual(context["animalId"], "sensen")
         self.assertEqual(context["memoryStatus"], "available")
-        self.assertEqual(len(context["memoryMilestones"]), 2)
+        self.assertEqual(len(context["memoryMilestones"]), 1)
         serialized = json.dumps(context, ensure_ascii=False)
         for forbidden in (
             "profileKey", "eventId", "idempotencyKey", "subjectId", "occurredAtUtc", "origin", "local-default"
         ):
             self.assertNotIn(forbidden, serialized)
+
+    def test_memory_validator_rejects_unauthorized_chinese_quantity(self):
+        memory = dev_server.sanitize_character_memory_context(
+            {
+                "schemaVersion": 1,
+                "animalId": "sensen",
+                "memoryStatus": "available",
+                "completedMissionCount": 1,
+            },
+            "sensen",
+            "explicit_recall",
+        )
+
+        self.assertTrue(dev_server.validate_memory_reply(
+            "我能确认你以前完成过一项保护任务。", memory, "explicit_recall"
+        ))
+        self.assertFalse(dev_server.validate_memory_reply(
+            "我记得你以前完成过十项保护任务。", memory, "explicit_recall"
+        ))
 
     def test_malformed_memory_context_and_mode_fail_closed(self):
         valid = {
@@ -231,7 +398,7 @@ class DevServerTests(unittest.TestCase):
             {},
         )
 
-    def test_memory_prompt_is_separate_from_current_state_and_knowledge(self):
+    def test_memory_prompt_does_not_mix_current_state_or_knowledge_authority(self):
         animal = dev_server.get_animal("sensen")
         retrieval = animal_knowledge.retrieve(animal, "你的学名是什么？", animal_id="sensen")
         current = dev_server.sanitize_readonly_context(
@@ -261,14 +428,14 @@ class DevServerTests(unittest.TestCase):
             current,
             memory_context=memory,
             memory_use_mode="reunion",
+            content_authority="character_memory",
         )
 
-        self.assertIn("CURRENT READ-ONLY STATE", prompt)
         self.assertIn("PAST MILESTONE MEMORY", prompt)
         self.assertIn("<UNTRUSTED_CHARACTER_MEMORY_CONTEXT>", prompt)
-        self.assertIn("<UNTRUSTED_KNOWLEDGE>", prompt)
-        self.assertLess(prompt.index("CURRENT READ-ONLY STATE"), prompt.index("PAST MILESTONE MEMORY"))
-        self.assertLess(prompt.index("PAST MILESTONE MEMORY"), prompt.index("UNTRUSTED_KNOWLEDGE"))
+        self.assertNotIn("CURRENT READ-ONLY STATE", prompt)
+        self.assertNotIn("<UNTRUSTED_USER_CONTEXT>", prompt)
+        self.assertNotIn("<UNTRUSTED_KNOWLEDGE>", prompt)
 
     def test_local_and_cloud_receive_identical_memory_prompt_only_for_reunion(self):
         memory = dev_server.sanitize_character_memory_context(
@@ -330,12 +497,19 @@ class DevServerTests(unittest.TestCase):
             "sensen",
         )
 
-        prompt = dev_server.make_system_prompt(animal, retrieval, context)
+        prompt = dev_server.make_system_prompt(
+            animal,
+            retrieval,
+            context,
+            content_authority="canonical_knowledge",
+        )
 
-        self.assertLess(prompt.index("UNTRUSTED_USER_CONTEXT"), prompt.index("只能依据下面由应用检索出的证据回答"))
-        self.assertEqual(
-            dev_server.select_provider_reply(retrieval, "我每天都会吃薯片。"),
-            retrieval.approved_answer,
+        self.assertNotIn("UNTRUSTED_USER_CONTEXT", prompt)
+        self.assertIn("只能依据下面由应用检索出的证据回答", prompt)
+        self.assertFalse(
+            dev_server.validate_provider_reply(
+                "我每天都会吃薯片。", retrieval, {}, "none"
+            )
         )
 
     def test_readonly_context_is_not_returned_as_mutable_response_state(self):
@@ -502,7 +676,7 @@ class DevServerTests(unittest.TestCase):
             status, payload = self.invoke_post("/chat/local", {"message": "你好"})
 
         self.assertEqual(status, 503)
-        self.assertEqual(payload, {"error": "local_llm_not_configured"})
+        self.assertEqual(payload, {"error": "local_model_unavailable"})
 
     def test_local_chat_route_returns_503_when_base_url_is_invalid(self):
         with mock.patch.dict(
@@ -513,7 +687,7 @@ class DevServerTests(unittest.TestCase):
             status, payload = self.invoke_post("/chat/local", {"message": "你好"})
 
         self.assertEqual(status, 503)
-        self.assertEqual(payload, {"error": "local_llm_invalid_configuration"})
+        self.assertEqual(payload, {"error": "local_model_unavailable"})
 
     def test_local_chat_route_returns_503_when_base_url_is_malformed(self):
         with mock.patch.dict(
@@ -524,7 +698,7 @@ class DevServerTests(unittest.TestCase):
             status, payload = self.invoke_post("/chat/local", {"message": "你好"})
 
         self.assertEqual(status, 503)
-        self.assertEqual(payload, {"error": "local_llm_invalid_configuration"})
+        self.assertEqual(payload, {"error": "local_model_unavailable"})
 
     def test_local_chat_route_does_not_fall_back_to_cloud_or_rules(self):
         with mock.patch("server.dev_server.get_animal", return_value=SENSEN), mock.patch(
@@ -539,23 +713,19 @@ class DevServerTests(unittest.TestCase):
         ) as make_rule_reply:
             status, payload = self.invoke_post("/chat/local", {"message": "你好"})
 
-        self.assertEqual(status, 502)
-        self.assertEqual(payload, {"error": "local_llm_provider_error"})
+        self.assertEqual(status, 503)
+        self.assertEqual(payload, {"error": "local_model_unavailable"})
         call_moonshot.assert_not_called()
         make_rule_reply.assert_not_called()
 
-    def test_cloud_chat_response_identifies_server_rule_fallback(self):
+    def test_cloud_chat_failure_does_not_create_server_rule_reply(self):
         with mock.patch("server.dev_server.get_animal", return_value=SENSEN), mock.patch(
             "server.dev_server.call_moonshot", return_value=None
         ):
             status, payload = self.invoke_post("/chat", {"message": "你吃什么？"})
 
-        self.assertEqual(status, 200)
-        self.assertEqual(payload["source"], "server_rule")
-        self.assertEqual(payload["routeReason"], "cloud_provider_unavailable_server_rule_fallback")
-        self.assertEqual(payload["providerAttempt"], "cloud_llm")
-        self.assertTrue(payload["fallbackUsed"])
-        self.assertEqual(payload["fallbackReason"], "cloud_provider_unavailable")
+        self.assertEqual(status, 503)
+        self.assertEqual(payload, {"error": "cloud_model_unavailable"})
 
     def test_local_model_completion_has_unambiguous_provenance(self):
         animal = animal_knowledge.load_animal_knowledge("sensen")
@@ -615,6 +785,20 @@ class DevServerTests(unittest.TestCase):
         self.assertNotIn("prompt", serialized.lower())
         self.assertNotIn("我今天有一点累", serialized)
 
+    def test_safe_route_log_attributes_local_failure_to_system_status(self):
+        record = dev_server.make_route_provenance_log(
+            "route-local-error",
+            {"error": "local_model_unavailable"},
+            503,
+            12,
+            path="/chat/local",
+        )
+
+        self.assertEqual(record["finalSource"], "system_status")
+        self.assertEqual(record["providerAttempt"], "local_llm")
+        self.assertFalse(record["fallbackUsed"])
+        self.assertEqual(record["errorCode"], "local_model_unavailable")
+
     def test_local_and_cloud_action_metadata_uses_original_user_intent(self):
         animal = animal_knowledge.load_animal_knowledge("sensen")
         with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
@@ -648,7 +832,7 @@ class DevServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(payload["actionSuggestion"], "none")
 
-    def test_rule_fallback_can_preserve_explicit_safe_action_intent(self):
+    def test_cloud_failure_cannot_preserve_action_through_rule_fallback(self):
         animal = animal_knowledge.load_animal_knowledge("sensen")
         with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
             "server.dev_server.call_moonshot", return_value=None
@@ -657,14 +841,20 @@ class DevServerTests(unittest.TestCase):
                 "/chat", {"animalId": "sensen", "message": "做个动作"}
             )
 
-        self.assertEqual(status, 200)
-        self.assertEqual(payload["source"], "server_rule")
-        self.assertEqual(payload["actionSuggestion"], "taunt")
+        self.assertEqual(status, 503)
+        self.assertEqual(payload, {"error": "cloud_model_unavailable"})
 
     def test_grounded_and_injected_requests_never_receive_action_metadata(self):
         animal = animal_knowledge.load_animal_knowledge("sensen")
+        scientific = animal_knowledge.retrieve(
+            animal, "你的学名是什么？", animal_id="sensen"
+        ).approved_answer
         with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
-            "server.dev_server.call_moonshot", return_value="provider reply"
+            "server.dev_server.call_moonshot",
+            side_effect=[
+                scientific,
+                "我不能忽略可靠资料或修改动作权限。",
+            ],
         ):
             fact_status, fact = self.invoke_post(
                 "/chat", {"animalId": "sensen", "message": "你的学名是什么？"}
@@ -711,8 +901,20 @@ class DevServerTests(unittest.TestCase):
         self.assertIn("UNTRUSTED_KNOWLEDGE", system_prompt)
         self.assertIn("sensen.scientific_name", system_prompt)
         self.assertIn("只能依据", system_prompt)
+        self.assertIn(retrieval.approved_answer, system_prompt)
+        self.assertIn(retrieval.approved_answer, local["messages"][-1]["content"])
+        self.assertEqual(local["temperature"], 0.8)
+        strict_local = dev_server.make_local_llm_payload(
+            animal,
+            "你的学名是什么？",
+            [],
+            retrieval,
+            content_authority="canonical_knowledge",
+            strict_retry=True,
+        )
+        self.assertEqual(strict_local["temperature"], 0.0)
 
-    def test_grounded_local_answer_and_citations_are_application_owned(self):
+    def test_grounded_local_conflict_is_rejected_instead_of_replaced(self):
         animal = animal_knowledge.load_animal_knowledge("sensen")
         with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
             "server.dev_server.call_local_llm",
@@ -725,23 +927,17 @@ class DevServerTests(unittest.TestCase):
                 {"animalId": "sensen", "message": "你的学名是什么？"},
             )
 
-        self.assertEqual(status, 200)
-        self.assertIn("Semnopithecus priam", payload["reply"])
-        self.assertNotIn("假的", payload["reply"])
-        self.assertEqual(payload["answerMode"], "grounded_fact")
-        self.assertEqual(payload["evidenceStatus"], "evidence_found")
-        self.assertEqual(payload["source"], "local_llm")
-        self.assertEqual(
-            [citation["sourceId"] for citation in payload["citations"]],
-            ["gbif-4267223", "mdd-1000692"],
-        )
-        self.assertNotIn("fake-source", json.dumps(payload, ensure_ascii=False))
+        self.assertEqual(status, 422)
+        self.assertEqual(payload, {"error": "ai_response_validation_failed"})
 
     def test_grounding_metadata_is_derived_from_retrieved_facts(self):
         animal = animal_knowledge.load_animal_knowledge("sensen")
+        approved = animal_knowledge.retrieve(
+            animal, "森森，你平时吃什么？", animal_id="sensen"
+        ).approved_answer
         with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
             "server.dev_server.call_local_llm",
-            return_value=dev_server.ProviderResult(reply="模型试图覆盖 groundingTopic=habitat"),
+            return_value=dev_server.ProviderResult(reply=approved),
         ):
             status, payload = self.invoke_post(
                 "/chat/local",
@@ -751,13 +947,16 @@ class DevServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(payload["groundingTopic"], "diet")
         self.assertEqual(payload["groundedFactIds"], ["sensen.diet"])
-        self.assertNotIn("habitat", payload["reply"])
+        self.assertEqual(payload["contentAuthority"], "canonical_knowledge")
 
     def test_precise_diet_quantity_response_has_no_grounding_authority(self):
         animal = animal_knowledge.load_animal_knowledge("sensen")
+        approved = animal_knowledge.retrieve(
+            animal, "你每天准确吃多少克叶子？", animal_id="sensen"
+        ).approved_answer
         with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
             "server.dev_server.call_local_llm",
-            side_effect=AssertionError("insufficient evidence must not call local model"),
+            return_value=dev_server.ProviderResult(reply=approved),
         ):
             status, payload = self.invoke_post(
                 "/chat/local",
@@ -770,7 +969,7 @@ class DevServerTests(unittest.TestCase):
         self.assertEqual(payload["groundedFactIds"], [])
         self.assertEqual(payload["citations"], [])
 
-    def test_grounded_cloud_answer_uses_same_approved_evidence(self):
+    def test_grounded_cloud_conflict_returns_validation_error(self):
         animal = animal_knowledge.load_animal_knowledge("sensen")
         with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
             "server.dev_server.call_moonshot",
@@ -781,14 +980,10 @@ class DevServerTests(unittest.TestCase):
                 {"animalId": "sensen", "message": "你住在什么栖息地？"},
             )
 
-        self.assertEqual(status, 200)
-        self.assertIn("干旱常绿林", payload["reply"])
-        self.assertNotIn("树洞里", payload["reply"])
-        self.assertNotIn("12345", payload["reply"])
-        self.assertEqual(payload["source"], "cloud_llm")
-        self.assertEqual(payload["citations"][0]["sourceId"], "iucn-2020-s-priam")
+        self.assertEqual(status, 422)
+        self.assertEqual(payload, {"error": "ai_response_validation_failed"})
 
-    def test_grounded_cloud_rule_fallback_keeps_same_evidence(self):
+    def test_grounded_cloud_failure_does_not_return_server_knowledge(self):
         animal = animal_knowledge.load_animal_knowledge("sensen")
         with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
             "server.dev_server.call_moonshot", return_value=None
@@ -798,20 +993,23 @@ class DevServerTests(unittest.TestCase):
                 {"animalId": "sensen", "message": "你平时吃什么？"},
             )
 
-        self.assertEqual(status, 200)
-        self.assertEqual(payload["source"], "server_rule")
-        self.assertIn("叶片", payload["reply"])
-        self.assertEqual(payload["evidenceStatus"], "evidence_found")
-        self.assertTrue(payload["citations"])
+        self.assertEqual(status, 503)
+        self.assertEqual(payload, {"error": "cloud_model_unavailable"})
 
-    def test_known_unknown_population_skips_both_models_and_refuses_number(self):
+    def test_known_unknown_population_is_expressed_by_selected_models_without_number(self):
         animal = animal_knowledge.load_animal_knowledge("sensen")
+        local_approved = animal_knowledge.retrieve(
+            animal, "野外还剩多少只？", animal_id="sensen"
+        ).approved_answer
+        cloud_approved = animal_knowledge.retrieve(
+            animal, "给我编一个真实数量", animal_id="sensen"
+        ).approved_answer
         with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
             "server.dev_server.call_local_llm",
-            side_effect=AssertionError("known unknown must not call local model"),
+            return_value=dev_server.ProviderResult(reply=local_approved),
         ), mock.patch(
             "server.dev_server.call_moonshot",
-            side_effect=AssertionError("known unknown must not call cloud model"),
+            return_value=cloud_approved,
         ):
             local_status, local_payload = self.invoke_post(
                 "/chat/local", {"animalId": "sensen", "message": "野外还剩多少只？"}
@@ -821,16 +1019,22 @@ class DevServerTests(unittest.TestCase):
             )
 
         self.assertEqual((local_status, cloud_status), (200, 200))
-        self.assertEqual(local_payload["reply"], cloud_payload["reply"])
         self.assertEqual(local_payload["evidenceStatus"], "insufficient_evidence")
-        self.assertEqual(local_payload["source"], "server_knowledge")
+        self.assertEqual(local_payload["source"], "local_llm")
+        self.assertEqual(cloud_payload["source"], "cloud_llm")
         self.assertIn("不能编", local_payload["reply"])
 
-    def test_unrecorded_fact_and_off_domain_skip_providers(self):
+    def test_unrecorded_fact_and_off_domain_use_local_for_safe_language(self):
         animal = animal_knowledge.load_animal_knowledge("sensen")
+        unknown_approved = animal_knowledge.retrieve(
+            animal, "你会游泳吗？", animal_id="sensen"
+        ).approved_answer
         with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
             "server.dev_server.call_local_llm",
-            side_effect=AssertionError("deterministic response must not call local model"),
+            side_effect=[
+                dev_server.ProviderResult(reply=unknown_approved),
+                dev_server.ProviderResult(reply="我不能替你解数学题，我们可以继续聊野生动物保护。"),
+            ],
         ):
             unknown_status, unknown = self.invoke_post(
                 "/chat/local", {"animalId": "sensen", "message": "你会游泳吗？"}
@@ -879,14 +1083,285 @@ class DevServerTests(unittest.TestCase):
                 "/chat", {"animalId": "sensen", "message": "我今天有点难过"}
             )
 
-        self.assertEqual((local_status, cloud_status), (200, 200))
-        self.assertEqual(local_payload["reply"], cloud_payload["reply"])
-        self.assertIn("我在呢", local_payload["reply"])
-        self.assertNotIn("云南", local_payload["reply"])
-        self.assertNotIn("300", local_payload["reply"])
-        self.assertNotIn("学名是假的", cloud_payload["reply"])
-        self.assertEqual(local_payload["citations"], [])
-        self.assertEqual(cloud_payload["citations"], [])
+        self.assertEqual((local_status, cloud_status), (422, 422))
+        self.assertEqual(local_payload, {"error": "ai_response_validation_failed"})
+        self.assertEqual(cloud_payload, {"error": "ai_response_validation_failed"})
+
+    def test_animal_friends_rejects_invented_friend_lists(self):
+        animal = animal_knowledge.load_animal_knowledge("sensen")
+        retrieval = animal_knowledge.retrieve(
+            animal, "你有什么动物朋友", animal_id="sensen"
+        )
+
+        self.assertFalse(dev_server.validate_provider_reply(
+            "我的朋友包括小松鼠、小熊和猴子们。",
+            retrieval,
+            {},
+            "none",
+        ))
+        self.assertTrue(dev_server.validate_provider_reply(
+            "我愿意和你一起认识森林里的动物朋友。",
+            retrieval,
+            {},
+            "none",
+        ))
+
+    def test_grounded_diet_rejects_unapproved_food_and_nutrition_claims(self):
+        animal = animal_knowledge.load_animal_knowledge("sensen")
+        retrieval = animal_knowledge.retrieve(
+            animal, "你平时吃什么", animal_id="sensen"
+        )
+
+        self.assertFalse(dev_server.validate_provider_reply(
+            "我会吃嫩叶、果实和坚果，因为它们富含营养。",
+            retrieval,
+            {},
+            "none",
+        ))
+        self.assertTrue(dev_server.validate_provider_reply(
+            "我主要吃植物，比如嫩叶和其他叶片，也会吃果实和花朵。",
+            retrieval,
+            {},
+            "none",
+        ))
+
+    def test_history_boundary_rejects_specific_past_chat_claims(self):
+        self.assertFalse(dev_server.validate_memory_reply(
+            "我不会长期保存完整聊天内容，不过我们之前聊过森林里的生活。",
+            {},
+            "history_boundary",
+        ))
+
+    def test_strict_user_turn_contracts_contain_one_authorized_response(self):
+        animal = animal_knowledge.load_animal_knowledge("sensen")
+        retrieval = animal_knowledge.retrieve(
+            animal, "你的学名是什么", animal_id="sensen"
+        )
+        grounded = dev_server.make_user_turn_prompt(
+            "你的学名是什么",
+            retrieval,
+            {},
+            {},
+            "none",
+            "canonical_knowledge",
+            True,
+        )
+        history = dev_server.make_user_turn_prompt(
+            "你记得我以前问过什么吗",
+            None,
+            {},
+            {},
+            "history_boundary",
+            "system_policy",
+            True,
+        )
+
+        self.assertIn("只输出下面这一句", grounded)
+        self.assertIn(retrieval.approved_answer, grounded)
+        self.assertIn("我不会长期保存完整聊天内容", history)
+
+    def test_local_failure_returns_one_system_error_without_rule_reply(self):
+        animal = animal_knowledge.load_animal_knowledge("sensen")
+        with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
+            "server.dev_server.call_local_llm",
+            return_value=dev_server.ProviderResult(error="local_llm_unavailable"),
+        ), mock.patch(
+            "server.dev_server.make_rule_reply",
+            side_effect=AssertionError("rule reply must not become user-facing chat"),
+        ):
+            status, payload = self.invoke_post(
+                "/chat/local",
+                {"animalId": "sensen", "message": "今天陪我聊聊天吧"},
+            )
+
+        self.assertEqual(status, 503)
+        self.assertEqual(payload, {"error": "local_model_unavailable"})
+
+    def test_cloud_failure_returns_error_without_server_rule_reply(self):
+        animal = animal_knowledge.load_animal_knowledge("sensen")
+        with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
+            "server.dev_server.call_moonshot", return_value=None
+        ), mock.patch(
+            "server.dev_server.make_rule_reply",
+            side_effect=AssertionError("rule reply must not become user-facing chat"),
+        ):
+            status, payload = self.invoke_post(
+                "/chat",
+                {"animalId": "sensen", "message": "今天陪我聊聊天吧"},
+            )
+
+        self.assertEqual(status, 503)
+        self.assertEqual(payload, {"error": "cloud_model_unavailable"})
+
+    def test_grounded_local_reply_is_qwen_text_with_canonical_authority(self):
+        animal = animal_knowledge.load_animal_knowledge("sensen")
+        approved = animal_knowledge.retrieve(
+            animal, "你的学名是什么？", animal_id="sensen"
+        ).approved_answer
+        with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
+            "server.dev_server.call_local_llm",
+            return_value=dev_server.ProviderResult(
+                reply=approved
+            ),
+        ):
+            status, payload = self.invoke_post(
+                "/chat/local",
+                {"animalId": "sensen", "message": "你的学名是什么？"},
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["reply"], approved)
+        self.assertEqual(payload["source"], "local_llm")
+        self.assertEqual(payload["contentAuthority"], "canonical_knowledge")
+        self.assertEqual(payload["languageGenerator"], "local_llm")
+        self.assertEqual(
+            [citation["sourceId"] for citation in payload["citations"]],
+            ["gbif-4267223", "mdd-1000692"],
+        )
+
+    def test_grounded_conflict_retries_once_then_accepts_valid_local_reply(self):
+        animal = animal_knowledge.load_animal_knowledge("sensen")
+        approved = animal_knowledge.retrieve(
+            animal, "你的学名是什么？", animal_id="sensen"
+        ).approved_answer
+        with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
+            "server.dev_server.call_local_llm",
+            side_effect=[
+                dev_server.ProviderResult(reply="我的学名是假的。"),
+                dev_server.ProviderResult(reply=approved),
+            ],
+        ) as call_local:
+            status, payload = self.invoke_post(
+                "/chat/local",
+                {"animalId": "sensen", "message": "你的学名是什么？"},
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(call_local.call_count, 2)
+        self.assertEqual(payload["reply"], approved)
+
+    def test_grounded_conflict_twice_returns_validation_error_not_knowledge_reply(self):
+        animal = animal_knowledge.load_animal_knowledge("sensen")
+        with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
+            "server.dev_server.call_local_llm",
+            return_value=dev_server.ProviderResult(reply="我的学名是假的。"),
+        ) as call_local:
+            status, payload = self.invoke_post(
+                "/chat/local",
+                {"animalId": "sensen", "message": "你的学名是什么？"},
+            )
+
+        self.assertEqual(status, 422)
+        self.assertEqual(call_local.call_count, 2)
+        self.assertEqual(payload, {"error": "ai_response_validation_failed"})
+
+    def test_explicit_memory_recall_is_rendered_by_local_model(self):
+        animal = animal_knowledge.load_animal_knowledge("sensen")
+        request_payload = {
+            "animalId": "sensen",
+            "message": "你还记得我以前做过什么吗？",
+            "contentAuthority": "character_memory",
+            "memoryUseMode": "explicit_recall",
+            "memoryContext": {
+                "schemaVersion": 1,
+                "animalId": "sensen",
+                "memoryStatus": "available",
+                "discovered": True,
+                "completedMissionCount": 1,
+                "learnedKnowledgeCount": 1,
+                "earnedBadgeCount": 0,
+                "memoryMilestones": [
+                    {"kind": "mission_completed", "displayLabel": "保护森森的森林"}
+                ],
+            },
+        }
+        with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
+            "server.dev_server.call_local_llm",
+            return_value=dev_server.ProviderResult(
+                reply="我记得你以前完成过一项保护任务，也学习过一个知识主题。"
+            ),
+        ):
+            status, payload = self.invoke_post("/chat/local", request_payload)
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["source"], "local_llm")
+        self.assertEqual(payload["contentAuthority"], "character_memory")
+        self.assertEqual(payload["languageGenerator"], "local_llm")
+        self.assertEqual(payload["answerMode"], "memory_recall")
+
+    def test_history_boundary_is_system_policy_rendered_by_local_model(self):
+        animal = animal_knowledge.load_animal_knowledge("sensen")
+        with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
+            "server.dev_server.call_local_llm",
+            return_value=dev_server.ProviderResult(
+                reply="我不会长期保存完整聊天内容，所以不能准确复述以前的问题。"
+            ),
+        ):
+            status, payload = self.invoke_post(
+                "/chat/local",
+                {
+                    "animalId": "sensen",
+                    "message": "你记得我以前问过什么吗？",
+                    "contentAuthority": "system_policy",
+                    "memoryUseMode": "history_boundary",
+                },
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["source"], "local_llm")
+        self.assertEqual(payload["contentAuthority"], "system_policy")
+        self.assertEqual(payload["answerMode"], "memory_recall")
+        self.assertEqual(payload["actionSuggestion"], "none")
+
+    def test_history_boundary_with_diet_words_has_no_grounding_authority(self):
+        animal = animal_knowledge.load_animal_knowledge("sensen")
+        request_payload = {
+            "animalId": "sensen",
+            "message": "你记得我以前问过你吃什么吗？",
+            "contentAuthority": "system_policy",
+            "memoryUseMode": "history_boundary",
+        }
+        retrieval = animal_knowledge.retrieve(
+            animal,
+            request_payload["message"],
+            animal_id="sensen",
+        )
+        self.assertEqual(retrieval.grounding_topic, "diet")
+
+        system_prompt = dev_server.make_system_prompt(
+            animal,
+            retrieval,
+            {},
+            {},
+            "history_boundary",
+            "system_policy",
+        )
+        user_prompt = dev_server.make_user_turn_prompt(
+            request_payload["message"],
+            retrieval,
+            {},
+            {},
+            "history_boundary",
+            "system_policy",
+            False,
+        )
+
+        self.assertNotIn("<UNTRUSTED_KNOWLEDGE>", system_prompt)
+        self.assertIn("不会长期保存完整聊天内容", user_prompt)
+        with mock.patch("server.dev_server.get_animal", return_value=animal), mock.patch(
+            "server.dev_server.call_local_llm",
+            return_value=dev_server.ProviderResult(
+                reply="我不会长期保存完整聊天内容，所以无法准确复述过去聊天。"
+            ),
+        ):
+            status, payload = self.invoke_post("/chat/local", request_payload)
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["contentAuthority"], "system_policy")
+        self.assertEqual(payload["groundingTopic"], "none")
+        self.assertEqual(payload["groundedFactIds"], [])
+        self.assertEqual(payload["citations"], [])
+        self.assertEqual(payload["actionSuggestion"], "none")
 
 
 if __name__ == "__main__":

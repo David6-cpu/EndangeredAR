@@ -68,22 +68,26 @@ class SensenTwentyQuestionRegressionTests(unittest.TestCase):
                         "/chat", {"animalId": "sensen", "message": case["question"]}
                     )
 
-                    self.assertEqual((local_status, cloud_status), (200, 200))
-                    self.assertEqual(local_payload["reply"], cloud_payload["reply"])
-                    self.assertEqual(local_payload["citations"], cloud_payload["citations"])
-                    self.assertNotIn("12345", local_payload["reply"])
-                    self.assertNotIn("Rhinolophus helenae", cloud_payload["reply"])
-                    for forbidden in case["forbidden"]:
-                        self.assertNotIn(forbidden, local_payload["reply"])
-                        self.assertNotIn(forbidden, cloud_payload["reply"])
+                    self.assertEqual((local_status, cloud_status), (422, 422))
+                    self.assertEqual(local_payload, {"error": "ai_response_validation_failed"})
+                    self.assertEqual(cloud_payload, {"error": "ai_response_validation_failed"})
 
     def test_all_twenty_questions_complete_through_both_http_route_handlers(self):
+        def approved_local(animal, message, *args):
+            result = animal_knowledge.retrieve(animal, message, animal_id="sensen")
+            return dev_server.ProviderResult(reply=result.approved_answer)
+
+        def approved_cloud(animal, message, *args):
+            return animal_knowledge.retrieve(
+                animal, message, animal_id="sensen"
+            ).approved_answer
+
         with mock.patch("server.dev_server.get_animal", return_value=self.document), mock.patch(
             "server.dev_server.call_local_llm",
-            return_value=dev_server.ProviderResult(reply="我在这里陪你聊聊。"),
+            side_effect=approved_local,
         ), mock.patch(
             "server.dev_server.call_moonshot",
-            return_value="我在这里陪你聊聊。",
+            side_effect=approved_cloud,
         ):
             for case in QUALITY_CASES:
                 with self.subTest(case_id=case["id"]):

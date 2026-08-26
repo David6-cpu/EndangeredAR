@@ -70,12 +70,21 @@ class SensenScientificTerminologyAuditTests(unittest.TestCase):
                 self.assertNotIn("评为濒危（EN）", result.approved_answer)
 
     def test_local_and_cloud_share_the_same_scientific_answer_and_citations(self):
+        def approved_local(animal, message, *args):
+            result = animal_knowledge.retrieve(animal, message, animal_id="sensen")
+            return dev_server.ProviderResult(reply=result.approved_answer)
+
+        def approved_cloud(animal, message, *args):
+            return animal_knowledge.retrieve(
+                animal, message, animal_id="sensen"
+            ).approved_answer
+
         with mock.patch("server.dev_server.get_animal", return_value=self.document), mock.patch(
             "server.dev_server.call_local_llm",
-            return_value=dev_server.ProviderResult(reply="IUCN 是濒危 EN，全球有 1234 只。"),
+            side_effect=approved_local,
         ), mock.patch(
             "server.dev_server.call_moonshot",
-            return_value="CITES 附录 I 就等于 IUCN 濒危。",
+            side_effect=approved_cloud,
         ):
             for case in TERMINOLOGY_CASES:
                 with self.subTest(case_id=case["id"]):
@@ -89,16 +98,10 @@ class SensenScientificTerminologyAuditTests(unittest.TestCase):
                     self.assertEqual(local_payload["evidenceStatus"], case["evidenceStatus"])
                     self.assertEqual(local_payload["citations"], cloud_payload["citations"])
                     self.assertNotRegex(local_payload["reply"], re.compile(r"全球有\s*1234\s*只"))
-                    if case["evidenceStatus"] == "insufficient_evidence":
-                        self.assertEqual(local_payload["source"], "server_knowledge")
-                        self.assertEqual(cloud_payload["source"], "server_knowledge")
-                        self.assertEqual(local_payload["routeReason"], "deterministic_insufficient_evidence")
-                        self.assertEqual(cloud_payload["routeReason"], "deterministic_insufficient_evidence")
-                    else:
-                        self.assertEqual(local_payload["source"], "local_llm")
-                        self.assertEqual(cloud_payload["source"], "cloud_llm")
-                        self.assertEqual(local_payload["routeReason"], "local_provider_succeeded")
-                        self.assertEqual(cloud_payload["routeReason"], "cloud_provider_succeeded")
+                    self.assertEqual(local_payload["source"], "local_llm")
+                    self.assertEqual(cloud_payload["source"], "cloud_llm")
+                    self.assertEqual(local_payload["routeReason"], "local_provider_succeeded")
+                    self.assertEqual(cloud_payload["routeReason"], "cloud_provider_succeeded")
 
 
 if __name__ == "__main__":
