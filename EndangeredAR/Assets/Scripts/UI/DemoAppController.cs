@@ -1719,6 +1719,14 @@ namespace EndangeredAR.UI
 
         private void FinishCloudAnswer(ChatRequestTicket request, string userMessage, AIResponse response)
         {
+            if (!chatRequestState.CanComplete(request, CurrentAnimalId))
+            {
+                return;
+            }
+
+            response = aiManager == null
+                ? response
+                : aiManager.RefreshMemoryDependentResponse(response, CurrentAnimalId, userMessage);
             var modelLoader = animalPlaceholder == null
                 ? null
                 : animalPlaceholder.GetComponent<AnimalModelLoader>();

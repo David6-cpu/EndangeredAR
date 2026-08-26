@@ -9,6 +9,7 @@
     { "id": "zh-amuse-named", "message": "森森逗我一下", "expected": "taunt" },
     { "id": "zh-punctuation", "message": "  森森，给我表演一下！  ", "expected": "taunt" },
     { "id": "zh-taunt-diet-conflict", "message": "给我表演一下，再告诉我你吃什么。", "expected": "taunt" },
+    { "id": "zh-memory-recall-taunt", "message": "你还记得我吗，给我表演一下。", "expected": "taunt" },
     { "id": "mixed-case", "message": "给我看看 tAuNt!", "expected": "taunt" },
     { "id": "zh-extra-spaces", "message": "做  个  动作", "expected": "taunt" },
     { "id": "en-explicit", "message": "Show me a taunt!", "expected": "taunt" },

@@ -32,9 +32,36 @@ namespace EndangeredAR.AI
             Action<AIResponse> onSuccess,
             Action<AIProviderError> onError)
         {
+            var currentContext = ReadOnlyCharacterContext.Empty;
             if (request != null)
             {
-                request.Context = CreateContextSnapshot(request.animalId);
+                currentContext = CreateContextSnapshot(request.animalId);
+                request.Context = currentContext;
+                request.MemoryContext = null;
+                request.MemoryUseMode = MemoryUseMode.None;
+            }
+
+            var mentionMode = MemoryMentionPolicy.Classify(request?.message);
+            ReadOnlyCharacterMemoryContext memoryContext = null;
+            if (mentionMode != MemoryMentionMode.None)
+            {
+                memoryContext = CreateMemoryContextSnapshot(request?.animalId, currentContext);
+            }
+
+            if (mentionMode == MemoryMentionMode.ExplicitRecall ||
+                mentionMode == MemoryMentionMode.ConversationHistoryBoundary)
+            {
+                onSuccess?.Invoke(CharacterMemoryDialogueResolver.CreateDeterministicResponse(
+                    request,
+                    memoryContext,
+                    mentionMode));
+                yield break;
+            }
+
+            if (request != null && mentionMode == MemoryMentionMode.Reunion)
+            {
+                request.MemoryContext = memoryContext;
+                request.MemoryUseMode = MemoryUseMode.Reunion;
             }
 
             var config = aiConfig;
@@ -43,13 +70,59 @@ namespace EndangeredAR.AI
             var knowledgeProvider = new LocalKnowledgeProvider(localKnowledgeService);
             var router = new AIRouter(localProvider, cloudProvider, knowledgeProvider);
 
+            Action<AIResponse> routeSuccess = response =>
+            {
+                onSuccess?.Invoke(mentionMode == MemoryMentionMode.Reunion
+                    ? CharacterMemoryDialogueResolver.PrepareReunionResponse(request, response, memoryContext)
+                    : response);
+            };
+            Action<AIProviderError> routeError = error =>
+            {
+                if (mentionMode == MemoryMentionMode.Reunion)
+                {
+                    onSuccess?.Invoke(CharacterMemoryDialogueResolver.PrepareReunionResponse(
+                        request,
+                        new AIResponse
+                        {
+                            animalId = request?.animalId,
+                            reply = SafeReunionTailGuard.FallbackTail,
+                            source = "unity_memory",
+                            routeReason = "memory_reunion_provider_unavailable",
+                            ActionSuggestion = AIAction.None
+                        },
+                        memoryContext));
+                    return;
+                }
+
+                onError?.Invoke(error);
+            };
+
             yield return router.Route(
                 request,
                 config == null ? AIRouteMode.CloudOnly : config.routeMode,
                 config == null ? DefaultLocalTimeoutSeconds : config.localTimeoutSeconds,
                 config == null ? DefaultTotalTimeoutSeconds : config.totalTimeoutSeconds,
-                onSuccess,
-                onError);
+                routeSuccess,
+                routeError);
+        }
+
+        internal AIResponse RefreshMemoryDependentResponse(
+            AIResponse response,
+            string animalId,
+            string originalMessage)
+        {
+            if (response == null || response.MemoryMentionMode == MemoryMentionMode.None)
+            {
+                return response;
+            }
+
+            var currentContext = CreateContextSnapshot(animalId);
+            var memoryContext = CreateMemoryContextSnapshot(animalId, currentContext);
+            return CharacterMemoryDialogueResolver.Refresh(
+                response,
+                animalId,
+                originalMessage,
+                memoryContext);
         }
 
         private ReadOnlyCharacterContext CreateContextSnapshot(string animalId)
@@ -67,6 +140,29 @@ namespace EndangeredAR.AI
             {
                 Debug.LogWarning($"Read-only character context unavailable ({exception.GetType().Name}); continuing without context.", this);
                 return ReadOnlyCharacterContext.Empty;
+            }
+        }
+
+        private ReadOnlyCharacterMemoryContext CreateMemoryContextSnapshot(
+            string animalId,
+            ReadOnlyCharacterContext currentContext)
+        {
+            if (memoryContextProvider == null)
+            {
+                return ReadOnlyCharacterMemoryContext.UnavailableFor(animalId);
+            }
+
+            try
+            {
+                return memoryContextProvider.CreateSnapshot(animalId, currentContext) ??
+                       ReadOnlyCharacterMemoryContext.UnavailableFor(animalId);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning(
+                    $"Read-only character Memory context unavailable ({exception.GetType().Name}); continuing safely.",
+                    this);
+                return ReadOnlyCharacterMemoryContext.UnavailableFor(animalId);
             }
         }
     }

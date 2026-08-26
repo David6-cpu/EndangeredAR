@@ -40,7 +40,8 @@ namespace EndangeredAR.AI
             "逗我一下",
             "showmeataunt",
             "performataunt",
-            "给我表演一下再告诉我你吃什么"
+            "给我表演一下再告诉我你吃什么",
+            "你还记得我吗给我表演一下"
         };
 
         public static AIAction Resolve(string message)

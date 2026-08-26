@@ -41,6 +41,9 @@ namespace EndangeredAR.AI
         public AIAction ActionSuggestion;
         public string emotion;
         public AICitation[] citations = Array.Empty<AICitation>();
+        [NonSerialized] internal MemoryMentionMode MemoryMentionMode;
+        [NonSerialized] internal string MemoryContextFingerprint;
+        [NonSerialized] internal string ReunionProviderTail;
     }
 
     [Serializable]
