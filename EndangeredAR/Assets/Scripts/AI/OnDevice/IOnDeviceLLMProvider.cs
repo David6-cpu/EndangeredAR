@@ -11,6 +11,10 @@ namespace EndangeredAR.AI.OnDevice
     public interface IOnDeviceLLMProvider : IDisposable, IOnDeviceTokenCounter
     {
         string GeneratorId { get; }
+        IEnumerator Prepare(
+            float timeoutSeconds,
+            Action onReady,
+            Action<OnDeviceLLMError> onError);
         IEnumerator Send(
             OnDeviceLLMRequest request,
             float timeoutSeconds,

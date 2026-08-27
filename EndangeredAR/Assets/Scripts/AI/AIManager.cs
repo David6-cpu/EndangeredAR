@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
 using EndangeredAR.API;
+using EndangeredAR.AI.OnDevice;
+using EndangeredAR.AI.Prompt;
 using EndangeredAR.Chat;
 using UnityEngine;
 
@@ -18,6 +20,7 @@ namespace EndangeredAR.AI
         private IReadOnlyCharacterMemoryContextProvider memoryContextProvider;
         private IAIProvider localProviderOverride;
         private IAIProvider cloudProviderOverride;
+        private IOnDeviceLLMProvider onDeviceProviderOverride;
 
         internal void ConfigureContextProvider(IReadOnlyCharacterContextProvider provider)
         {
@@ -33,6 +36,11 @@ namespace EndangeredAR.AI
         {
             localProviderOverride = localProvider;
             cloudProviderOverride = cloudProvider;
+        }
+
+        internal void ConfigureOnDeviceProvider(IOnDeviceLLMProvider provider)
+        {
+            onDeviceProviderOverride = provider;
         }
 
         public IEnumerator Send(
@@ -68,7 +76,11 @@ namespace EndangeredAR.AI
             }
 
             var config = aiConfig;
-            var localProvider = localProviderOverride ?? new LocalLLMProvider(config == null ? null : config.localServerUrl);
+            var localProvider = onDeviceProviderOverride == null
+                ? localProviderOverride ?? new LocalLLMProvider(config == null ? null : config.localServerUrl)
+                : new OnDeviceAIResponseComposer(
+                    onDeviceProviderOverride,
+                    OnDevicePromptBudget.FirstProduction);
             var cloudProvider = cloudProviderOverride ?? (chatApiClient == null ? null : new CloudLLMProvider(chatApiClient));
             var router = new AIRouter(localProvider, cloudProvider, null);
 
@@ -90,7 +102,7 @@ namespace EndangeredAR.AI
 
             yield return router.Route(
                 request,
-                ResolveRouteMode(config),
+                onDeviceProviderOverride == null ? ResolveRouteMode(config) : AIRouteMode.LocalOnly,
                 config == null ? DefaultLocalTimeoutSeconds : config.localTimeoutSeconds,
                 config == null ? DefaultTotalTimeoutSeconds : config.totalTimeoutSeconds,
                 routeSuccess,

@@ -1916,7 +1916,9 @@ namespace EndangeredAR.UI
             AIFinalSource source,
             LanguageGenerator generator)
         {
-            return (source == AIFinalSource.LocalLlm && generator == LanguageGenerator.LocalLlm) ||
+            return (source == AIFinalSource.OnDeviceLlm && generator == LanguageGenerator.OnDeviceLlm) ||
+                   (source == AIFinalSource.DevelopmentRemoteLlm && generator == LanguageGenerator.DevelopmentRemoteLlm) ||
+                   (source == AIFinalSource.LocalLlm && generator == LanguageGenerator.LocalLlm) ||
                    (source == AIFinalSource.CloudLlm && generator == LanguageGenerator.CloudLlm);
         }
 

@@ -12,6 +12,7 @@ namespace EndangeredAR.AI.OnDevice
         private readonly string modelPath;
         private readonly OnDeviceLLMRuntimeConfig runtimeConfig;
         private bool disposed;
+        private bool preparing;
         private string activeGenerationId = string.Empty;
 
         public OnDeviceLLMProvider(
@@ -33,7 +34,9 @@ namespace EndangeredAR.AI.OnDevice
 
         public int CountTokens(System.Collections.Generic.IReadOnlyList<OnDeviceChatMessage> messages)
         {
-            if (disposed || messages == null || messages.Count == 0 || !backend.IsSupported)
+            if (disposed || preparing || !string.IsNullOrEmpty(activeGenerationId) ||
+                messages == null || messages.Count == 0 || !backend.IsSupported ||
+                !CanGenerate(backend.State))
             {
                 return -1;
             }
@@ -45,6 +48,72 @@ namespace EndangeredAR.AI.OnDevice
             catch (ArgumentException)
             {
                 return -1;
+            }
+        }
+
+        public IEnumerator Prepare(
+            float timeoutSeconds,
+            Action onReady,
+            Action<OnDeviceLLMError> onError)
+        {
+            if (disposed)
+            {
+                onError?.Invoke(Error("on_device_provider_disposed"));
+                yield break;
+            }
+
+            if (preparing || !string.IsNullOrEmpty(activeGenerationId))
+            {
+                onError?.Invoke(Error("on_device_generation_busy"));
+                yield break;
+            }
+
+            if (!backend.IsSupported)
+            {
+                onError?.Invoke(Error("on_device_llm_unsupported"));
+                yield break;
+            }
+
+            preparing = true;
+            var startedAt = Time.realtimeSinceStartup;
+            var safeTimeout = SafeTimeout(timeoutSeconds);
+            try
+            {
+                if (backend.State == OnDeviceLLMNativeState.Uninitialized &&
+                    !backend.StartLoad(
+                        modelPath,
+                        runtimeConfig.ContextSize,
+                        runtimeConfig.ThreadCount,
+                        runtimeConfig.BatchSize,
+                        runtimeConfig.MicroBatchSize))
+                {
+                    onError?.Invoke(Error("on_device_model_load_rejected"));
+                    yield break;
+                }
+
+                while (backend.State == OnDeviceLLMNativeState.Loading)
+                {
+                    if (HasTimedOut(startedAt, safeTimeout))
+                    {
+                        backend.Cancel();
+                        onError?.Invoke(Error("on_device_model_load_timeout", true));
+                        yield break;
+                    }
+
+                    yield return null;
+                }
+
+                if (!CanGenerate(backend.State))
+                {
+                    onError?.Invoke(ErrorForNativeState(backend.State, backend.ReadError()));
+                    yield break;
+                }
+
+                onReady?.Invoke();
+            }
+            finally
+            {
+                preparing = false;
             }
         }
 
@@ -80,9 +149,7 @@ namespace EndangeredAR.AI.OnDevice
 
             activeGenerationId = request.GenerationId;
             var startedAt = Time.realtimeSinceStartup;
-            var safeTimeout = float.IsNaN(timeoutSeconds) || float.IsInfinity(timeoutSeconds) || timeoutSeconds <= 0f
-                ? 1f
-                : timeoutSeconds;
+            var safeTimeout = SafeTimeout(timeoutSeconds);
             try
             {
                 if (backend.State == OnDeviceLLMNativeState.Uninitialized)
@@ -209,6 +276,13 @@ namespace EndangeredAR.AI.OnDevice
         private static bool HasTimedOut(float startedAt, float timeoutSeconds)
         {
             return Time.realtimeSinceStartup - startedAt >= timeoutSeconds;
+        }
+
+        private static float SafeTimeout(float timeoutSeconds)
+        {
+            return float.IsNaN(timeoutSeconds) || float.IsInfinity(timeoutSeconds) || timeoutSeconds <= 0f
+                ? 1f
+                : timeoutSeconds;
         }
 
         private static OnDeviceLLMError ErrorForNativeState(

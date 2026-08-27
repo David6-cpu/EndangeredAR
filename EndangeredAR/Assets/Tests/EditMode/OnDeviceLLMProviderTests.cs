@@ -132,7 +132,11 @@ namespace EndangeredAR.Tests.EditMode
         [Test]
         public void Provider_CountTokens_UsesNativeTokenizerWithStructuredMessages()
         {
-            var backend = new FakeBackend { TokenCount = 17 };
+            var backend = new FakeBackend
+            {
+                StateValue = OnDeviceLLMNativeState.Ready,
+                TokenCount = 17
+            };
             var provider = CreateProvider(backend);
 
             var count = provider.CountTokens(new[]

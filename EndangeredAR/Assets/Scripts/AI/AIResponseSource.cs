@@ -2,6 +2,8 @@ namespace EndangeredAR.AI
 {
     public enum AIFinalSource
     {
+        OnDeviceLlm,
+        DevelopmentRemoteLlm,
         MemoryDeterministic,
         LocalLlm,
         CloudLlm,
@@ -17,6 +19,12 @@ namespace EndangeredAR.AI
         {
             switch (wireValue)
             {
+                case "on_device_llm":
+                    source = AIFinalSource.OnDeviceLlm;
+                    return true;
+                case "development_remote_llm":
+                    source = AIFinalSource.DevelopmentRemoteLlm;
+                    return true;
                 case "memory_deterministic":
                     source = AIFinalSource.MemoryDeterministic;
                     return true;
@@ -48,6 +56,10 @@ namespace EndangeredAR.AI
         {
             switch (source)
             {
+                case AIFinalSource.OnDeviceLlm:
+                    return "on_device_llm";
+                case AIFinalSource.DevelopmentRemoteLlm:
+                    return "development_remote_llm";
                 case AIFinalSource.MemoryDeterministic:
                     return "memory_deterministic";
                 case AIFinalSource.LocalLlm:
@@ -74,6 +86,8 @@ namespace EndangeredAR.AI
         {
             switch (wireValue)
             {
+                case "on_device_llm":
+                case "development_remote_llm":
                 case "local_llm":
                 case "cloud_llm":
                 case "unity_fallback":

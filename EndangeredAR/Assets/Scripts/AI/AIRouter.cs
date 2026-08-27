@@ -357,7 +357,9 @@ namespace EndangeredAR.AI
 
         private static bool MatchesProvider(AIFinalSource source, string providerId)
         {
-            return (source == AIFinalSource.LocalLlm && providerId == "local_llm") ||
+            return (source == AIFinalSource.OnDeviceLlm && providerId == "on_device_llm") ||
+                   (source == AIFinalSource.DevelopmentRemoteLlm && providerId == "development_remote_llm") ||
+                   (source == AIFinalSource.LocalLlm && providerId == "local_llm") ||
                    (source == AIFinalSource.CloudLlm && providerId == "cloud_llm");
         }
 
@@ -365,7 +367,9 @@ namespace EndangeredAR.AI
             AIFinalSource source,
             LanguageGenerator generator)
         {
-            return (source == AIFinalSource.LocalLlm && generator == LanguageGenerator.LocalLlm) ||
+            return (source == AIFinalSource.OnDeviceLlm && generator == LanguageGenerator.OnDeviceLlm) ||
+                   (source == AIFinalSource.DevelopmentRemoteLlm && generator == LanguageGenerator.DevelopmentRemoteLlm) ||
+                   (source == AIFinalSource.LocalLlm && generator == LanguageGenerator.LocalLlm) ||
                    (source == AIFinalSource.CloudLlm && generator == LanguageGenerator.CloudLlm);
         }
 

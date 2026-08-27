@@ -59,6 +59,8 @@ namespace EndangeredAR.AI
     public enum LanguageGenerator
     {
         None,
+        OnDeviceLlm,
+        DevelopmentRemoteLlm,
         LocalLlm,
         CloudLlm
     }
@@ -71,6 +73,12 @@ namespace EndangeredAR.AI
             {
                 case "none":
                     generator = LanguageGenerator.None;
+                    return true;
+                case "on_device_llm":
+                    generator = LanguageGenerator.OnDeviceLlm;
+                    return true;
+                case "development_remote_llm":
+                    generator = LanguageGenerator.DevelopmentRemoteLlm;
                     return true;
                 case "local_llm":
                     generator = LanguageGenerator.LocalLlm;
@@ -90,6 +98,10 @@ namespace EndangeredAR.AI
             {
                 case LanguageGenerator.None:
                     return "none";
+                case LanguageGenerator.OnDeviceLlm:
+                    return "on_device_llm";
+                case LanguageGenerator.DevelopmentRemoteLlm:
+                    return "development_remote_llm";
                 case LanguageGenerator.LocalLlm:
                     return "local_llm";
                 case LanguageGenerator.CloudLlm:
