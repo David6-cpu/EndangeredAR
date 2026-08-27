@@ -4,8 +4,20 @@
 extern "C" {
 #endif
 
-int endar_llm_start_load(const char * model_path, int n_ctx, int n_threads);
-int endar_llm_start_generate(const char * prompt_utf8, int max_tokens);
+int endar_llm_start_load(
+    const char * model_path,
+    int n_ctx,
+    int n_threads,
+    int n_batch,
+    int n_ubatch);
+int endar_llm_count_tokens(const char * messages_json_utf8);
+int endar_llm_start_generate(
+    const char * messages_json_utf8,
+    int max_tokens,
+    float temperature,
+    float top_p,
+    float repeat_penalty,
+    unsigned int seed);
 int endar_llm_get_state(void);
 int endar_llm_copy_output(char * buffer, int capacity);
 int endar_llm_copy_error(char * buffer, int capacity);

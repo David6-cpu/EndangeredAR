@@ -53,29 +53,64 @@ namespace EndangeredAR.AI.OnDevice
             }
         }
 
-        public bool StartLoad(string modelPath, int contextSize, int threadCount)
+        public bool StartLoad(
+            string modelPath,
+            int contextSize,
+            int threadCount,
+            int batchSize,
+            int microBatchSize)
         {
 #if UNITY_IOS && !UNITY_EDITOR
-            if (string.IsNullOrWhiteSpace(modelPath) || contextSize < 256 || threadCount < 1)
+            if (string.IsNullOrWhiteSpace(modelPath) || contextSize < 256 || threadCount < 1 ||
+                batchSize < 1 || microBatchSize < 1 || microBatchSize > batchSize)
             {
                 return false;
             }
 
-            return NativeStartLoad(modelPath, contextSize, threadCount) == 1;
+            return NativeStartLoad(
+                modelPath,
+                contextSize,
+                threadCount,
+                batchSize,
+                microBatchSize) == 1;
 #else
             return false;
 #endif
         }
 
-        public bool StartGenerate(string prompt, int maxTokens)
+        public int CountTokens(string messagesJson)
         {
 #if UNITY_IOS && !UNITY_EDITOR
-            if (string.IsNullOrWhiteSpace(prompt) || maxTokens < 1 || maxTokens > 256)
+            return string.IsNullOrWhiteSpace(messagesJson) ? -1 : NativeCountTokens(messagesJson);
+#else
+            return -1;
+#endif
+        }
+
+        public bool StartGenerate(
+            string messagesJson,
+            int maxTokens,
+            float temperature,
+            float topP,
+            float repeatPenalty,
+            uint seed)
+        {
+#if UNITY_IOS && !UNITY_EDITOR
+            if (string.IsNullOrWhiteSpace(messagesJson) || maxTokens < 1 || maxTokens > 256 ||
+                float.IsNaN(temperature) || float.IsInfinity(temperature) || temperature < 0f || temperature > 2f ||
+                float.IsNaN(topP) || float.IsInfinity(topP) || topP <= 0f || topP > 1f ||
+                float.IsNaN(repeatPenalty) || float.IsInfinity(repeatPenalty) || repeatPenalty < 0.5f || repeatPenalty > 2f)
             {
                 return false;
             }
 
-            return NativeStartGenerate(prompt, maxTokens) == 1;
+            return NativeStartGenerate(
+                messagesJson,
+                maxTokens,
+                temperature,
+                topP,
+                repeatPenalty,
+                seed) == 1;
 #else
             return false;
 #endif
@@ -155,12 +190,22 @@ namespace EndangeredAR.AI.OnDevice
         private static extern int NativeStartLoad(
             [MarshalAs(UnmanagedType.LPUTF8Str)] string modelPath,
             int contextSize,
-            int threadCount);
+            int threadCount,
+            int batchSize,
+            int microBatchSize);
+
+        [DllImport("__Internal", EntryPoint = "endar_llm_count_tokens", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int NativeCountTokens(
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string messagesJson);
 
         [DllImport("__Internal", EntryPoint = "endar_llm_start_generate", CallingConvention = CallingConvention.Cdecl)]
         private static extern int NativeStartGenerate(
-            [MarshalAs(UnmanagedType.LPUTF8Str)] string prompt,
-            int maxTokens);
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string messagesJson,
+            int maxTokens,
+            float temperature,
+            float topP,
+            float repeatPenalty,
+            uint seed);
 
         [DllImport("__Internal", EntryPoint = "endar_llm_get_state", CallingConvention = CallingConvention.Cdecl)]
         private static extern int NativeGetState();

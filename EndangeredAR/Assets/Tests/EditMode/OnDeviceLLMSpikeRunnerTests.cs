@@ -25,7 +25,9 @@ namespace EndangeredAR.Tests.EditMode
             backend.StateValue = OnDeviceLLMNativeState.Ready;
             Invoke<object>(runner, "Poll");
             Assert.That(Invoke<bool>(runner, "StartFixedPrompt"), Is.True);
-            Assert.That(backend.Prompt, Is.EqualTo("用一句中文介绍你自己。"));
+            StringAssert.Contains("用一句中文介绍你自己。", backend.MessagesJson);
+            StringAssert.Contains("\"role\":\"system\"", backend.MessagesJson);
+            StringAssert.Contains("\"role\":\"user\"", backend.MessagesJson);
             Assert.That(backend.MaxTokens, Is.EqualTo(64));
             Assert.That(ReadProperty<string>(runner, "Generator"), Is.Empty);
 
@@ -138,13 +140,18 @@ namespace EndangeredAR.Tests.EditMode
             public OnDeviceLLMNativeState StateValue = OnDeviceLLMNativeState.Uninitialized;
             public string LoadPath;
             public int ContextSize;
-            public string Prompt;
+            public string MessagesJson;
             public int MaxTokens;
             public string Output = string.Empty;
             public string Error = string.Empty;
             public int CancelCount;
 
-            public bool StartLoad(string modelPath, int contextSize, int threadCount)
+            public bool StartLoad(
+                string modelPath,
+                int contextSize,
+                int threadCount,
+                int batchSize,
+                int microBatchSize)
             {
                 LoadPath = modelPath;
                 ContextSize = contextSize;
@@ -152,9 +159,17 @@ namespace EndangeredAR.Tests.EditMode
                 return true;
             }
 
-            public bool StartGenerate(string prompt, int maxTokens)
+            public int CountTokens(string messagesJson) => 8;
+
+            public bool StartGenerate(
+                string messagesJson,
+                int maxTokens,
+                float temperature,
+                float topP,
+                float repeatPenalty,
+                uint seed)
             {
-                Prompt = prompt;
+                MessagesJson = messagesJson;
                 MaxTokens = maxTokens;
                 StateValue = OnDeviceLLMNativeState.Generating;
                 return true;

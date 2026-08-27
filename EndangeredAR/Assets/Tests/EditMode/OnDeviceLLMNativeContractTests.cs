@@ -13,6 +13,7 @@ namespace EndangeredAR.Tests.EditMode
         {
             "endar_llm_start_load",
             "endar_llm_start_generate",
+            "endar_llm_count_tokens",
             "endar_llm_get_state",
             "endar_llm_copy_output",
             "endar_llm_copy_error",
@@ -44,12 +45,16 @@ namespace EndangeredAR.Tests.EditMode
             StringAssert.Contains("llama_model_load_from_file", source);
             StringAssert.Contains("llama_model_chat_template", source);
             StringAssert.Contains("llama_chat_apply_template", source);
+            StringAssert.Contains("NSJSONSerialization", source);
             StringAssert.Contains("llama_tokenize", source);
+            StringAssert.Contains("llama_memory_clear", source);
             StringAssert.Contains("llama_decode", source);
             StringAssert.Contains("llama_sampler_sample", source);
+            StringAssert.Contains("llama_sampler_init_penalties", source);
             StringAssert.Contains("llama_supports_gpu_offload", source);
             StringAssert.Contains("cancel_requested", source);
             StringAssert.DoesNotContain("UnitySendMessage", source);
+            StringAssert.DoesNotContain("你是森森，请用简短、友好的中文回答。", source);
             StringAssert.DoesNotContain("/Users/", source);
             StringAssert.DoesNotContain("/Applications/", source);
         }
@@ -74,6 +79,7 @@ namespace EndangeredAR.Tests.EditMode
             var members = interfaceType.GetMembers(BindingFlags.Public | BindingFlags.Instance);
             Assert.That(members.Any(member => member.Name == "StartLoad"), Is.True);
             Assert.That(members.Any(member => member.Name == "StartGenerate"), Is.True);
+            Assert.That(members.Any(member => member.Name == "CountTokens"), Is.True);
             Assert.That(members.Any(member => member.Name == "Cancel"), Is.True);
             Assert.That(members.Any(member => member.Name == "ReadOutput"), Is.True);
             Assert.That(members.Any(member => member.Name == "ReadError"), Is.True);
@@ -99,8 +105,9 @@ namespace EndangeredAR.Tests.EditMode
             {
                 Assert.That(ReadProperty<bool>(backendType, backend, "IsSupported"), Is.False);
                 Assert.That(ReadProperty<object>(backendType, backend, "State").ToString(), Is.EqualTo("Unsupported"));
-                Assert.That(Invoke<bool>(backendType, backend, "StartLoad", "model.gguf", 2048, 4), Is.False);
-                Assert.That(Invoke<bool>(backendType, backend, "StartGenerate", "prompt", 64), Is.False);
+                Assert.That(Invoke<bool>(backendType, backend, "StartLoad", "model.gguf", 2048, 4, 256, 256), Is.False);
+                Assert.That(Invoke<int>(backendType, backend, "CountTokens", "{\"messages\":[]}"), Is.EqualTo(-1));
+                Assert.That(Invoke<bool>(backendType, backend, "StartGenerate", "{\"messages\":[]}", 64, 0.7f, 0.8f, 1f, 1u), Is.False);
                 Assert.That(Invoke<string>(backendType, backend, "ReadOutput"), Is.Empty);
                 Assert.That(Invoke<string>(backendType, backend, "ReadError"), Is.EqualTo("on_device_llm_unsupported"));
             }

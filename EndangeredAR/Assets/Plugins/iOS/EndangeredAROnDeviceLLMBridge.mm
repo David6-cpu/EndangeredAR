@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <cstring>
 #include <mutex>
 #include <string>
@@ -204,7 +205,71 @@ namespace
         return true;
     }
 
-    bool build_chat_prompt(llama_model * model, const std::string & user_prompt, std::string & prompt)
+    bool parse_chat_messages(
+        const std::string & messages_json,
+        std::vector<std::string> & roles,
+        std::vector<std::string> & contents)
+    {
+        NSData * data = [NSData dataWithBytes:messages_json.data() length:messages_json.size()];
+        if (data == nil)
+        {
+            return false;
+        }
+
+        NSError * error = nil;
+        id root = [NSJSONSerialization JSONObjectWithData:data options:0 error:&error];
+        if (error != nil || ![root isKindOfClass:[NSDictionary class]])
+        {
+            return false;
+        }
+
+        id raw_messages = [(NSDictionary *) root objectForKey:@"messages"];
+        if (![raw_messages isKindOfClass:[NSArray class]])
+        {
+            return false;
+        }
+
+        NSArray * messages = (NSArray *) raw_messages;
+        if (messages.count == 0 || messages.count > 64)
+        {
+            return false;
+        }
+
+        roles.reserve(messages.count);
+        contents.reserve(messages.count);
+        for (id raw_message in messages)
+        {
+            if (![raw_message isKindOfClass:[NSDictionary class]])
+            {
+                return false;
+            }
+
+            NSString * role = [(NSDictionary *) raw_message objectForKey:@"role"];
+            NSString * content = [(NSDictionary *) raw_message objectForKey:@"content"];
+            if (![role isKindOfClass:[NSString class]] || ![content isKindOfClass:[NSString class]])
+            {
+                return false;
+            }
+
+            const std::string role_value([role UTF8String] == nullptr ? "" : [role UTF8String]);
+            const char * content_utf8 = [content UTF8String];
+            if ((role_value != "system" && role_value != "user" && role_value != "assistant") ||
+                content_utf8 == nullptr || content_utf8[0] == '\0' || std::strlen(content_utf8) > 32768)
+            {
+                return false;
+            }
+
+            roles.push_back(role_value);
+            contents.emplace_back(content_utf8);
+        }
+
+        return true;
+    }
+
+    bool build_chat_prompt(
+        llama_model * model,
+        const std::string & messages_json,
+        std::string & prompt)
     {
         const char * chat_template = llama_model_chat_template(model, nullptr);
         if (chat_template == nullptr)
@@ -212,15 +277,24 @@ namespace
             return false;
         }
 
-        const llama_chat_message messages[] =
+        std::vector<std::string> roles;
+        std::vector<std::string> contents;
+        if (!parse_chat_messages(messages_json, roles, contents))
         {
-            { "system", "你是森森，请用简短、友好的中文回答。" },
-            { "user", user_prompt.c_str() }
-        };
+            return false;
+        }
+
+        std::vector<llama_chat_message> messages;
+        messages.reserve(roles.size());
+        for (size_t index = 0; index < roles.size(); ++index)
+        {
+            messages.push_back({ roles[index].c_str(), contents[index].c_str() });
+        }
+
         int32_t required = llama_chat_apply_template(
             chat_template,
-            messages,
-            2,
+            messages.data(),
+            messages.size(),
             true,
             nullptr,
             0);
@@ -232,8 +306,8 @@ namespace
         std::vector<char> buffer(static_cast<size_t>(required) + 1, '\0');
         const int32_t written = llama_chat_apply_template(
             chat_template,
-            messages,
-            2,
+            messages.data(),
+            messages.size(),
             true,
             buffer.data(),
             static_cast<int32_t>(buffer.size()));
@@ -319,9 +393,15 @@ namespace
     }
 }
 
-int endar_llm_start_load(const char * model_path, int n_ctx, int n_threads)
+int endar_llm_start_load(
+    const char * model_path,
+    int n_ctx,
+    int n_threads,
+    int n_batch,
+    int n_ubatch)
 {
-    if (model_path == nullptr || model_path[0] == '\0' || n_ctx < 256 || n_threads < 1)
+    if (model_path == nullptr || model_path[0] == '\0' || n_ctx < 256 || n_threads < 1 ||
+        n_batch < 1 || n_ubatch < 1 || n_ubatch > n_batch)
     {
         return 0;
     }
@@ -371,8 +451,8 @@ int endar_llm_start_load(const char * model_path, int n_ctx, int n_threads)
 
             llama_context_params context_params = llama_context_default_params();
             context_params.n_ctx = static_cast<uint32_t>(n_ctx);
-            context_params.n_batch = 256;
-            context_params.n_ubatch = 256;
+            context_params.n_batch = static_cast<uint32_t>(n_batch);
+            context_params.n_ubatch = static_cast<uint32_t>(n_ubatch);
             context_params.n_threads = n_threads;
             context_params.n_threads_batch = n_threads;
             value.context = llama_init_from_model(value.model, context_params);
@@ -398,9 +478,48 @@ int endar_llm_start_load(const char * model_path, int n_ctx, int n_threads)
     return 1;
 }
 
-int endar_llm_start_generate(const char * prompt_utf8, int max_tokens)
+int endar_llm_count_tokens(const char * messages_json_utf8)
 {
-    if (prompt_utf8 == nullptr || prompt_utf8[0] == '\0' || max_tokens < 1 || max_tokens > 256)
+    if (messages_json_utf8 == nullptr || messages_json_utf8[0] == '\0')
+    {
+        return -1;
+    }
+
+    @autoreleasepool
+    {
+        Runtime & value = runtime();
+        std::lock_guard<std::mutex> lock(value.mutex);
+        if ((value.state != Ready && value.state != Completed && value.state != Cancelled) ||
+            value.model == nullptr || value.vocab == nullptr)
+        {
+            return -1;
+        }
+
+        std::string formatted_prompt;
+        std::vector<llama_token> prompt_tokens;
+        if (!build_chat_prompt(value.model, messages_json_utf8, formatted_prompt) ||
+            !tokenize_prompt(value.vocab, formatted_prompt, prompt_tokens))
+        {
+            return -1;
+        }
+
+        return static_cast<int>(prompt_tokens.size());
+    }
+}
+
+int endar_llm_start_generate(
+    const char * messages_json_utf8,
+    int max_tokens,
+    float temperature,
+    float top_p,
+    float repeat_penalty,
+    unsigned int seed)
+{
+    if (messages_json_utf8 == nullptr || messages_json_utf8[0] == '\0' ||
+        max_tokens < 1 || max_tokens > 256 ||
+        !std::isfinite(temperature) || temperature < 0.0f || temperature > 2.0f ||
+        !std::isfinite(top_p) || top_p <= 0.0f || top_p > 1.0f ||
+        !std::isfinite(repeat_penalty) || repeat_penalty < 0.5f || repeat_penalty > 2.0f)
     {
         return 0;
     }
@@ -425,14 +544,14 @@ int endar_llm_start_generate(const char * prompt_utf8, int max_tokens)
         value.cancel_requested.store(false);
     }
 
-    const std::string prompt_copy(prompt_utf8);
+    const std::string messages_json_copy(messages_json_utf8);
     dispatch_async(worker_queue(value), ^{
         @autoreleasepool
         {
             const auto started = std::chrono::steady_clock::now();
             std::string formatted_prompt;
             std::vector<llama_token> prompt_tokens;
-            if (!build_chat_prompt(value.model, prompt_copy, formatted_prompt) ||
+            if (!build_chat_prompt(value.model, messages_json_copy, formatted_prompt) ||
                 !tokenize_prompt(value.vocab, formatted_prompt, prompt_tokens))
             {
                 set_error(value, "prompt_prepare_failed");
@@ -464,9 +583,15 @@ int endar_llm_start_generate(const char * prompt_utf8, int max_tokens)
 
             llama_sampler * sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
             llama_sampler_chain_add(sampler, llama_sampler_init_top_k(20));
-            llama_sampler_chain_add(sampler, llama_sampler_init_top_p(0.8f, 1));
-            llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.7f));
-            llama_sampler_chain_add(sampler, llama_sampler_init_dist(0xC0DEC0DEu));
+            llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
+            llama_sampler_chain_add(sampler, llama_sampler_init_penalties(
+                llama_vocab_n_tokens(value.vocab),
+                64,
+                repeat_penalty,
+                0.0f,
+                0.0f));
+            llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
+            llama_sampler_chain_add(sampler, llama_sampler_init_dist(seed));
 
             std::string output;
             int generated = 0;

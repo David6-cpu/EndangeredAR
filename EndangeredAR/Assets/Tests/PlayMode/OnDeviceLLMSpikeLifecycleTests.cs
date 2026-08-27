@@ -59,13 +59,26 @@ namespace EndangeredAR.Tests.PlayMode
             public OnDeviceLLMNativeState StateValue = OnDeviceLLMNativeState.Uninitialized;
             public string Output = string.Empty;
 
-            public bool StartLoad(string modelPath, int contextSize, int threadCount)
+            public bool StartLoad(
+                string modelPath,
+                int contextSize,
+                int threadCount,
+                int batchSize,
+                int microBatchSize)
             {
                 StateValue = OnDeviceLLMNativeState.Loading;
                 return true;
             }
 
-            public bool StartGenerate(string prompt, int maxTokens)
+            public int CountTokens(string messagesJson) => 8;
+
+            public bool StartGenerate(
+                string messagesJson,
+                int maxTokens,
+                float temperature,
+                float topP,
+                float repeatPenalty,
+                uint seed)
             {
                 StateValue = OnDeviceLLMNativeState.Generating;
                 return true;

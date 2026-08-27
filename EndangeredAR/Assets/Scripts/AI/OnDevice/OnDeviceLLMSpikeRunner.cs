@@ -41,7 +41,12 @@ namespace EndangeredAR.AI.OnDevice
         public bool StartLoad(string modelPath)
         {
             ClearResult();
-            if (!backend.IsSupported || !backend.StartLoad(modelPath, contextSize, threadCount))
+            if (!backend.IsSupported || !backend.StartLoad(
+                    modelPath,
+                    contextSize,
+                    threadCount,
+                    256,
+                    256))
             {
                 Status = "load_rejected";
                 Error = backend.ReadError();
@@ -63,7 +68,25 @@ namespace EndangeredAR.AI.OnDevice
                 return false;
             }
 
-            if (!backend.StartGenerate(FixedPrompt, maxTokens))
+            var request = new OnDeviceLLMRequest(
+                "spike_fixed_prompt",
+                new[]
+                {
+                    new OnDeviceChatMessage("system", "你是森森，请用简短、友好的中文回答。"),
+                    new OnDeviceChatMessage("user", FixedPrompt)
+                },
+                maxTokens,
+                0.7f,
+                0.8f,
+                1.0f,
+                0xC0DEC0DEu);
+            if (!backend.StartGenerate(
+                    request.SerializeMessages(),
+                    request.MaxTokens,
+                    request.Temperature,
+                    request.TopP,
+                    request.RepeatPenalty,
+                    request.Seed))
             {
                 Status = "generation_rejected";
                 Error = backend.ReadError();
