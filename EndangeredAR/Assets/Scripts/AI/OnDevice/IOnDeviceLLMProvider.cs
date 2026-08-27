@@ -3,7 +3,12 @@ using System.Collections;
 
 namespace EndangeredAR.AI.OnDevice
 {
-    public interface IOnDeviceLLMProvider : IDisposable
+    public interface IOnDeviceTokenCounter
+    {
+        int CountTokens(System.Collections.Generic.IReadOnlyList<OnDeviceChatMessage> messages);
+    }
+
+    public interface IOnDeviceLLMProvider : IDisposable, IOnDeviceTokenCounter
     {
         string GeneratorId { get; }
         IEnumerator Send(

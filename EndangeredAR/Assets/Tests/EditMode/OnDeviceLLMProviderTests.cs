@@ -129,6 +129,25 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(type.GetMethods().Any(method => method.Name == "OnApplicationPause"), Is.True);
         }
 
+        [Test]
+        public void Provider_CountTokens_UsesNativeTokenizerWithStructuredMessages()
+        {
+            var backend = new FakeBackend { TokenCount = 17 };
+            var provider = CreateProvider(backend);
+
+            var count = provider.CountTokens(new[]
+            {
+                new OnDeviceChatMessage("system", "安全规则"),
+                new OnDeviceChatMessage("user", "你好")
+            });
+
+            Assert.That(count, Is.EqualTo(17));
+            Assert.That(backend.CountTokensCalls, Is.EqualTo(1));
+            StringAssert.Contains("\"role\":\"system\"", backend.LastTokenMessagesJson);
+            StringAssert.Contains("\"role\":\"user\"", backend.LastTokenMessagesJson);
+            provider.Dispose();
+        }
+
         private static OnDeviceLLMProvider CreateProvider(FakeBackend backend)
         {
             return new OnDeviceLLMProvider(
@@ -190,6 +209,9 @@ namespace EndangeredAR.Tests.EditMode
             public int LoadCount;
             public int StartGenerateCount;
             public int CancelCount;
+            public int TokenCount = 8;
+            public int CountTokensCalls;
+            public string LastTokenMessagesJson = string.Empty;
 
             public bool StartLoad(
                 string modelPath,
@@ -203,7 +225,12 @@ namespace EndangeredAR.Tests.EditMode
                 return true;
             }
 
-            public int CountTokens(string messagesJson) => 8;
+            public int CountTokens(string messagesJson)
+            {
+                CountTokensCalls++;
+                LastTokenMessagesJson = messagesJson;
+                return TokenCount;
+            }
 
             public bool StartGenerate(
                 string messagesJson,

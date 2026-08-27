@@ -31,6 +31,23 @@ namespace EndangeredAR.AI.OnDevice
 
         public string GeneratorId => OnDeviceGeneratorId;
 
+        public int CountTokens(System.Collections.Generic.IReadOnlyList<OnDeviceChatMessage> messages)
+        {
+            if (disposed || messages == null || messages.Count == 0 || !backend.IsSupported)
+            {
+                return -1;
+            }
+
+            try
+            {
+                return backend.CountTokens(OnDeviceLLMRequest.SerializeMessages(messages));
+            }
+            catch (ArgumentException)
+            {
+                return -1;
+            }
+        }
+
         public IEnumerator Send(
             OnDeviceLLMRequest request,
             float timeoutSeconds,

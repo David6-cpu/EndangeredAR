@@ -58,7 +58,12 @@ namespace EndangeredAR.AI.OnDevice
 
         internal string SerializeMessages()
         {
-            return JsonUtility.ToJson(new MessageEnvelope { messages = Copy(messages) });
+            return SerializeMessages(messages);
+        }
+
+        internal static string SerializeMessages(IReadOnlyList<OnDeviceChatMessage> values)
+        {
+            return JsonUtility.ToJson(new MessageEnvelope { messages = Copy(values) });
         }
 
         private static bool IsSafeGenerationId(string value)
