@@ -726,7 +726,7 @@ namespace EndangeredAR.UI
         private void BuildModelChatUi(Transform parent)
         {
             modelBackButton = CreateButton(parent, "Model Back Button", "‹", new Vector2(-430, 790), new Vector2(76, 76), new Color(0.97f, 0.99f, 0.94f, 0.94f));
-            modelChatBubble = CreatePanel(parent, "Model Chat Bubble", new Vector2(0.56f, 0.52f), new Vector2(0.91f, 0.66f), new Color(0.97f, 0.99f, 0.94f, 0.94f));
+            modelChatBubble = CreatePanel(parent, "Model Chat Bubble", new Vector2(0.52f, 0.49f), new Vector2(0.94f, 0.68f), new Color(0.97f, 0.99f, 0.94f, 0.94f));
             ApplyRoundedPanel(modelChatBubble, new Color(0.97f, 0.99f, 0.94f, 0.94f), 34f);
             var bubbleImage = modelChatBubble.GetComponent<Image>();
             if (bubbleImage != null)
@@ -734,20 +734,20 @@ namespace EndangeredAR.UI
                 bubbleImage.raycastTarget = false;
             }
 
-            modelChatBubbleText = CreateText(modelChatBubble.transform, "Model Chat Bubble Text", "你好！我是动物伙伴。\n你可以直接问我问题。", Vector2.zero, new Vector2(340, 280), 28, new Color(0.09f, 0.14f, 0.12f), TextAnchor.MiddleLeft);
-            var pointer = CreateSolidImage(modelChatBubble.transform, "Model Chat Pointer", new Vector2(-205, 10), new Vector2(34, 34), new Color(0.97f, 0.99f, 0.94f, 0.94f));
+            modelChatBubbleText = CreateText(modelChatBubble.transform, "Model Chat Bubble Text", "你好！我是动物伙伴。\n你可以直接问我问题。", Vector2.zero, new Vector2(410, 340), 36, new Color(0.09f, 0.14f, 0.12f), TextAnchor.MiddleLeft);
+            var pointer = CreateSolidImage(modelChatBubble.transform, "Model Chat Pointer", new Vector2(-242, 10), new Vector2(34, 34), new Color(0.97f, 0.99f, 0.94f, 0.94f));
             pointer.transform.localRotation = Quaternion.Euler(0f, 0f, 45f);
 
-            modelChatInputBar = CreatePanel(parent, "Model Chat Input Bar", new Vector2(0.065f, 0.055f), new Vector2(0.935f, 0.125f), new Color(0.98f, 1f, 0.96f, 0.96f));
-            ApplyRoundedPanel(modelChatInputBar, new Color(0.98f, 1f, 0.96f, 0.96f), 42f);
+            modelChatInputBar = CreatePanel(parent, "Model Chat Input Bar", new Vector2(0.05f, 0.04f), new Vector2(0.95f, 0.14f), new Color(0.98f, 1f, 0.96f, 0.96f));
+            ApplyRoundedPanel(modelChatInputBar, new Color(0.98f, 1f, 0.96f, 0.96f), 48f);
             var inputBarImage = modelChatInputBar.GetComponent<Image>();
             if (inputBarImage != null)
             {
                 inputBarImage.raycastTarget = false;
             }
 
-            chatInput = CreateInputField(modelChatInputBar.transform, "Model Chat Input", "输入你想说的...", new Vector2(-110, 0), new Vector2(610, 66));
-            sendLocalChatButton = CreateButton(modelChatInputBar.transform, "Model Chat Send Button", "发送", new Vector2(340, 0), new Vector2(150, 66), Leaf);
+            chatInput = CreateInputField(modelChatInputBar.transform, "Model Chat Input", "输入你想说的...", new Vector2(-135, 0), new Vector2(760, 88));
+            sendLocalChatButton = CreateButton(modelChatInputBar.transform, "Model Chat Send Button", "发送", new Vector2(360, 0), new Vector2(180, 88), Leaf);
 
             modelChatBubble.SetActive(false);
             modelChatInputBar.SetActive(false);
@@ -1570,7 +1570,7 @@ namespace EndangeredAR.UI
             {
                 displayCamera.clearFlags = CameraClearFlags.SolidColor;
                 displayCamera.backgroundColor = new Color(0.78f, 0.88f, 0.68f);
-                displayCamera.transform.position = new Vector3(0f, 1.2f, -5f);
+                displayCamera.transform.position = new Vector3(0f, 1.2f, -3.8f);
                 displayCamera.transform.rotation = Quaternion.LookRotation(new Vector3(-0.72f, 0.1f, 0f) - displayCamera.transform.position);
             }
 
@@ -3383,10 +3383,10 @@ namespace EndangeredAR.UI
             textObject.transform.SetParent(obj.transform, false);
             var text = textObject.AddComponent<Text>();
             text.font = uiFont != null ? uiFont : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            text.fontSize = 22;
+            text.fontSize = 28;
             text.resizeTextForBestFit = true;
-            text.resizeTextMinSize = 15;
-            text.resizeTextMaxSize = 22;
+            text.resizeTextMinSize = 20;
+            text.resizeTextMaxSize = 28;
             text.color = new Color(0.03f, 0.1f, 0.07f);
             text.alignment = TextAnchor.MiddleLeft;
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -3403,10 +3403,10 @@ namespace EndangeredAR.UI
             var placeholder = placeholderObject.AddComponent<Text>();
             placeholder.text = placeholderValue;
             placeholder.font = text.font;
-            placeholder.fontSize = 22;
+            placeholder.fontSize = 28;
             placeholder.resizeTextForBestFit = true;
-            placeholder.resizeTextMinSize = 15;
-            placeholder.resizeTextMaxSize = 22;
+            placeholder.resizeTextMinSize = 20;
+            placeholder.resizeTextMaxSize = 28;
             placeholder.color = new Color(0.22f, 0.32f, 0.27f, 0.72f);
             placeholder.alignment = TextAnchor.MiddleLeft;
             placeholder.horizontalOverflow = HorizontalWrapMode.Wrap;

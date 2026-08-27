@@ -324,7 +324,7 @@ namespace EndangeredAR.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ModelChatBubble_IsCompactAndReadable()
+        public IEnumerator ModelChatBubble_IsLargeAndReadable()
         {
             yield return LoadDemoScene();
 
@@ -332,9 +332,45 @@ namespace EndangeredAR.Tests.PlayMode
             var bubble = (GameObject)GetPrivateField(controller, "modelChatBubble");
             var bubbleText = (Text)GetPrivateField(controller, "modelChatBubbleText");
             var bubbleRect = bubble.GetComponent<RectTransform>();
+            var textRect = bubbleText.GetComponent<RectTransform>();
 
-            Assert.That(bubbleRect.anchorMax.y - bubbleRect.anchorMin.y, Is.LessThanOrEqualTo(0.15f));
-            Assert.That(bubbleText.fontSize, Is.GreaterThanOrEqualTo(27));
+            Assert.That(bubbleRect.anchorMax.x - bubbleRect.anchorMin.x, Is.GreaterThanOrEqualTo(0.40f));
+            Assert.That(bubbleRect.anchorMax.y - bubbleRect.anchorMin.y, Is.GreaterThanOrEqualTo(0.18f));
+            Assert.That(textRect.sizeDelta.x, Is.GreaterThanOrEqualTo(400f));
+            Assert.That(textRect.sizeDelta.y, Is.GreaterThanOrEqualTo(330f));
+            Assert.That(bubbleText.fontSize, Is.GreaterThanOrEqualTo(36));
+            Assert.That(bubbleText.resizeTextForBestFit, Is.True);
+            Assert.That(bubbleText.horizontalOverflow, Is.EqualTo(HorizontalWrapMode.Wrap));
+        }
+
+        [UnityTest]
+        public IEnumerator ModelView_UsesCloserFramingAndLargerChatInput()
+        {
+            yield return LoadDemoScene();
+
+            var controller = FindSingle<DemoAppController>();
+            InvokePrivate(controller, "EnterModelView");
+            yield return null;
+
+            var camera = (Camera)GetPrivateField(controller, "displayCamera");
+            var inputBar = (GameObject)GetPrivateField(controller, "modelChatInputBar");
+            var input = (InputField)GetPrivateField(controller, "chatInput");
+            var sendButton = (Button)GetPrivateField(controller, "sendLocalChatButton");
+            var inputBarRect = inputBar.GetComponent<RectTransform>();
+            var inputRect = input.GetComponent<RectTransform>();
+            var sendRect = sendButton.GetComponent<RectTransform>();
+            var sendLabel = sendButton.GetComponentInChildren<Text>(true);
+
+            Assert.That(camera.transform.position.z, Is.EqualTo(-3.8f).Within(0.001f));
+            Assert.That(inputBarRect.anchorMax.x - inputBarRect.anchorMin.x, Is.GreaterThanOrEqualTo(0.89f));
+            Assert.That(inputBarRect.anchorMax.y - inputBarRect.anchorMin.y, Is.GreaterThanOrEqualTo(0.09f));
+            Assert.That(inputRect.sizeDelta.x, Is.GreaterThanOrEqualTo(740f));
+            Assert.That(inputRect.sizeDelta.y, Is.GreaterThanOrEqualTo(84f));
+            Assert.That(input.textComponent.fontSize, Is.GreaterThanOrEqualTo(28));
+            Assert.That(((Text)input.placeholder).fontSize, Is.GreaterThanOrEqualTo(28));
+            Assert.That(sendRect.sizeDelta.x, Is.GreaterThanOrEqualTo(180f));
+            Assert.That(sendRect.sizeDelta.y, Is.GreaterThanOrEqualTo(84f));
+            Assert.That(sendLabel.fontSize, Is.GreaterThanOrEqualTo(30));
         }
 
         [UnityTest]
