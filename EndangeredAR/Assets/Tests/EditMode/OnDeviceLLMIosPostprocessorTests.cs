@@ -57,6 +57,16 @@ namespace EndangeredAR.Tests.EditMode
             }
         }
 
+        [Test]
+        public void MinimumIosVersion_IsLockedToOfficialFrameworkRequirement()
+        {
+            var field = FindType(TypeName).GetField(
+                "MinimumIosVersion",
+                BindingFlags.Public | BindingFlags.Static);
+            Assert.That(field, Is.Not.Null);
+            Assert.That(field.GetRawConstantValue(), Is.EqualTo("16.4"));
+        }
+
         private static string CreateFramework(string root, bool includeDevice, bool includeSimulator)
         {
             var framework = Path.Combine(root, "llama.xcframework");

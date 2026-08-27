@@ -11,7 +11,6 @@ namespace EndangeredAR.Build
 {
     public static class OnDeviceLLMSpikeIosBuilder
     {
-        public const string MinimumIosVersion = "16.4";
         public const string OutputPathEnvironmentVariable = "ENDANGERED_AR_IOS_SPIKE_OUTPUT_PATH";
 
         [MenuItem("Endangered AR/Development/Build On-Device LLM Spike")]
@@ -29,7 +28,6 @@ namespace EndangeredAR.Build
             var modelPath = OnDeviceLLMBuildInputs.ResolveAndValidateModel();
             OnDeviceLLMBuildInputs.ResolveAndValidateFramework();
             var outputPath = ResolveOutputPath();
-            var previousTargetVersion = PlayerSettings.iOS.targetOSVersionString;
             var previousSpikeFlag = Environment.GetEnvironmentVariable(OnDeviceLLMIosPostprocessor.SpikeBuildFlag);
             IDisposable stagingScope = null;
 
@@ -38,8 +36,6 @@ namespace EndangeredAR.Build
                 stagingScope = OnDeviceLLMModelStager.Stage(Application.dataPath, modelPath);
                 AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
                 Environment.SetEnvironmentVariable(OnDeviceLLMIosPostprocessor.SpikeBuildFlag, "1");
-                PlayerSettings.iOS.targetOSVersionString = MinimumIosVersion;
-                PlayerSettings.iOS.sdkVersion = iOSSdkVersion.DeviceSDK;
                 Directory.CreateDirectory(outputPath);
 
                 var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
@@ -59,7 +55,6 @@ namespace EndangeredAR.Build
             }
             finally
             {
-                PlayerSettings.iOS.targetOSVersionString = previousTargetVersion;
                 Environment.SetEnvironmentVariable(
                     OnDeviceLLMIosPostprocessor.SpikeBuildFlag,
                     previousSpikeFlag);

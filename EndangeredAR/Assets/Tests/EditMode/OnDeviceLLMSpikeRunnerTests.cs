@@ -84,10 +84,11 @@ namespace EndangeredAR.Tests.EditMode
             var builder = ReadAsset("Editor/OnDeviceLLM/OnDeviceLLMSpikeIosBuilder.cs");
             StringAssert.Contains("BuildPipeline.BuildPlayer", builder);
             StringAssert.Contains("BuildOptions.Development", builder);
-            StringAssert.Contains("targetOSVersionString = MinimumIosVersion", builder);
             StringAssert.Contains("OnDeviceLLMModelStager.Stage", builder);
             StringAssert.Contains("finally", builder);
             StringAssert.Contains("SpikeBuildFlag", builder);
+            StringAssert.DoesNotContain("PlayerSettings.iOS.targetOSVersionString =", builder);
+            StringAssert.DoesNotContain("PlayerSettings.iOS.sdkVersion =", builder);
             StringAssert.DoesNotContain("AIManager", builder);
         }
 

@@ -12,6 +12,7 @@ namespace EndangeredAR.Build
     public static class OnDeviceLLMIosPostprocessor
     {
         public const string SpikeBuildFlag = "ENDANGERED_AR_ON_DEVICE_SPIKE";
+        public const string MinimumIosVersion = "16.4";
         private const string EnabledValue = "1";
         private const string FrameworkDirectoryName = "llama.xcframework";
 
@@ -109,8 +110,8 @@ namespace EndangeredAR.Build
             var mainTarget = project.GetUnityMainTargetGuid();
             project.AddFileToBuild(unityFrameworkTarget, frameworkGuid);
             PBXProjectExtensions.AddFileToEmbedFrameworks(project, mainTarget, frameworkGuid);
-            project.SetBuildProperty(unityFrameworkTarget, "IPHONEOS_DEPLOYMENT_TARGET", "16.4");
-            project.SetBuildProperty(mainTarget, "IPHONEOS_DEPLOYMENT_TARGET", "16.4");
+            project.SetBuildProperty(unityFrameworkTarget, "IPHONEOS_DEPLOYMENT_TARGET", MinimumIosVersion);
+            project.SetBuildProperty(mainTarget, "IPHONEOS_DEPLOYMENT_TARGET", MinimumIosVersion);
             project.AddBuildProperty(
                 unityFrameworkTarget,
                 "FRAMEWORK_SEARCH_PATHS",
