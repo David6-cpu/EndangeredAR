@@ -1,3 +1,4 @@
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System;
 using System.Collections;
 using System.Text;
@@ -223,3 +224,4 @@ namespace EndangeredAR.AI
         }
     }
 }
+#endif

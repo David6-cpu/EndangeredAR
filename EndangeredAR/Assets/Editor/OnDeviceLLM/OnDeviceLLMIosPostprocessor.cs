@@ -11,7 +11,8 @@ namespace EndangeredAR.Build
 {
     public static class OnDeviceLLMIosPostprocessor
     {
-        public const string SpikeBuildFlag = "ENDANGERED_AR_ON_DEVICE_SPIKE";
+        public const string OnDeviceBuildFlag = "ENDANGERED_AR_ON_DEVICE_BUILD";
+        public const string SpikeBuildFlag = OnDeviceBuildFlag;
         public const string MinimumIosVersion = "16.4";
         private const string EnabledValue = "1";
         private const string FrameworkDirectoryName = "llama.xcframework";
@@ -21,7 +22,7 @@ namespace EndangeredAR.Build
         {
             if (target != BuildTarget.iOS ||
                 !string.Equals(
-                    Environment.GetEnvironmentVariable(SpikeBuildFlag),
+                    Environment.GetEnvironmentVariable(OnDeviceBuildFlag),
                     EnabledValue,
                     StringComparison.Ordinal))
             {
@@ -108,10 +109,18 @@ namespace EndangeredAR.Build
                 PBXSourceTree.Source);
             var unityFrameworkTarget = project.GetUnityFrameworkTargetGuid();
             var mainTarget = project.GetUnityMainTargetGuid();
+            var gameAssemblyTarget = project.TargetGuidByName("GameAssembly");
             project.AddFileToBuild(unityFrameworkTarget, frameworkGuid);
             PBXProjectExtensions.AddFileToEmbedFrameworks(project, mainTarget, frameworkGuid);
             project.SetBuildProperty(unityFrameworkTarget, "IPHONEOS_DEPLOYMENT_TARGET", MinimumIosVersion);
             project.SetBuildProperty(mainTarget, "IPHONEOS_DEPLOYMENT_TARGET", MinimumIosVersion);
+            if (!string.IsNullOrEmpty(gameAssemblyTarget))
+            {
+                project.SetBuildProperty(
+                    gameAssemblyTarget,
+                    "IPHONEOS_DEPLOYMENT_TARGET",
+                    MinimumIosVersion);
+            }
             project.AddBuildProperty(
                 unityFrameworkTarget,
                 "FRAMEWORK_SEARCH_PATHS",

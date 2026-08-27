@@ -21,6 +21,8 @@ namespace EndangeredAR.AI
         private IAIProvider localProviderOverride;
         private IAIProvider cloudProviderOverride;
         private IOnDeviceLLMProvider onDeviceProviderOverride;
+        private IOnDeviceLLMProvider ownedOnDeviceProvider;
+        private IOnDeviceLLMProvider activeOnDeviceProvider;
 
         internal void ConfigureContextProvider(IReadOnlyCharacterContextProvider provider)
         {
@@ -76,12 +78,11 @@ namespace EndangeredAR.AI
             }
 
             var config = aiConfig;
-            var localProvider = onDeviceProviderOverride == null
-                ? localProviderOverride ?? new LocalLLMProvider(config == null ? null : config.localServerUrl)
-                : new OnDeviceAIResponseComposer(
-                    onDeviceProviderOverride,
-                    OnDevicePromptBudget.FirstProduction);
-            var cloudProvider = cloudProviderOverride ?? (chatApiClient == null ? null : new CloudLLMProvider(chatApiClient));
+            ResolveProviders(
+                config,
+                out var localProvider,
+                out var cloudProvider,
+                out var routeMode);
             var router = new AIRouter(localProvider, cloudProvider, null);
 
             Action<AIResponse> routeSuccess = response =>
@@ -102,11 +103,120 @@ namespace EndangeredAR.AI
 
             yield return router.Route(
                 request,
-                onDeviceProviderOverride == null ? ResolveRouteMode(config) : AIRouteMode.LocalOnly,
+                routeMode,
                 config == null ? DefaultLocalTimeoutSeconds : config.localTimeoutSeconds,
                 config == null ? DefaultTotalTimeoutSeconds : config.totalTimeoutSeconds,
                 routeSuccess,
                 routeError);
+        }
+
+        private void ResolveProviders(
+            AIConfig config,
+            out IAIProvider localProvider,
+            out IAIProvider cloudProvider,
+            out AIRouteMode routeMode)
+        {
+            if (onDeviceProviderOverride != null)
+            {
+                activeOnDeviceProvider = onDeviceProviderOverride;
+                localProvider = CreateOnDeviceComposer(onDeviceProviderOverride);
+                cloudProvider = null;
+                routeMode = AIRouteMode.LocalOnly;
+                return;
+            }
+
+            if (localProviderOverride != null || cloudProviderOverride != null)
+            {
+                activeOnDeviceProvider = null;
+                localProvider = localProviderOverride;
+                cloudProvider = cloudProviderOverride;
+                routeMode = ResolveRouteMode(config);
+                return;
+            }
+
+            var configuredMode = config == null ? AIProviderMode.OnDevice : config.providerMode;
+            var mode = AIProviderSelection.Resolve(configuredMode, DevelopmentRoutesAllowed);
+            switch (mode)
+            {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                case AIProviderMode.DevelopmentRemote:
+                    activeOnDeviceProvider = null;
+                    localProvider = new DevelopmentRemoteLLMProvider(
+                        config == null ? string.Empty : config.developmentRemoteServerUrl);
+                    cloudProvider = null;
+                    routeMode = AIRouteMode.LocalOnly;
+                    return;
+                case AIProviderMode.DevelopmentCloud:
+                    activeOnDeviceProvider = null;
+                    localProvider = null;
+                    cloudProvider = chatApiClient == null ? null : new CloudLLMProvider(chatApiClient);
+                    routeMode = AIRouteMode.CloudOnly;
+                    return;
+#endif
+                case AIProviderMode.OnDevice:
+                default:
+                    activeOnDeviceProvider = GetOrCreateOnDeviceProvider();
+                    localProvider = CreateOnDeviceComposer(activeOnDeviceProvider);
+                    cloudProvider = null;
+                    routeMode = AIRouteMode.LocalOnly;
+                    return;
+            }
+        }
+
+        private IAIProvider CreateOnDeviceComposer(IOnDeviceLLMProvider provider)
+        {
+            return new OnDeviceAIResponseComposer(provider, OnDevicePromptBudget.FirstProduction);
+        }
+
+        private IOnDeviceLLMProvider GetOrCreateOnDeviceProvider()
+        {
+            return ownedOnDeviceProvider ??= OnDeviceLLMProviderFactory.CreateProduction();
+        }
+
+        private static bool DevelopmentRoutesAllowed
+        {
+            get
+            {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                return true;
+#else
+                return false;
+#endif
+            }
+        }
+
+        private void OnEnable()
+        {
+            Application.lowMemory += HandleLowMemory;
+        }
+
+        private void OnDisable()
+        {
+            Application.lowMemory -= HandleLowMemory;
+        }
+
+        private void OnApplicationPause(bool paused)
+        {
+            activeOnDeviceProvider?.OnApplicationPause(paused);
+        }
+
+        private void OnDestroy()
+        {
+            ownedOnDeviceProvider?.Dispose();
+            ownedOnDeviceProvider = null;
+            activeOnDeviceProvider = null;
+        }
+
+        private void HandleLowMemory()
+        {
+            var provider = ownedOnDeviceProvider;
+            ownedOnDeviceProvider = null;
+            if (ReferenceEquals(activeOnDeviceProvider, provider))
+            {
+                activeOnDeviceProvider = null;
+            }
+
+            provider?.Dispose();
         }
 
         private static void AttachMemoryProvenance(

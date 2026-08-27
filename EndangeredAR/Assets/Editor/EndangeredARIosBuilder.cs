@@ -2,6 +2,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using EndangeredAR.Build;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -9,7 +10,10 @@ using UnityEngine;
 
 public static class EndangeredARIosBuilder
 {
+    public const string MinimumIosVersion = OnDeviceLLMIosPostprocessor.MinimumIosVersion;
     private const string OutputPathArgument = "-iosOutputPath";
+    private const string DevelopmentBuildArgument = "-iosDevelopmentBuild";
+    private const string DevelopmentRemoteArgument = "-iosDevelopmentRemote";
 
     [MenuItem("Endangered AR/Build iOS Xcode Project")]
     public static void Build()
@@ -24,26 +28,58 @@ public static class EndangeredARIosBuilder
             throw new BuildFailedException("No enabled scenes are configured in Build Settings.");
         }
 
-        ConfigurePortraitPlayerSettings();
-
+        var modelPath = OnDeviceLLMBuildInputs.ResolveAndValidateModel();
+        OnDeviceLLMBuildInputs.ResolveAndValidateFramework();
         var outputPath = ResolveOutputPath();
-        Directory.CreateDirectory(outputPath);
+        var developmentBuild = HasArgument(DevelopmentBuildArgument);
+        var developmentRemote = developmentBuild && HasArgument(DevelopmentRemoteArgument);
+        var previousOnDeviceFlag = Environment.GetEnvironmentVariable(
+            OnDeviceLLMIosPostprocessor.OnDeviceBuildFlag);
+        var previousNetworkFlag = Environment.GetEnvironmentVariable(
+            EndangeredARIosPostprocessor.DevelopmentRemoteNetworkFlag);
+        IDisposable stagingScope = null;
 
-        var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+        try
         {
-            scenes = scenes,
-            locationPathName = outputPath,
-            target = BuildTarget.iOS,
-            options = BuildOptions.Development
-        });
+            ConfigurePortraitPlayerSettings();
+            stagingScope = OnDeviceLLMModelStager.Stage(Application.dataPath, modelPath);
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+            Environment.SetEnvironmentVariable(OnDeviceLLMIosPostprocessor.OnDeviceBuildFlag, "1");
+            Environment.SetEnvironmentVariable(
+                EndangeredARIosPostprocessor.DevelopmentRemoteNetworkFlag,
+                developmentRemote ? "1" : null);
+            Directory.CreateDirectory(outputPath);
 
-        if (report.summary.result != BuildResult.Succeeded)
-        {
-            throw new BuildFailedException(
-                $"iOS build failed with result {report.summary.result} and {report.summary.totalErrors} error(s).");
+            var options = developmentBuild
+                ? BuildOptions.Development | BuildOptions.AllowDebugging
+                : BuildOptions.None;
+            var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+            {
+                scenes = scenes,
+                locationPathName = outputPath,
+                target = BuildTarget.iOS,
+                options = options
+            });
+
+            if (report.summary.result != BuildResult.Succeeded)
+            {
+                throw new BuildFailedException(
+                    $"iOS build failed with result {report.summary.result} and {report.summary.totalErrors} error(s).");
+            }
+
+            Debug.Log("EndangeredAR on-device iOS Xcode project built successfully.");
         }
-
-        Debug.Log($"EndangeredAR iOS Xcode project built at: {outputPath}");
+        finally
+        {
+            Environment.SetEnvironmentVariable(
+                OnDeviceLLMIosPostprocessor.OnDeviceBuildFlag,
+                previousOnDeviceFlag);
+            Environment.SetEnvironmentVariable(
+                EndangeredARIosPostprocessor.DevelopmentRemoteNetworkFlag,
+                previousNetworkFlag);
+            stagingScope?.Dispose();
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+        }
     }
 
     private static void ConfigurePortraitPlayerSettings()
@@ -54,7 +90,7 @@ public static class EndangeredARIosBuilder
         PlayerSettings.allowedAutorotateToLandscapeLeft = false;
         PlayerSettings.allowedAutorotateToLandscapeRight = false;
         PlayerSettings.iOS.sdkVersion = iOSSdkVersion.DeviceSDK;
-        PlayerSettings.iOS.targetOSVersionString = "15.0";
+        PlayerSettings.iOS.targetOSVersionString = MinimumIosVersion;
     }
 
     private static string ResolveOutputPath()
@@ -68,7 +104,14 @@ public static class EndangeredARIosBuilder
             }
         }
 
-        return Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "iOS"));
+        throw new BuildFailedException(
+            $"Provide an external iOS build directory with {OutputPathArgument}.");
+    }
+
+    private static bool HasArgument(string expected)
+    {
+        return Environment.GetCommandLineArgs().Any(argument =>
+            string.Equals(argument, expected, StringComparison.Ordinal));
     }
 }
 #endif

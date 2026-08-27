@@ -281,7 +281,8 @@ namespace EndangeredAR.Tests.EditMode
 
             Assert.That(config, Is.Not.Null);
             Assert.That(config.routeMode, Is.EqualTo(AIRouteMode.LocalOnly));
-            Assert.That(config.localServerUrl, Is.EqualTo("http://127.0.0.1:8000"));
+            Assert.That(config.providerMode, Is.EqualTo(AIProviderMode.OnDevice));
+            Assert.That(config.developmentRemoteServerUrl, Is.Empty);
             Assert.That(config.localTimeoutSeconds, Is.EqualTo(8f));
             Assert.That(config.totalTimeoutSeconds, Is.EqualTo(38f));
         }

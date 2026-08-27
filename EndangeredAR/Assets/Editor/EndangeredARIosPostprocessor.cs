@@ -10,6 +10,8 @@ using UnityEngine;
 
 public static class EndangeredARIosPostprocessor
 {
+    public const string DevelopmentRemoteNetworkFlag = "ENDANGERED_AR_DEVELOPMENT_REMOTE_NETWORK";
+
     [PostProcessBuild]
     public static void OnPostProcessBuild(BuildTarget target, string pathToBuiltProject)
     {
@@ -23,10 +25,13 @@ public static class EndangeredARIosPostprocessor
         plist.ReadFromFile(plistPath);
 
         var root = plist.root;
-        var appTransportSecurity = root.CreateDict("NSAppTransportSecurity");
-        appTransportSecurity.SetBoolean("NSAllowsArbitraryLoads", true);
+        ConfigureDevelopmentNetworkPermissions(
+            root,
+            string.Equals(
+                Environment.GetEnvironmentVariable(DevelopmentRemoteNetworkFlag),
+                "1",
+                StringComparison.Ordinal));
         root.SetString("NSCameraUsageDescription", "用于扫描濒危动物 AR 识别卡");
-        root.SetString("NSLocalNetworkUsageDescription", "用于连接同一 Wi-Fi 下的本地 AI 后端服务");
 
         if (RequiresSceneLifecycleBackport(Application.unityVersion))
         {
@@ -36,6 +41,29 @@ public static class EndangeredARIosPostprocessor
         }
 
         plist.WriteToFile(plistPath);
+    }
+
+    public static void ConfigureDevelopmentNetworkPermissions(
+        PlistElementDict root,
+        bool developmentRemoteEnabled)
+    {
+        if (root == null)
+        {
+            throw new ArgumentNullException(nameof(root));
+        }
+
+        root.values.Remove("NSLocalNetworkUsageDescription");
+        root.values.Remove("NSAppTransportSecurity");
+        if (!developmentRemoteEnabled)
+        {
+            return;
+        }
+
+        var appTransportSecurity = root.CreateDict("NSAppTransportSecurity");
+        appTransportSecurity.SetBoolean("NSAllowsArbitraryLoads", true);
+        root.SetString(
+            "NSLocalNetworkUsageDescription",
+            "仅用于 Development Build 显式连接开发机 AI 基准服务");
     }
 
     private static bool RequiresSceneLifecycleBackport(string unityVersion)
