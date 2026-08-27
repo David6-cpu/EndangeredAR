@@ -102,6 +102,29 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
+        public void ExplicitMemory_EmptyContextDoesNotReadSessionHistory()
+        {
+            var provider = new FakeOnDeviceProvider("我目前没有保存到可用于长期回忆的里程碑记录。");
+            var composer = new OnDeviceAIResponseComposer(provider, OnDevicePromptBudget.FirstProduction);
+            var request = Request("你还记得我做过什么吗？", ContentAuthority.CharacterMemory);
+            request.MemoryUseMode = MemoryUseMode.ExplicitRecall;
+            request.MemoryContext = ReadOnlyCharacterMemoryContext.EmptyFor("sensen");
+            request.history = new[]
+            {
+                new EndangeredAR.API.ChatMessage { role = "user", content = "我们以前完成过任务吗？" },
+                new EndangeredAR.API.ChatMessage { role = "assistant", content = "我记得你完成过寻找食物任务。" }
+            };
+
+            var response = Send(composer, request);
+
+            Assert.That(response.answerMode, Is.EqualTo("memory_recall"));
+            Assert.That(provider.LastRequest.Messages, Has.Count.EqualTo(2));
+            Assert.That(
+                provider.LastRequest.Messages.Select(value => value.Content),
+                Has.None.Contains("寻找食物任务"));
+        }
+
+        [Test]
         public void HistoryBoundary_UsesSystemPolicyAndNeverDietEvidence()
         {
             var provider = new FakeOnDeviceProvider("我不会长期保存完整聊天内容。");
@@ -116,6 +139,53 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(response.GroundedFactIds, Is.Empty);
             Assert.That(provider.LastRequest.Messages[0].Content, Does.Contain("SYSTEM POLICY"));
             Assert.That(provider.LastRequest.Messages[0].Content, Does.Not.Contain("CANONICAL EVIDENCE"));
+        }
+
+        [Test]
+        public void HistoryBoundary_DoesNotReadSessionHistoryAsLongTermMemory()
+        {
+            var provider = new FakeOnDeviceProvider("我不会长期保存完整聊天内容。");
+            var composer = new OnDeviceAIResponseComposer(provider, OnDevicePromptBudget.FirstProduction);
+            var request = Request("你记得我以前问过你吃什么吗？", ContentAuthority.SystemPolicy);
+            request.MemoryUseMode = MemoryUseMode.HistoryBoundary;
+            request.history = new[]
+            {
+                new EndangeredAR.API.ChatMessage { role = "user", content = "你平时吃什么？" },
+                new EndangeredAR.API.ChatMessage { role = "assistant", content = "我以前回答过你这个食性问题。" }
+            };
+
+            var response = Send(composer, request);
+
+            Assert.That(response.answerMode, Is.EqualTo("memory_recall"));
+            Assert.That(provider.LastRequest.Messages, Has.Count.EqualTo(2));
+            Assert.That(
+                provider.LastRequest.Messages.Select(value => value.Content),
+                Has.None.Contains("我以前回答过你"));
+        }
+
+        [Test]
+        public void AIManager_MemoryValidationFailurePreservesSafeMemoryProvenance()
+        {
+            var host = new GameObject("OnDeviceMemoryErrorProvenanceTests");
+            var manager = host.AddComponent<AIManager>();
+            manager.ConfigureOnDeviceProvider(new FakeOnDeviceProvider("我记得你上次完成过寻找食物任务。"));
+            manager.ConfigureMemoryContextProvider(
+                new FixedMemoryContextProvider(ReadOnlyCharacterMemoryContext.EmptyFor("sensen")));
+            AIResponse response = null;
+            AIProviderError error = null;
+
+            var routine = manager.Send(
+                Request("你还记得我做过什么吗？", ContentAuthority.None),
+                value => response = value,
+                value => error = value);
+            RunCoroutine(routine);
+
+            Assert.That(response, Is.Null);
+            Assert.That(error, Is.Not.Null);
+            Assert.That(error.ContentAuthority, Is.EqualTo(ContentAuthority.CharacterMemory));
+            Assert.That(error.MemoryMentionMode, Is.EqualTo(MemoryMentionMode.ExplicitRecall));
+            Assert.That(error.ProvenanceMemoryStatus, Is.EqualTo("empty"));
+            UnityEngine.Object.DestroyImmediate(host);
         }
 
         [Test]
@@ -230,6 +300,23 @@ namespace EndangeredAR.Tests.EditMode
 
             public void Dispose()
             {
+            }
+        }
+
+        private sealed class FixedMemoryContextProvider : IReadOnlyCharacterMemoryContextProvider
+        {
+            private readonly ReadOnlyCharacterMemoryContext context;
+
+            public FixedMemoryContextProvider(ReadOnlyCharacterMemoryContext context)
+            {
+                this.context = context;
+            }
+
+            public ReadOnlyCharacterMemoryContext CreateSnapshot(
+                string animalId,
+                ReadOnlyCharacterContext currentContext)
+            {
+                return context;
             }
         }
     }

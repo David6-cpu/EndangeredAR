@@ -66,7 +66,7 @@ namespace EndangeredAR.AI.OnDevice
                     new TrustedChatPromptInput(
                         SystemRole,
                         request.message,
-                        BuildHistory(request.history),
+                        BuildTrustedHistory(request),
                         request.ContentAuthority,
                         request.ContentAuthority == ContentAuthority.CurrentProgress ? authorityText : string.Empty,
                         request.ContentAuthority == ContentAuthority.CharacterMemory ? authorityText : string.Empty,
@@ -278,6 +278,14 @@ namespace EndangeredAR.AI.OnDevice
             }
 
             return result.ToArray();
+        }
+
+        private static OnDeviceChatMessage[] BuildTrustedHistory(AIRequest request)
+        {
+            // Authority-bound replies must not inherit lower-priority session claims.
+            return request.ContentAuthority == ContentAuthority.None
+                ? BuildHistory(request.history)
+                : Array.Empty<OnDeviceChatMessage>();
         }
 
         private static string ResolveAnswerMode(

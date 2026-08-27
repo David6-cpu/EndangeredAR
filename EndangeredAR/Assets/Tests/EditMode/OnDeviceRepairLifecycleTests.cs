@@ -60,6 +60,38 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(provider.SendCount, Is.EqualTo(1));
         }
 
+        [Test]
+        public void MemoryRepair_DoesNotReintroduceSessionHistory()
+        {
+            var provider = new SequencedProvider(
+                "我记得你上次完成过寻找食物任务。",
+                "我目前没有保存到可用于长期回忆的里程碑记录。");
+            var composer = new OnDeviceAIResponseComposer(provider, OnDevicePromptBudget.FirstProduction);
+            var request = new AIRequest
+            {
+                requestId = "memory_repair_1",
+                animalId = "sensen",
+                message = "你还记得我做过什么吗？",
+                ContentAuthority = ContentAuthority.CharacterMemory,
+                MemoryUseMode = MemoryUseMode.ExplicitRecall,
+                MemoryContext = ReadOnlyCharacterMemoryContext.EmptyFor("sensen"),
+                history = new[]
+                {
+                    new EndangeredAR.API.ChatMessage { role = "user", content = "我们以前完成过任务吗？" },
+                    new EndangeredAR.API.ChatMessage { role = "assistant", content = "你完成过寻找食物任务。" }
+                }
+            };
+
+            var outcome = Send(composer, request);
+
+            Assert.That(outcome.Error, Is.Null);
+            Assert.That(outcome.Response.reply, Does.Contain("没有保存"));
+            Assert.That(provider.SendCount, Is.EqualTo(2));
+            Assert.That(provider.Requests[0].Messages, Has.Count.EqualTo(2));
+            Assert.That(provider.Requests[1].Messages, Has.Count.EqualTo(2));
+            Assert.That(provider.Requests[1].Messages[0].Content, Does.Contain("STRICT RESPONSE REPAIR"));
+        }
+
         private static AIRequest ScientificNameRequest()
         {
             return new AIRequest

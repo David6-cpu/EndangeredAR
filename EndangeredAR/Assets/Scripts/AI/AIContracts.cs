@@ -82,6 +82,8 @@ namespace EndangeredAR.AI
         internal string[] ProviderAttempts { get; set; } = Array.Empty<string>();
         internal long ElapsedMilliseconds { get; set; }
         internal ContentAuthority ContentAuthority { get; set; }
+        internal MemoryMentionMode MemoryMentionMode { get; set; }
+        internal string ProvenanceMemoryStatus { get; set; } = "not_read";
     }
 
     public interface IAIProvider

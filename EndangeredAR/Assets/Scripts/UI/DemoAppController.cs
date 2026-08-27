@@ -1832,6 +1832,12 @@ namespace EndangeredAR.UI
                 : error.RouteMode;
             statusResponse.ProviderAttempts = error?.ProviderAttempts ?? Array.Empty<string>();
             statusResponse.ContentAuthority = error == null ? ContentAuthority.None : error.ContentAuthority;
+            statusResponse.MemoryMentionMode = error == null
+                ? MemoryMentionMode.None
+                : error.MemoryMentionMode;
+            statusResponse.ProvenanceMemoryStatus = error == null
+                ? "not_read"
+                : error.ProvenanceMemoryStatus;
             statusResponse.LanguageGenerator = LanguageGenerator.None;
             statusResponse.FallbackUsed = false;
             statusResponse.ElapsedMilliseconds = error?.ElapsedMilliseconds ?? 0L;

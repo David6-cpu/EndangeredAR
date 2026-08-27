@@ -97,7 +97,15 @@ namespace EndangeredAR.AI
             };
             Action<AIProviderError> routeError = error =>
             {
-                error.ContentAuthority = request == null ? ContentAuthority.None : request.ContentAuthority;
+                if (error != null)
+                {
+                    error.ContentAuthority = request == null ? ContentAuthority.None : request.ContentAuthority;
+                    error.MemoryMentionMode = mentionMode;
+                    error.ProvenanceMemoryStatus = memoryContext == null
+                        ? "not_read"
+                        : CharacterMemoryContextStatusProtocol.ToWireValue(memoryContext.Status);
+                }
+
                 onError?.Invoke(error);
             };
 
