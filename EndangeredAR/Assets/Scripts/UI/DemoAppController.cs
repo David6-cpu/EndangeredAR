@@ -1811,7 +1811,8 @@ namespace EndangeredAR.UI
                 errorCode = "local_model_unavailable";
             }
 
-            var statusTextValue = errorCode == "ai_response_validation_failed"
+            var statusTextValue = errorCode == "ai_response_validation_failed" ||
+                                  errorCode == "on_device_response_validation_failed"
                 ? "森森的回答没有通过可信性校验，请重试。"
                 : errorCode == "memory_context_changed_retry"
                     ? "长期记忆状态刚刚发生变化，请重新发送这条消息。"

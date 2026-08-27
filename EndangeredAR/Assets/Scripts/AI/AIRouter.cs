@@ -341,10 +341,11 @@ namespace EndangeredAR.AI
 
         private static AIProviderError UnavailableError(string code, ProviderAttempt attempt)
         {
-            if (attempt?.Error?.Code == "ai_response_validation_failed")
+            if (attempt?.Error?.Code == "ai_response_validation_failed" ||
+                attempt?.Error?.Code == "on_device_response_validation_failed")
             {
                 return new AIProviderError(
-                    "ai_response_validation_failed",
+                    attempt.Error.Code,
                     "The generated response did not pass trusted-context validation.",
                     false);
             }

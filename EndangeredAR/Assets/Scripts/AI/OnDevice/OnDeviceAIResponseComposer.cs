@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Text;
 using EndangeredAR.AI.Knowledge;
 using EndangeredAR.AI.Prompt;
+using EndangeredAR.AI.Validation;
 
 namespace EndangeredAR.AI.OnDevice
 {
@@ -85,49 +86,86 @@ namespace EndangeredAR.AI.OnDevice
                 yield break;
             }
 
-            OnDeviceLLMResult generated = null;
-            OnDeviceLLMError generationError = null;
-            OnDeviceLLMRequest nativeRequest;
-            try
+            IReadOnlyList<OnDeviceChatMessage> messages = prompt.Messages;
+            long totalGenerationMs = 0L;
+            for (var attempt = 0; attempt < 2; attempt++)
             {
-                nativeRequest = new OnDeviceLLMRequest(
-                    SafeGenerationId(request.requestId),
-                    prompt.Messages,
-                    promptBudget.ReservedGenerationTokens,
-                    0.7f,
-                    0.8f,
-                    1.05f,
-                    7u);
-            }
-            catch (ArgumentException)
-            {
-                onError?.Invoke(Error("on_device_request_invalid"));
-                yield break;
-            }
+                OnDeviceLLMResult generated = null;
+                OnDeviceLLMError generationError = null;
+                OnDeviceLLMRequest nativeRequest;
+                try
+                {
+                    nativeRequest = new OnDeviceLLMRequest(
+                        SafeGenerationId(request.requestId + (attempt == 0 ? string.Empty : "_repair")),
+                        messages,
+                        promptBudget.ReservedGenerationTokens,
+                        0.7f,
+                        0.8f,
+                        1.05f,
+                        7u);
+                }
+                catch (ArgumentException)
+                {
+                    onError?.Invoke(Error("on_device_request_invalid"));
+                    yield break;
+                }
 
-            var generation = provider.Send(
-                nativeRequest,
-                timeoutSeconds,
-                result => generated = result,
-                error => generationError = error);
-            while (generation != null && generation.MoveNext())
-            {
-                yield return null;
-            }
+                var generation = provider.Send(
+                    nativeRequest,
+                    timeoutSeconds,
+                    result => generated = result,
+                    error => generationError = error);
+                while (generation != null && generation.MoveNext())
+                {
+                    yield return null;
+                }
 
-            if (generated == null || string.IsNullOrWhiteSpace(generated.Text))
-            {
-                onError?.Invoke(ConvertError(generationError, "on_device_generation_failed"));
-                yield break;
-            }
+                if (generated == null || string.IsNullOrWhiteSpace(generated.Text))
+                {
+                    onError?.Invoke(ConvertError(generationError, "on_device_generation_failed"));
+                    yield break;
+                }
 
-            onSuccess?.Invoke(ComposeResponse(request, evidence, generated));
+                totalGenerationMs += Math.Max(0L, generated.Metrics?.totalMs ?? 0L);
+                var validation = AuthorityAwareResponseValidator.Validate(request, evidence, generated.Text);
+                if (validation.IsValid)
+                {
+                    onSuccess?.Invoke(ComposeResponse(request, evidence, generated, totalGenerationMs));
+                    yield break;
+                }
+
+                if (attempt > 0)
+                {
+                    onError?.Invoke(Error("on_device_response_validation_failed"));
+                    yield break;
+                }
+
+                try
+                {
+                    messages = StrictRepairPromptBuilder.Build(
+                        prompt.Messages,
+                        provider,
+                        promptBudget,
+                        validation.ErrorCode);
+                }
+                catch (OnDevicePromptBudgetExceededException)
+                {
+                    onError?.Invoke(Error("on_device_response_validation_failed"));
+                    yield break;
+                }
+                catch (ArgumentException)
+                {
+                    onError?.Invoke(Error("on_device_response_validation_failed"));
+                    yield break;
+                }
+            }
         }
 
         private static AIResponse ComposeResponse(
             AIRequest request,
             CanonicalEvidencePackage evidence,
-            OnDeviceLLMResult generated)
+            OnDeviceLLMResult generated,
+            long totalGenerationMs)
         {
             var response = new AIResponse
             {
@@ -154,7 +192,7 @@ namespace EndangeredAR.AI.OnDevice
             response.ProviderAttempts = new[] { OnDeviceLLMProvider.OnDeviceGeneratorId };
             response.FallbackUsed = false;
             response.FallbackReasonCode = string.Empty;
-            response.ElapsedMilliseconds = Math.Max(0L, generated.Metrics?.totalMs ?? 0L);
+            response.ElapsedMilliseconds = Math.Max(0L, totalGenerationMs);
             response.ProvenanceErrorCode = string.Empty;
             return response;
         }
