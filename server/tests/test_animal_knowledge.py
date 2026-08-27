@@ -83,7 +83,7 @@ class AnimalKnowledgeRetrievalTests(unittest.TestCase):
             with self.subTest(question=question):
                 self.assert_grounded(question, fact_id)
 
-    def test_identity_and_animal_friend_vectors_do_not_overlap(self):
+    def test_shared_retrieval_vectors_match_production_contract(self):
         fixture_path = Path(__file__).resolve().parents[2] / "content" / "quality" / "sensen-knowledge-retrieval-vectors.json"
         fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
 
@@ -91,8 +91,32 @@ class AnimalKnowledgeRetrievalTests(unittest.TestCase):
             with self.subTest(message=case["message"]):
                 result = animal_knowledge.retrieve(self.document, case["message"])
                 self.assertEqual(result.answer_mode, case["expectedAnswerMode"])
-                actual_fact_id = result.facts[0]["factId"] if result.facts else ""
-                self.assertEqual(actual_fact_id, case["expectedFactId"])
+                self.assertEqual(result.evidence_status, case["expectedEvidenceStatus"])
+                self.assertEqual(
+                    [fact["factId"] for fact in result.facts],
+                    case["expectedFactIds"],
+                )
+                self.assertEqual(
+                    list(result.grounded_fact_ids),
+                    case["expectedGroundedFactIds"],
+                )
+                self.assertEqual(
+                    result.classification_reason,
+                    case["expectedClassificationReason"],
+                )
+                self.assertEqual(result.grounding_topic, case["expectedGroundingTopic"])
+
+    def test_shared_retrieval_vectors_cover_production_authorities(self):
+        fixture_path = Path(__file__).resolve().parents[2] / "content" / "quality" / "sensen-knowledge-retrieval-vectors.json"
+        fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+        categories = {case["category"] for case in fixture["cases"]}
+
+        self.assertTrue({
+            "identity", "scientific_name", "diet", "range", "habitat",
+            "conservation", "iucn", "cites", "precise_diet_quantity",
+            "known_unknown_population", "animal_friends", "open_social_chat",
+            "history_boundary",
+        }.issubset(categories))
 
     def test_grounded_diet_exposes_application_owned_topic_and_fact_ids(self):
         result = self.assert_grounded("森森，你平时吃什么？", "sensen.diet")

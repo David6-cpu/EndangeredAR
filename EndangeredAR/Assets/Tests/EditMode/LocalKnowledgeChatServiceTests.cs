@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using EndangeredAR.Animals;
 using EndangeredAR.Chat;
 using EndangeredAR.Missions;
@@ -81,7 +82,7 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
-        public void Answer_IdentityAndAnimalFriendVectorsDoNotOverlap()
+        public void RetrieveEvidence_MatchesSharedProductionVectors()
         {
             var service = CreateService();
             var profile = Resources.Load<AnimalKnowledgeProfile>("Animals/SensenKnowledge");
@@ -89,17 +90,17 @@ namespace EndangeredAR.Tests.EditMode
 
             foreach (var item in fixture.cases)
             {
-                var answer = service.Answer(profile, item.message);
+                var evidence = service.RetrieveEvidence("sensen", profile, item.message);
 
-                Assert.That(answer.AnswerMode, Is.EqualTo(item.expectedAnswerMode), item.message);
-                if (string.IsNullOrEmpty(item.expectedFactId))
-                {
-                    Assert.That(answer.GroundedFactIds, Is.Empty, item.message);
-                }
-                else
-                {
-                    Assert.That(answer.GroundedFactIds, Does.Contain(item.expectedFactId), item.message);
-                }
+                Assert.That(evidence.AnswerMode, Is.EqualTo(item.expectedAnswerMode), item.message);
+                Assert.That(evidence.EvidenceStatus, Is.EqualTo(item.expectedEvidenceStatus), item.message);
+                Assert.That(
+                    System.Array.ConvertAll(evidence.Facts.ToArray(), fact => fact.FactId),
+                    Is.EqualTo(item.expectedFactIds),
+                    item.message);
+                Assert.That(evidence.GroundedFactIds, Is.EqualTo(item.expectedGroundedFactIds), item.message);
+                Assert.That(evidence.ClassificationReason, Is.EqualTo(item.expectedClassificationReason), item.message);
+                Assert.That(evidence.GroundingTopic.ToString().ToLowerInvariant(), Is.EqualTo(item.expectedGroundingTopic), item.message);
             }
         }
 
@@ -155,7 +156,11 @@ namespace EndangeredAR.Tests.EditMode
         {
             public string message;
             public string expectedAnswerMode;
-            public string expectedFactId;
+            public string expectedEvidenceStatus;
+            public string[] expectedFactIds;
+            public string[] expectedGroundedFactIds;
+            public string expectedClassificationReason;
+            public string expectedGroundingTopic;
         }
 
         [TearDown]

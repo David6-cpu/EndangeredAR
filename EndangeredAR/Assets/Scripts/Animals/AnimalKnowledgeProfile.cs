@@ -58,7 +58,7 @@ namespace EndangeredAR.Animals
 
             if (ContainsAny(normalized, StyleMarkers))
             {
-                return AnimalKnowledgeRetrieval.Social;
+                return AnimalKnowledgeRetrieval.SocialWithReason("social_marker");
             }
 
             if (IsAnimalFriendsQuestion(normalized))
@@ -66,7 +66,7 @@ namespace EndangeredAR.Animals
                 return AnimalKnowledgeRetrieval.SocialWithReason("animal_friends_question");
             }
 
-            AnimalKnowledgeEntry selected = null;
+            var selected = new List<AnimalKnowledgeEntry>();
             var selectedScore = 0;
             foreach (var candidate in entries ?? Array.Empty<AnimalKnowledgeEntry>())
             {
@@ -74,21 +74,27 @@ namespace EndangeredAR.Animals
                 if (score > selectedScore)
                 {
                     selectedScore = score;
-                    selected = candidate;
+                    selected.Clear();
+                    selected.Add(candidate);
+                }
+                else if (score > 0 && score == selectedScore)
+                {
+                    selected.Add(candidate);
                 }
             }
 
-            if (selected != null)
+            if (selected.Count > 0)
             {
-                var status = selected.EvidenceStatus == "known_unknown"
+                var primary = selected[0];
+                var status = primary.EvidenceStatus == "known_unknown"
                     ? "insufficient_evidence"
                     : "evidence_found";
                 return new AnimalKnowledgeRetrieval(
-                    selected,
+                    selected.ToArray(),
                     "grounded_fact",
                     status,
-                    selected.SourceIds,
-                    $"matched_{selected.Topic}");
+                    CollectSourceIds(selected),
+                    $"matched_{primary.Topic}");
             }
 
             if (ContainsAny(normalized, MissingEvidenceMarkers))
@@ -108,7 +114,7 @@ namespace EndangeredAR.Animals
 
             if (ContainsAny(normalized, SocialMarkers))
             {
-                return AnimalKnowledgeRetrieval.Social;
+                return AnimalKnowledgeRetrieval.SocialWithReason("social_marker");
             }
 
             if (ContainsAny(normalized, ScientificMarkers))
@@ -117,8 +123,26 @@ namespace EndangeredAR.Animals
             }
 
             return sources != null && sources.Length > 0
-                ? AnimalKnowledgeRetrieval.Social
+                ? AnimalKnowledgeRetrieval.SocialWithReason("default_social_chat")
                 : AnimalKnowledgeRetrieval.Insufficient("legacy_profile_fallback");
+        }
+
+        private static string[] CollectSourceIds(IEnumerable<AnimalKnowledgeEntry> values)
+        {
+            var result = new List<string>();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var value in values)
+            {
+                foreach (var sourceId in value?.SourceIds ?? Array.Empty<string>())
+                {
+                    if (!string.IsNullOrEmpty(sourceId) && seen.Add(sourceId))
+                    {
+                        result.Add(sourceId);
+                    }
+                }
+            }
+
+            return result.ToArray();
         }
 
         internal void Configure(
@@ -242,7 +266,9 @@ namespace EndangeredAR.Animals
         private static string Normalize(string value)
         {
             var builder = new StringBuilder();
-            foreach (var character in (value ?? string.Empty).ToLowerInvariant())
+            foreach (var character in (value ?? string.Empty)
+                         .Normalize(NormalizationForm.FormKC)
+                         .ToLowerInvariant())
             {
                 if (char.IsLetterOrDigit(character))
                 {
@@ -286,6 +312,7 @@ namespace EndangeredAR.Animals
 
     public sealed class AnimalKnowledgeRetrieval
     {
+        private readonly AnimalKnowledgeEntry[] entries;
         private readonly string[] sourceIds;
 
         public AnimalKnowledgeRetrieval(
@@ -294,8 +321,23 @@ namespace EndangeredAR.Animals
             string evidenceStatus,
             string[] sourceIds,
             string classificationReason)
+            : this(
+                entry == null ? Array.Empty<AnimalKnowledgeEntry>() : new[] { entry },
+                answerMode,
+                evidenceStatus,
+                sourceIds,
+                classificationReason)
         {
-            Entry = entry;
+        }
+
+        public AnimalKnowledgeRetrieval(
+            AnimalKnowledgeEntry[] entries,
+            string answerMode,
+            string evidenceStatus,
+            string[] sourceIds,
+            string classificationReason)
+        {
+            this.entries = entries == null ? Array.Empty<AnimalKnowledgeEntry>() : (AnimalKnowledgeEntry[])entries.Clone();
             AnswerMode = answerMode;
             EvidenceStatus = evidenceStatus;
             this.sourceIds = sourceIds == null ? Array.Empty<string>() : (string[])sourceIds.Clone();
@@ -303,21 +345,22 @@ namespace EndangeredAR.Animals
         }
 
         public static AnimalKnowledgeRetrieval Social => new AnimalKnowledgeRetrieval(
-            null, "social_chat", "not_required", Array.Empty<string>(), "social_chat");
+            Array.Empty<AnimalKnowledgeEntry>(), "social_chat", "not_required", Array.Empty<string>(), "social_chat");
 
         public static AnimalKnowledgeRetrieval SocialWithReason(string reason) => new AnimalKnowledgeRetrieval(
-            null, "social_chat", "not_required", Array.Empty<string>(), reason);
+            Array.Empty<AnimalKnowledgeEntry>(), "social_chat", "not_required", Array.Empty<string>(), reason);
 
         public static AnimalKnowledgeRetrieval OffDomain => new AnimalKnowledgeRetrieval(
-            null, "off_domain", "not_required", Array.Empty<string>(), "off_domain_marker");
+            Array.Empty<AnimalKnowledgeEntry>(), "off_domain", "not_required", Array.Empty<string>(), "off_domain_marker");
 
         public static AnimalKnowledgeRetrieval PromptInjection => new AnimalKnowledgeRetrieval(
-            null, "off_domain", "not_required", Array.Empty<string>(), "prompt_injection");
+            Array.Empty<AnimalKnowledgeEntry>(), "off_domain", "not_required", Array.Empty<string>(), "prompt_injection");
 
         public static AnimalKnowledgeRetrieval Insufficient(string reason) => new AnimalKnowledgeRetrieval(
-            null, "grounded_fact", "insufficient_evidence", Array.Empty<string>(), reason);
+            Array.Empty<AnimalKnowledgeEntry>(), "grounded_fact", "insufficient_evidence", Array.Empty<string>(), reason);
 
-        public AnimalKnowledgeEntry Entry { get; }
+        public AnimalKnowledgeEntry Entry => entries.Length == 0 ? null : entries[0];
+        public AnimalKnowledgeEntry[] Entries => (AnimalKnowledgeEntry[])entries.Clone();
         public string AnswerMode { get; }
         public string EvidenceStatus { get; }
         public string[] SourceIds => (string[])sourceIds.Clone();

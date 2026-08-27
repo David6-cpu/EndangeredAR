@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using EndangeredAR.AI;
+using EndangeredAR.AI.Knowledge;
 using EndangeredAR.Animals;
 using UnityEngine;
 
@@ -9,6 +10,14 @@ namespace EndangeredAR.Chat
     public class LocalKnowledgeChatService : MonoBehaviour
     {
         [SerializeField] private AnimalKnowledgeProfile defaultProfile;
+
+        public CanonicalEvidencePackage RetrieveEvidence(
+            string animalId,
+            AnimalKnowledgeProfile profile,
+            string message)
+        {
+            return CanonicalKnowledgeRetriever.Retrieve(animalId, profile, message);
+        }
 
         public ChatAnswer Answer(AnimalKnowledgeProfile profile, string message)
         {

@@ -1,3 +1,6 @@
+using System;
+using System.IO;
+using System.Linq;
 using EndangeredAR.Animals;
 using EndangeredAR.Missions;
 using NUnit.Framework;
@@ -7,6 +10,51 @@ namespace EndangeredAR.Tests.EditMode
 {
     public class SensenContentAssetTests
     {
+        [Test]
+        public void SensenKnowledge_RuntimeAssetMatchesCanonicalFactsAndSources()
+        {
+            var knowledge = Resources.Load<AnimalKnowledgeProfile>("Animals/SensenKnowledge");
+            var path = Path.GetFullPath(Path.Combine(
+                Application.dataPath,
+                "..",
+                "..",
+                "content",
+                "animals",
+                "sensen.json"));
+            var canonical = JsonUtility.FromJson<CanonicalFixture>(File.ReadAllText(path));
+
+            Assert.That(knowledge.Entries.Select(entry => entry.KnowledgeId),
+                Is.EqualTo(canonical.facts.Select(fact => fact.factId)));
+            Assert.That(knowledge.Sources.Select(source => source.SourceId),
+                Is.EqualTo(canonical.sources.Select(source => source.sourceId)));
+
+            foreach (var fact in canonical.facts)
+            {
+                var entry = Array.Find(knowledge.Entries, value => value.KnowledgeId == fact.factId);
+                Assert.That(entry, Is.Not.Null, fact.factId);
+                Assert.That(entry.Topic, Is.EqualTo(fact.topic), fact.factId);
+                Assert.That(entry.Claim, Is.EqualTo(fact.claim), fact.factId);
+                Assert.That(entry.Reply, Is.EqualTo(fact.approvedAnswer), fact.factId);
+                Assert.That(entry.DisplayValue, Is.EqualTo(fact.displayValue), fact.factId);
+                Assert.That(entry.Items, Is.EqualTo(fact.items ?? Array.Empty<string>()), fact.factId);
+                Assert.That(entry.SourceIds, Is.EqualTo(fact.sourceIds), fact.factId);
+                Assert.That(entry.Confidence, Is.EqualTo(fact.confidence), fact.factId);
+                Assert.That(entry.EvidenceStatus, Is.EqualTo(fact.evidenceStatus), fact.factId);
+                Assert.That(entry.LastVerified, Is.EqualTo(fact.lastVerified), fact.factId);
+                Assert.That(entry.Notes, Is.EqualTo(fact.notes), fact.factId);
+            }
+
+            foreach (var source in canonical.sources)
+            {
+                var runtimeSource = Array.Find(knowledge.Sources, value => value.SourceId == source.sourceId);
+                Assert.That(runtimeSource, Is.Not.Null, source.sourceId);
+                Assert.That(runtimeSource.Title, Is.EqualTo(source.title), source.sourceId);
+                Assert.That(runtimeSource.Organization, Is.EqualTo(source.organization), source.sourceId);
+                Assert.That(runtimeSource.Url, Is.EqualTo(source.url), source.sourceId);
+                Assert.That(runtimeSource.AppliesToFactIds, Is.EqualTo(source.appliesToFactIds), source.sourceId);
+            }
+        }
+
         [Test]
         public void SensenDefinition_ExposesCanonicalConfiguredPresentation()
         {
@@ -80,6 +128,39 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(mission.TryGetOption(optionId, out var option), Is.True);
             Assert.That(option.Label, Is.EqualTo(label));
             Assert.That(option.IsCorrect, Is.EqualTo(isCorrect));
+        }
+
+        [Serializable]
+        private sealed class CanonicalFixture
+        {
+            public CanonicalFactFixture[] facts = Array.Empty<CanonicalFactFixture>();
+            public CanonicalSourceFixture[] sources = Array.Empty<CanonicalSourceFixture>();
+        }
+
+        [Serializable]
+        private sealed class CanonicalFactFixture
+        {
+            public string factId;
+            public string topic;
+            public string claim;
+            public string approvedAnswer;
+            public string displayValue;
+            public string[] items = Array.Empty<string>();
+            public string[] sourceIds = Array.Empty<string>();
+            public string confidence;
+            public string evidenceStatus;
+            public string lastVerified;
+            public string notes;
+        }
+
+        [Serializable]
+        private sealed class CanonicalSourceFixture
+        {
+            public string sourceId;
+            public string title;
+            public string organization;
+            public string url;
+            public string[] appliesToFactIds = Array.Empty<string>();
         }
     }
 }

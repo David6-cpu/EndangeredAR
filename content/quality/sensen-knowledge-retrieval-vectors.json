@@ -3,44 +3,162 @@
     {
       "message": "你是什么动物？",
       "expectedAnswerMode": "grounded_fact",
-      "expectedFactId": "sensen.identity",
+      "expectedEvidenceStatus": "evidence_found",
+      "expectedFactIds": ["sensen.identity"],
+      "expectedGroundedFactIds": ["sensen.identity"],
+      "expectedClassificationReason": "matched_identity",
+      "expectedGroundingTopic": "none",
       "category": "identity"
     },
     {
       "message": "你的学名是什么？",
       "expectedAnswerMode": "grounded_fact",
-      "expectedFactId": "sensen.scientific_name",
+      "expectedEvidenceStatus": "evidence_found",
+      "expectedFactIds": ["sensen.scientific_name"],
+      "expectedGroundedFactIds": ["sensen.scientific_name"],
+      "expectedClassificationReason": "matched_scientific_name",
+      "expectedGroundingTopic": "none",
       "category": "scientific_name"
     },
     {
       "message": "你的英文名是什么？",
       "expectedAnswerMode": "grounded_fact",
-      "expectedFactId": "sensen.identity",
+      "expectedEvidenceStatus": "evidence_found",
+      "expectedFactIds": ["sensen.identity"],
+      "expectedGroundedFactIds": ["sensen.identity"],
+      "expectedClassificationReason": "matched_identity",
+      "expectedGroundingTopic": "none",
       "category": "identity"
+    },
+    {
+      "message": "你平时吃什么？",
+      "expectedAnswerMode": "grounded_fact",
+      "expectedEvidenceStatus": "evidence_found",
+      "expectedFactIds": ["sensen.diet"],
+      "expectedGroundedFactIds": ["sensen.diet"],
+      "expectedClassificationReason": "matched_diet",
+      "expectedGroundingTopic": "diet",
+      "category": "diet"
+    },
+    {
+      "message": "你分布在哪些国家？",
+      "expectedAnswerMode": "grounded_fact",
+      "expectedEvidenceStatus": "evidence_found",
+      "expectedFactIds": ["sensen.range"],
+      "expectedGroundedFactIds": ["sensen.range"],
+      "expectedClassificationReason": "matched_range",
+      "expectedGroundingTopic": "none",
+      "category": "range"
+    },
+    {
+      "message": "你的栖息地是什么样？",
+      "expectedAnswerMode": "grounded_fact",
+      "expectedEvidenceStatus": "evidence_found",
+      "expectedFactIds": ["sensen.habitat"],
+      "expectedGroundedFactIds": ["sensen.habitat"],
+      "expectedClassificationReason": "matched_habitat",
+      "expectedGroundingTopic": "none",
+      "category": "habitat"
+    },
+    {
+      "message": "人们应该如何保护你？",
+      "expectedAnswerMode": "grounded_fact",
+      "expectedEvidenceStatus": "evidence_found",
+      "expectedFactIds": ["sensen.conservation_actions"],
+      "expectedGroundedFactIds": ["sensen.conservation_actions"],
+      "expectedClassificationReason": "matched_conservation_actions",
+      "expectedGroundingTopic": "none",
+      "category": "conservation"
+    },
+    {
+      "message": "你的IUCN等级是什么？",
+      "expectedAnswerMode": "grounded_fact",
+      "expectedEvidenceStatus": "evidence_found",
+      "expectedFactIds": ["sensen.conservation_status"],
+      "expectedGroundedFactIds": ["sensen.conservation_status"],
+      "expectedClassificationReason": "matched_conservation_status",
+      "expectedGroundingTopic": "none",
+      "category": "iucn"
+    },
+    {
+      "message": "你属于CITES附录几？",
+      "expectedAnswerMode": "grounded_fact",
+      "expectedEvidenceStatus": "evidence_found",
+      "expectedFactIds": ["sensen.conservation_status"],
+      "expectedGroundedFactIds": ["sensen.conservation_status"],
+      "expectedClassificationReason": "matched_conservation_status",
+      "expectedGroundingTopic": "none",
+      "category": "cites"
+    },
+    {
+      "message": "你每天准确吃多少克叶子？",
+      "expectedAnswerMode": "grounded_fact",
+      "expectedEvidenceStatus": "insufficient_evidence",
+      "expectedFactIds": [],
+      "expectedGroundedFactIds": [],
+      "expectedClassificationReason": "unsupported_precise_diet_quantity",
+      "expectedGroundingTopic": "none",
+      "category": "precise_diet_quantity"
+    },
+    {
+      "message": "野外还剩多少只？",
+      "expectedAnswerMode": "grounded_fact",
+      "expectedEvidenceStatus": "insufficient_evidence",
+      "expectedFactIds": ["sensen.population.global"],
+      "expectedGroundedFactIds": [],
+      "expectedClassificationReason": "matched_population",
+      "expectedGroundingTopic": "none",
+      "category": "known_unknown_population"
     },
     {
       "message": "你有什么动物朋友？",
       "expectedAnswerMode": "social_chat",
-      "expectedFactId": "",
+      "expectedEvidenceStatus": "not_required",
+      "expectedFactIds": [],
+      "expectedGroundedFactIds": [],
+      "expectedClassificationReason": "animal_friends_question",
+      "expectedGroundingTopic": "none",
       "category": "animal_friends"
     },
     {
       "message": "你认识哪些动物？",
       "expectedAnswerMode": "social_chat",
-      "expectedFactId": "",
+      "expectedEvidenceStatus": "not_required",
+      "expectedFactIds": [],
+      "expectedGroundedFactIds": [],
+      "expectedClassificationReason": "default_social_chat",
+      "expectedGroundingTopic": "none",
       "category": "animal_friends"
     },
     {
       "message": "你有哪些朋友？",
       "expectedAnswerMode": "social_chat",
-      "expectedFactId": "",
+      "expectedEvidenceStatus": "not_required",
+      "expectedFactIds": [],
+      "expectedGroundedFactIds": [],
+      "expectedClassificationReason": "animal_friends_question",
+      "expectedGroundingTopic": "none",
       "category": "animal_friends"
     },
     {
       "message": "我今天心情一般般",
       "expectedAnswerMode": "social_chat",
-      "expectedFactId": "",
+      "expectedEvidenceStatus": "not_required",
+      "expectedFactIds": [],
+      "expectedGroundedFactIds": [],
+      "expectedClassificationReason": "default_social_chat",
+      "expectedGroundingTopic": "none",
       "category": "open_social_chat"
+    },
+    {
+      "message": "你记得我以前问过什么吗？",
+      "expectedAnswerMode": "social_chat",
+      "expectedEvidenceStatus": "not_required",
+      "expectedFactIds": [],
+      "expectedGroundedFactIds": [],
+      "expectedClassificationReason": "default_social_chat",
+      "expectedGroundingTopic": "none",
+      "category": "history_boundary"
     }
   ]
 }
