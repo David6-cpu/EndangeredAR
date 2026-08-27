@@ -564,6 +564,12 @@ int endar_llm_start_generate(
                 return;
             }
 
+            if (prompt_tokens.size() > llama_n_batch(value.context))
+            {
+                set_error(value, "prompt_batch_exceeded");
+                return;
+            }
+
             llama_memory_clear(llama_get_memory(value.context), true);
             llama_batch prompt_batch = llama_batch_get_one(
                 prompt_tokens.data(),

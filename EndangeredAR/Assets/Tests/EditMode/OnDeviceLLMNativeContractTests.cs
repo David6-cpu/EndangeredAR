@@ -60,6 +60,18 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
+        public void NativeImplementation_RejectsOversizedLogicalBatchBeforeDecode()
+        {
+            var source = ReadAsset("Plugins/iOS/EndangeredAROnDeviceLLMBridge.mm");
+            var guard = source.IndexOf("prompt_tokens.size() > llama_n_batch(value.context)", StringComparison.Ordinal);
+            var decode = source.IndexOf("llama_decode(value.context, prompt_batch)", StringComparison.Ordinal);
+
+            Assert.That(guard, Is.GreaterThanOrEqualTo(0));
+            Assert.That(decode, Is.GreaterThan(guard));
+            StringAssert.Contains("prompt_batch_exceeded", source);
+        }
+
+        [Test]
         public void ManagedContract_HasBoundedStatesAndNoUnityObjectsOrCallbacks()
         {
             var stateType = FindType("EndangeredAR.AI.OnDevice.OnDeviceLLMNativeState");

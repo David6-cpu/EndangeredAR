@@ -31,6 +31,6 @@ namespace EndangeredAR.AI.OnDevice
         public int MicroBatchSize { get; }
 
         public static OnDeviceLLMRuntimeConfig FirstProductionProfile =>
-            new OnDeviceLLMRuntimeConfig("qwen15b_ios_ctx2048_v1", 2048, 4, 256, 256);
+            new OnDeviceLLMRuntimeConfig("qwen15b_ios_ctx2048_v2", 2048, 4, 2048, 256);
     }
 }

@@ -305,6 +305,7 @@ namespace EndangeredAR.AI.OnDevice
                 case "context_create_failed":
                 case "prompt_prepare_failed":
                 case "context_budget_exceeded":
+                case "prompt_batch_exceeded":
                 case "prompt_decode_failed":
                 case "token_decode_failed":
                 case "generation_decode_failed":

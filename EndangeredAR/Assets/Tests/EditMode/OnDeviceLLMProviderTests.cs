@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using EndangeredAR.AI.OnDevice;
+using EndangeredAR.AI.Prompt;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -150,6 +151,17 @@ namespace EndangeredAR.Tests.EditMode
             StringAssert.Contains("\"role\":\"system\"", backend.LastTokenMessagesJson);
             StringAssert.Contains("\"role\":\"user\"", backend.LastTokenMessagesJson);
             provider.Dispose();
+        }
+
+        [Test]
+        public void ProductionProfile_LogicalBatchCoversEveryAcceptedPrompt()
+        {
+            var runtime = OnDeviceLLMRuntimeConfig.FirstProductionProfile;
+            var prompt = OnDevicePromptBudget.FirstProduction;
+
+            Assert.That(runtime.BatchSize, Is.GreaterThanOrEqualTo(prompt.MaximumPromptTokens));
+            Assert.That(runtime.MicroBatchSize, Is.LessThan(runtime.BatchSize));
+            Assert.That(runtime.MicroBatchSize, Is.EqualTo(256));
         }
 
         private static OnDeviceLLMProvider CreateProvider(FakeBackend backend)
