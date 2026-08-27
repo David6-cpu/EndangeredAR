@@ -4,7 +4,7 @@
 
 [![Unity](https://img.shields.io/badge/Unity-6000.0.76f1-222C37?logo=unity)](https://unity.com/releases/editor/archive)
 ![Platform](https://img.shields.io/badge/Platform-iOS%2027%20%7C%20Unity%20Editor-2E6245)
-![Status](https://img.shields.io/badge/Status-R3.3B%20Event--based%20Memory-5EBB78)
+![Status](https://img.shields.io/badge/Status-R3.3C1%20On--device%20Chat-5EBB78)
 ![Repository](https://img.shields.io/badge/Repository-Public-C9A33A)
 
 ## 项目简介
@@ -20,13 +20,14 @@
 ## 核心能力
 
 - **AR 数字动物交互**：支持角色展示、单指旋转、双指缩放和页面生命周期管理。
-- **端云协同问答**：支持本地轻量模型、云端模型和确定性知识兜底路由。
+- **iPhone 本机问答**：正式 iOS 聊天通过 llama.cpp + Metal 在设备上运行 Qwen2.5-1.5B；Mac 和 Cloud 路径仅保留为显式开发对照工具。
 - **可信动物知识**：科学事实来自 canonical 动物知识库，并返回可追踪引用。
 - **事实约束与拒绝编造**：资料不足时明确说明证据不足，不虚构学名、数量、分布或保护等级。
 - **安全角色动作**：AI 或知识系统只能产生动作候选，最终必须经过 Policy、Capability、Validator 和角色控制器。
 - **知识驱动行为**：食性问题在真实 diet 证据和 citation 成立时，可安全触发森森的 Eat 动画。
 - **只读业务上下文**：AI 可读取有限的解锁、知识、徽章和任务完成状态，但没有业务写权限。
 - **事件型角色记忆**：应用会在真实业务状态成功保存后，以强类型、幂等且有界的事件记录动物发现、任务完成、知识学习和徽章获得等里程碑。记忆独立保存在本地，可清除、可恢复，并与核心业务进度隔离。
+- **受控记忆对话**：长期里程碑经最小化投影后可供本机 Qwen 组织回复；模型不读取原始事件，也不能写 Memory 或 Progress。
 - **真机验证**：已在 iOS 27 与 Unity 6000.0.76f1 环境完成启动、AR、手势、聊天和角色动画验收。
 
 ## 当前角色：森森
@@ -46,11 +47,15 @@
 ```text
 用户输入
   ↓
-只读角色上下文 + Canonical 动物知识检索
+Unity Intent / Content Authority
   ↓
-Local LLM / Cloud LLM / Unity Knowledge Fallback
+Canonical Evidence + 当前状态 + 角色记忆
   ↓
-可信回答 + Citations + 受控动作候选
+Unity Trusted Prompt Builder
+  ↓
+iPhone llama.cpp + Qwen2.5-1.5B + Metal
+  ↓
+验证后的回答 + Citations + 受控动作候选
   ↓
 Action Policy
   ↓
@@ -61,7 +66,7 @@ AIInteractionValidator
 Rigged AR Character
 ```
 
-核心原则是：**模型负责表达，知识库负责事实，应用层负责权限。** Unity 只访问项目自己的 Python 代理，Moonshot 密钥不进入客户端和 Git 历史。Local、Cloud 和 Unity 知识兜底使用同一份事实约束；模型不能决定引用、业务写入权限或直接调用 Animator。
+核心原则是：**模型负责表达，知识库负责事实，应用层负责权限。** 正式 iOS 聊天在设备上完成检索、Prompt 构造、Qwen 推理和回答校验，不依赖 Python、HTTP、Mac、局域网或 Cloud。模型不能决定引用、业务写入权限或直接调用 Animator。
 
 ## 技术栈
 
@@ -69,8 +74,9 @@ Rigged AR Character
 - C# / Python
 - iOS 27 / Xcode 27
 - llama.cpp
-- Qwen2.5-1.5B-Instruct GGUF（本地开发推理服务）
-- Moonshot API（云端模型路径）
+- Qwen2.5-1.5B-Instruct GGUF Q4_K_M（iPhone 本机推理）
+- llama.cpp iOS arm64 / Metal
+- Moonshot API（Development-only 对照路径）
 - JSON canonical knowledge corpus
 - Unity Generic Rig / Animator
 - Unity UI / TextMeshPro / glTFast `6.18.0`
@@ -79,10 +85,10 @@ Rigged AR Character
 
 ## 当前限制
 
-- 本地轻量模型目前通过开发机上的 llama.cpp 服务运行，尚未直接内嵌到 iOS 或 Android App。
+- 当前 on-device 闭环仅完成 iOS；Android 端本机推理尚未接入。
 - 当前完整角色闭环主要围绕森森实现，尚未完成大规模多物种扩展。
 - 森森为卡通化数字角色原型，后续仍可继续进行物种特征和美术精修。
-- R3.3B 已实现本地事件型角色记忆存储，但尚未将长期记忆投影注入 AI 对话；当前 AI 仍只读取 R3.3A 提供的实时业务上下文。
+- R3.3C1 已将受控长期记忆投影接入 iPhone 本机 Qwen，但完整 R3.3C A-H 最终验收仍待继续。
 - 角色记忆目前仅记录由真实业务状态产生的结构化里程碑，不保存完整聊天、用户自由文本、LLM 回复、昵称、好感度或情绪值。
 - 当前仍为单一本地 Profile，不代表已经支持账号、多用户、云同步或跨设备记忆。
 - 正式商业化所需的长期性能监控、隐私政策和多用户体系仍属于后续工作。
@@ -127,9 +133,9 @@ cd EndangeredAR
 
 请直接使用已经审查和验证过的 `DemoScene`。除非你明确要重新生成场景，否则不要运行 `Endangered AR > Build Demo Scene`，因为该菜单会重建场景内容。
 
-### 3. 启动 AI 服务
+### 3. 可选：启动开发对照 AI 服务
 
-当前默认聊天链路需要在开发机上同时运行 Python adapter 和 llama.cpp：
+正式 iOS 聊天不需要 Python 或 Mac llama.cpp。以下服务只用于 Unity Editor、Mac 基准和 Development-only 对照：
 
 ```bash
 cp server/.env.example .env.local
@@ -172,17 +178,15 @@ LOCAL_LLM_TIMEOUT=7
 
 `LOCAL_LLM_MODEL` 可留空；是否需要模型名取决于所使用的兼容服务。完整启动、接口调用和故障排查见 [`server/README.md`](server/README.md)。
 
-Unity 的正式默认路由是 `LocalOnly`。面向用户的自然语言由开发机上的 llama.cpp + Qwen2.5-1.5B 生成；这不是 iPhone 内嵌推理。`CloudOnly` 仅供 Editor 或 Development Build 显式对照测试，默认链路不会自动切换 Cloud。Unity Editor 的本地服务地址可使用 `http://127.0.0.1:8000`。
+Unity Editor 的开发远程路由可使用 `http://127.0.0.1:8000`。`CloudOnly` 仅供 Editor 或 Development Build 显式对照测试，正式 iOS 默认链路不会自动切换 Cloud。
 
-iPhone 真机中的 `localhost` 指向手机自身，因此 `LocalAIConfig.localServerUrl` 和现有 `LocalApiConfig.baseUrl` 都必须填写开发电脑在同一局域网内可达的地址，例如 `http://192.168.1.20:8000`。Python 代理仍可通过 Mac 自己的 `127.0.0.1:8080` 访问 llama.cpp。现有菜单可设置 `LocalApiConfig` 的云端代理地址：
+iPhone 真机只有在显式选择 Development 远程对照路由时才需要开发机地址。该地址不属于正式 on-device 聊天配置。现有菜单可设置 Development 配置：
 
 ```text
 Endangered AR > Set Local API To Mac LAN IP
 ```
 
-该菜单当前不会同步更新 `LocalAIConfig.localServerUrl`；使用本地路由进行真机测试前，请在 Inspector 中单独填写同一个 Mac 局域网地址。
-
-当前本地模型路径属于开发与演示部署。未来产品化需要把推理服务改为正式受控部署；不能把当前结构描述为手机端侧模型。
+该菜单当前不会同步更新所有 Development 远程配置；它不影响正式 iOS 的 on-device 路由。
 
 ### 4. 构建 iOS
 
@@ -192,6 +196,8 @@ Endangered AR > Set Local API To Mac LAN IP
 4. 连接已信任且开启开发者模式的 iPhone，签名并运行。
 
 Unity 6000.0.76f1 生成的 iOS 工程包含当前系统所需的 `UIScene` 生命周期支持，并已在 iOS 27 真机完成正常启动验收。
+
+on-device 构建前需通过 `ENDANGERED_AR_MODEL_PATH` 和 `ENDANGERED_AR_LLAMA_XCFRAMEWORK_PATH` 提供已批准的 GGUF 与 llama.cpp XCFramework。构建工具会校验模型身份、临时打包并在结束后清理 staging；模型权重和框架不进入 Git。
 
 ## AI 配置与安全
 
@@ -208,11 +214,12 @@ LOCAL_LLM_TIMEOUT=7
 
 - `.env.local` 已被 `.gitignore` 排除，**不要提交真实密钥**。
 - Unity 客户端不保存 Moonshot Key，也不发送 `Authorization: Bearer` 到供应商。
-- `LocalOnly`：默认路径为 Unity → Python `/chat/local` → Mac llama.cpp → Qwen2.5-1.5B。失败时显示明确的系统不可用状态，不访问 Cloud，也不使用固定角色话术伪装成功。
+- 正式 iOS 默认路径：Unity → `OnDeviceLLMProvider` → iOS native llama.cpp → Qwen2.5-1.5B。聊天不经过 Python、HTTP、Mac、LAN 或 Cloud。
+- `DevelopmentRemoteOnly`：仅用于显式开发对照，通过 Python adapter 访问 Mac llama.cpp；它不是正式产品的 Local LLM。
 - `CloudOnly`：仅允许在 Editor 或 Development Build 中显式选择，用于 Moonshot 对照验证，不是默认 fallback。
-- `LocalFirstCloudFallback`：保留旧枚举以兼容历史配置，但当前执行语义按 Local-only fail-closed 处理，不再自动尝试 Cloud 或 Unity 聊天兜底。
+- 历史自动 fallback 配置仅为兼容保留；正式 iOS 不会自动尝试 Cloud、server rule、server knowledge 或 Unity 固定聊天兜底。
 - `contentAuthority` 标识事实权限来源：R2 canonical knowledge、R3.3A current progress、R3.3B character memory 或 system policy；`languageGenerator` 标识实际语言生成器。
-- 正常默认回复必须为 `source=local_llm`、`languageGenerator=local_llm`。服务失败时为 `source=system_status`，错误状态不作为森森回复写入聊天历史。
+- 正常 iOS 默认回复必须为 `source=on_device_llm`、`languageGenerator=on_device_llm`。本机模型失败时为 `source=system_status`，错误状态不作为森森回复写入聊天历史。
 - `answerMode` 区分 `grounded_fact`、`social_chat` 和 `off_domain`；`evidenceStatus` 区分有证据、证据不足和无需证据。
 - `citations` 由应用根据检索结果生成，包含稳定 `sourceId`、标题、机构和 URL；模型输出中的伪造引用不会进入响应。
 - 森森唯一人工维护知识源是 [`content/animals/sensen.json`](content/animals/sensen.json)。Unity 的 `Sensen.asset` 与 `SensenKnowledge.asset` 由 `AnimalContentAssetBuilder` 从该文件生成，不应手工维护第二份事实。
