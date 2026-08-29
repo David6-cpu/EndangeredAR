@@ -1,15 +1,15 @@
 # EndangeredAR
 
-基于增强现实、可信动物知识与端云协同 AI 的珍稀及受保护野生动物智能科普系统
+基于增强现实、可信动物知识与 iPhone 本机 AI 的珍稀及受保护野生动物智能科普系统
 
 [![Unity](https://img.shields.io/badge/Unity-6000.0.76f1-222C37?logo=unity)](https://unity.com/releases/editor/archive)
 ![Platform](https://img.shields.io/badge/Platform-iOS%2027%20%7C%20Unity%20Editor-2E6245)
-![Status](https://img.shields.io/badge/Status-R3.3C1%20On--device%20Chat-5EBB78)
+![Status](https://img.shields.io/badge/Status-R3.3C%20On--device%20Dialogue%20In%20Validation-5EBB78)
 ![Repository](https://img.shields.io/badge/Repository-Public-C9A33A)
 
 ## 项目简介
 
-**EndangeredAR** 是一款面向青少年科普、研学活动、动物园及自然教育场景的智能 AR 应用。项目通过 Unity 构建可交互的数字动物角色，结合本地轻量模型、云端大模型和经过审核的动物知识库，为用户提供具有真实来源引用的自然语言科普问答。
+**EndangeredAR** 是一款面向青少年科普、研学活动、动物园及自然教育场景的智能 AR 应用。项目通过 Unity 构建可交互的数字动物角色，结合 iPhone 本机轻量模型和经过审核的动物知识库，为用户提供具有真实来源引用的自然语言科普问答。Cloud 仅保留为 Development-only 显式对照路径，不是正式 iOS 聊天依赖或自动 fallback。
 
 当前核心角色为缨冠灰叶猴“森森”（*Semnopithecus priam*）。系统不仅能够回答用户关于物种身份、食性、分布和保护状态的问题，还能在严格的白名单、角色能力和运行时校验下，根据明确互动意图或可信知识主题驱动角色播放相应动画。
 
@@ -28,7 +28,7 @@
 - **只读业务上下文**：AI 可读取有限的解锁、知识、徽章和任务完成状态，但没有业务写权限。
 - **事件型角色记忆**：应用会在真实业务状态成功保存后，以强类型、幂等且有界的事件记录动物发现、任务完成、知识学习和徽章获得等里程碑。记忆独立保存在本地，可清除、可恢复，并与核心业务进度隔离。
 - **受控记忆对话**：长期里程碑经最小化投影后可供本机 Qwen 组织回复；模型不读取原始事件，也不能写 Memory 或 Progress。
-- **真机验证**：已在 iOS 27 与 Unity 6000.0.76f1 环境完成启动、AR、手势、聊天和角色动画验收。
+- **真机验证**：已在 iOS 27 与 Unity 6000.0.76f1 环境通过 R3.3C0 本机推理 Spike、R3.3C1 Production Chat 核心 Gate 和 History Boundary 稳定性 Gate；完整 R3.3C A-H 仍待继续。
 
 ## 当前角色：森森
 
@@ -45,25 +45,23 @@
 ## 技术架构概览
 
 ```text
-用户输入
+Chat UI
   ↓
 Unity Intent / Content Authority
   ↓
-Canonical Evidence + 当前状态 + 角色记忆
+Canonical Evidence / CurrentProgress / CharacterMemory / SystemPolicy
   ↓
 Unity Trusted Prompt Builder
   ↓
+OnDeviceLLMProvider
+  ↓
 iPhone llama.cpp + Qwen2.5-1.5B + Metal
   ↓
-验证后的回答 + Citations + 受控动作候选
+Unity Response Validator
   ↓
-Action Policy
+Trusted citations / Action metadata
   ↓
-Character Capability
-  ↓
-AIInteractionValidator
-  ↓
-Rigged AR Character
+UI / Character
 ```
 
 核心原则是：**模型负责表达，知识库负责事实，应用层负责权限。** 正式 iOS 聊天在设备上完成检索、Prompt 构造、Qwen 推理和回答校验，不依赖 Python、HTTP、Mac、局域网或 Cloud。模型不能决定引用、业务写入权限或直接调用 Animator。
@@ -82,6 +80,14 @@ Rigged AR Character
 - Unity UI / TextMeshPro / glTFast `6.18.0`
 
 当前稳定包清单未包含 AR Foundation、ARKit XR Plugin 或 ARCore XR Plugin。扫描体验使用 iOS 相机预览与手动/模拟识别兜底；真实图片追踪仍属于后续工作。
+
+## 当前开发进度
+
+- **R3.3C0 已完成**：iPhone 原生 llama.cpp + Metal 成功加载 Qwen2.5-1.5B，并在 Mac Python、Mac llama-server、Wi-Fi 和蜂窝数据均关闭时完成真实 `on_device_llm` 推理。
+- **R3.3C1 核心 Gate 已完成**：正式底部 Chat UI 已接入 Unity 本地事实权限、Trusted Prompt Builder、`OnDeviceLLMProvider`、iPhone Qwen 和 Unity Response Validator。正式聊天对 Python、HTTP、Mac、LAN、Cloud 和 Unity fallback chat 的运行时依赖均为 0。
+- **AI Route Provenance 与 Local-LLM-only Gate 已完成**：Development 面板可区分事实权限、语言生成器和最终来源；正式 iOS 本机模型失败时显示 `system_status`，不会以 Cloud、server response 或 Unity 固定话术伪装成正常角色回复。
+- **History Boundary 稳定性 Gate 已通过**：`你记得我以前问过什么吗？` 与 `你记得我以前问过你吃什么吗？` 已在真机多次由 `on_device_llm` 按 SystemPolicy 回答；没有编造聊天历史、误入 Diet Grounding 或触发 Eat/Taunt。
+- **完整 R3.3C A-H 尚未完成，因此 R3.3C 尚未 fully accepted。** 当前功能分支仍处于最终验收阶段。
 
 ## 当前限制
 
@@ -110,7 +116,7 @@ Rigged AR Character
 │   └── docs/                   # 设计、实施计划与验收记录
 ├── content/animals/            # 唯一人工维护的动物知识 JSON
 ├── content/quality/            # 固定质量回归问题集
-└── server/                     # 本地 AI 代理和 Python 测试
+└── server/                     # Development 对照、回归与 Python 测试工具
 ```
 
 ## 快速开始
@@ -223,9 +229,9 @@ LOCAL_LLM_TIMEOUT=7
 - `answerMode` 区分 `grounded_fact`、`social_chat` 和 `off_domain`；`evidenceStatus` 区分有证据、证据不足和无需证据。
 - `citations` 由应用根据检索结果生成，包含稳定 `sourceId`、标题、机构和 URL；模型输出中的伪造引用不会进入响应。
 - 森森唯一人工维护知识源是 [`content/animals/sensen.json`](content/animals/sensen.json)。Unity 的 `Sensen.asset` 与 `SensenKnowledge.asset` 由 `AnimalContentAssetBuilder` 从该文件生成，不应手工维护第二份事实。
-- 默认预算为本地 8 秒、整条 Provider 路由 38 秒；聊天 UI 另有 40 秒总保护，不会让 Local 与 Cloud 各自等待完整 40 秒。
-- 后端最多保留请求中最近 20 条受支持的用户/角色消息。
-- 当前知识系统使用小型确定性检索，不包含向量数据库、Embedding、流式输出或移动端原生推理。R2 提供可信事实和引用，Qwen 只负责最终语言表达。角色动作只能由应用生成候选并经过 Policy、Capability、Validator 和角色控制器，模型不能直接控制动画或任务。
+- 正式 iOS 生成使用有界 Prompt、Token Budget 和超时；Development remote 路由保留独立的有界超时，但不进入生产聊天链路。
+- Session History 与 Character Memory 严格分离；正式 iOS Prompt 中的最近聊天按 Token Budget 截断，且不会自动写入长期角色记忆。
+- 当前知识系统使用小型确定性检索，不包含向量数据库、Embedding 或流式输出。R2 提供可信事实和引用，iPhone 本机 Qwen 只负责最终语言表达。角色动作只能由应用生成候选并经过 Policy、Capability、Validator 和角色控制器，模型不能直接控制动画或任务。
 
 更完整的后端说明见 [`server/README.md`](server/README.md)。
 
@@ -263,27 +269,27 @@ mkdir -p TestResults
 
 | 验证项 | 结果 |
 | --- | ---: |
-| Unity EditMode | 332 / 332 passed |
-| Unity PlayMode | 33 / 33 passed |
-| Python backend | 74 / 74 passed |
+| Unity EditMode | 552 / 552 passed |
+| Unity PlayMode | 39 / 39 passed |
+| Python backend | 130 / 130 passed |
 | iOS 构建 | Unity 6 导出、Xcode 签名构建与真机安装成功 |
-| 真机范围 | iOS 27 启动、Safe Area、相机、Rigged 角色、手势、聊天与动作验收 |
+| 真机范围 | R3.3C0、R3.3C1 核心 Gate 与 History Boundary 稳定性 Gate 已通过；完整 A-H pending |
 
 真机构建背景、设备检查项和已知边界见 [`Sensen iPhone Device Acceptance`](EndangeredAR/docs/verification/2026-08-06-sensen-device-acceptance.md)。自动化测试不能替代相机比例、模型材质、手势、PNG 输出等真机人工检查。
 
 ## 已知问题与发布边界
 
 - 扫描页提供相机预览与手动/模拟识别；真实图片追踪尚未恢复。
-- AI 代理当前适合本地开发和竞赛展示，不是生产级账号或高并发后台。
-- iOS App Store 发布前仍需准备正式应用图标、隐私文案、生产 HTTPS 地址和分发配置。
+- Python AI adapter 当前仅用于 Development 对照、回归和基准，不是正式 iOS 运行依赖，也不是生产级账号或高并发后台。
+- iOS App Store 发布前仍需准备正式应用图标、隐私文案、分发配置以及长时间性能与热状态验证。
 - 第二动物模型资源已进入仓库，但角色内容、任务、识别映射和完整真机验收尚未完成。
 
 ## Roadmap
 
-1. 完成第二动物的数据资产、独立任务、角色 Prompt 和模型验收。
-2. 将扫描解锁与图鉴入口扩展为真正的多动物选择闭环。
-3. 为第二动物建立同一 Canonical Knowledge Schema，并先完成来源核验再录入事实。
-4. 部署公开 HTTPS AI 代理，移除局域网演示依赖。
+1. 完成 R3.3C 剩余 A-H 真机验收，再决定是否合并到稳定 `main`。
+2. 完成第二动物的数据资产、独立任务、角色 Prompt 和模型验收。
+3. 将扫描解锁与图鉴入口扩展为真正的多动物选择闭环。
+4. 为第二动物建立同一 Canonical Knowledge Schema，并先完成来源核验再录入事实。
 5. 在稳定包基线之上评估恢复 ARFoundation 图片追踪。
 6. 完成 App Store 图标、隐私清单、性能与长时间真机测试。
 
@@ -311,6 +317,9 @@ mkdir -p TestResults
 - [R2 Grounded Animal Knowledge 验收说明](EndangeredAR/docs/verification/2026-08-21-r2-grounded-animal-knowledge.md)
 - [R3.3A Read-only Context 验收说明](EndangeredAR/docs/verification/2026-08-24-r3.3a-readonly-context-foundation.md)
 - [R3.3B Event-based Character Memory 验收说明](EndangeredAR/docs/verification/2026-08-25-r3.3b-event-memory-acceptance.md)
+- [R3.3C AI Route Provenance Gate](EndangeredAR/docs/verification/2026-08-26-r3.3c-ai-route-provenance-gate.md)
+- [R3.3C0 iPhone On-device LLM Spike 验收说明](EndangeredAR/docs/verification/2026-08-27-r3.3c0-on-device-llm-spike.md)
+- [R3.3C1 Production On-device Chat Integration 验收说明](EndangeredAR/docs/verification/2026-08-27-r3.3c1-production-on-device-chat-integration.md)
 - [UI Design System](EndangeredAR/DESIGN.md)
 
 ---
