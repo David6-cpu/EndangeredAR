@@ -85,8 +85,8 @@ namespace EndangeredAR.AI.Validation
         {
             return validationCode == "chat_history_claim_not_authorized" ||
                    validationCode == "history_boundary_missing"
-                ? "\n修复要求：回复中必须包含“不会长期保存完整聊天内容”；" +
-                  "只能说明无法准确回答旧聊天，不得声称记得、忘记或讨论过任何旧聊天。"
+                ? "\n修复要求：只输出下面这一句，不得添加其他内容：" +
+                  "不会长期保存完整聊天内容，所以无法准确回答你以前问过什么。"
                 : string.Empty;
         }
     }

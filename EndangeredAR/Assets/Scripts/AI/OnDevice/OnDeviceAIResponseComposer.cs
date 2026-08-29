@@ -16,6 +16,7 @@ namespace EndangeredAR.AI.OnDevice
         private const string HistoryBoundaryResponseContract =
             "\n回答要求：必须明确说明不会长期保存完整聊天内容，只回答一句自然中文；" +
             "不得声称记得、忘记或讨论过任何旧聊天；不得猜测旧话题，也不得描述其他记忆机制。";
+        private const int StrictRepairMaxTokens = 64;
 
         private readonly IOnDeviceLLMProvider provider;
         private readonly OnDevicePromptBudget promptBudget;
@@ -98,12 +99,17 @@ namespace EndangeredAR.AI.OnDevice
                 OnDeviceLLMRequest nativeRequest;
                 try
                 {
+                    var isHistoryBoundaryRepair = attempt > 0 &&
+                                                  request.ContentAuthority == ContentAuthority.SystemPolicy &&
+                                                  request.MemoryUseMode == MemoryUseMode.HistoryBoundary;
                     nativeRequest = new OnDeviceLLMRequest(
                         SafeGenerationId(request.requestId + (attempt == 0 ? string.Empty : "_repair")),
                         messages,
-                        promptBudget.ReservedGenerationTokens,
-                        0.7f,
-                        0.8f,
+                        isHistoryBoundaryRepair
+                            ? Math.Min(promptBudget.ReservedGenerationTokens, StrictRepairMaxTokens)
+                            : promptBudget.ReservedGenerationTokens,
+                        isHistoryBoundaryRepair ? 0f : 0.7f,
+                        isHistoryBoundaryRepair ? 1f : 0.8f,
                         1.05f,
                         7u);
                 }

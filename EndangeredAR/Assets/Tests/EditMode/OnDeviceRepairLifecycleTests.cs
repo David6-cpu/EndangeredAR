@@ -28,6 +28,11 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(provider.Requests[1].Messages[0].Content, Does.Contain("STRICT RESPONSE REPAIR"));
             Assert.That(provider.Requests[1].Messages[0].Content, Does.Contain("Semnopithecus priam"));
             Assert.That(provider.Requests[1].Messages[0].Content, Does.Not.Contain("Ailuropoda melanoleuca"));
+            Assert.That(provider.Requests[1].Temperature, Is.EqualTo(0.7f));
+            Assert.That(provider.Requests[1].TopP, Is.EqualTo(0.8f));
+            Assert.That(
+                provider.Requests[1].MaxTokens,
+                Is.EqualTo(OnDevicePromptBudget.FirstProduction.ReservedGenerationTokens));
             Assert.That(outcome.Response.GroundedFactIds, Is.EqualTo(new[] { "sensen.scientific_name" }));
         }
 
@@ -122,7 +127,11 @@ namespace EndangeredAR.Tests.EditMode
                 Does.Contain("不得声称记得、忘记或讨论过任何旧聊天"));
             Assert.That(
                 provider.Requests[1].Messages[0].Content,
-                Does.Contain("修复要求：回复中必须包含“不会长期保存完整聊天内容”"));
+                Does.Contain(
+                    "修复要求：只输出下面这一句，不得添加其他内容：不会长期保存完整聊天内容，所以无法准确回答你以前问过什么。"));
+            Assert.That(provider.Requests[1].Temperature, Is.EqualTo(0f));
+            Assert.That(provider.Requests[1].TopP, Is.EqualTo(1f));
+            Assert.That(provider.Requests[1].MaxTokens, Is.LessThanOrEqualTo(64));
         }
 
         private static AIRequest ScientificNameRequest()
