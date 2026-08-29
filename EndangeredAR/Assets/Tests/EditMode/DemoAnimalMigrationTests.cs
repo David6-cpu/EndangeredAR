@@ -154,7 +154,12 @@ namespace EndangeredAR.Tests.EditMode
                 citations = new[]
                 {
                     new AICitation { sourceId = "gbif-4267223", title = "GBIF taxon", organization = "GBIF Secretariat" },
-                    new AICitation { sourceId = "mdd-1000692", title = "MDD taxon", organization = "Mammal Diversity Database" }
+                    new AICitation
+                    {
+                        sourceId = "mdd-1000692",
+                        title = "MDD taxon",
+                        organization = "American Society of Mammalogists, Mammal Diversity Database"
+                    }
                 }
             };
             response.LanguageGenerator = LanguageGenerator.LocalLlm;
@@ -167,7 +172,9 @@ namespace EndangeredAR.Tests.EditMode
                 "你的学名是什么？",
                 out var displayReply), Is.True);
             Assert.That(displayReply, Does.Contain("Semnopithecus priam"));
-            Assert.That(displayReply, Does.Contain("资料来源：GBIF Secretariat；Mammal Diversity Database"));
+            Assert.That(
+                displayReply,
+                Does.Contain("资料来源：GBIF Secretariat；American Society of Mammalogists, Mammal Diversity Database"));
 
             Assert.That(TryResolveAICompletion(
                 state,

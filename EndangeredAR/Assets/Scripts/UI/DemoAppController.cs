@@ -2077,8 +2077,7 @@ namespace EndangeredAR.UI
                 return string.Empty;
             }
 
-            var label = value.Replace('\r', ' ').Replace('\n', ' ').Trim();
-            return label.Length <= 48 ? label : label.Substring(0, 48);
+            return value.Replace('\r', ' ').Replace('\n', ' ').Trim();
         }
 
         private static bool LooksTechnical(string value)
