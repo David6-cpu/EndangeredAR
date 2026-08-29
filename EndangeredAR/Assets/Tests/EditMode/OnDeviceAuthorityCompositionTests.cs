@@ -138,6 +138,12 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(response.GroundingTopic, Is.EqualTo(GroundingTopic.None));
             Assert.That(response.GroundedFactIds, Is.Empty);
             Assert.That(provider.LastRequest.Messages[0].Content, Does.Contain("SYSTEM POLICY"));
+            Assert.That(
+                provider.LastRequest.Messages[0].Content,
+                Does.Contain("回答要求：必须明确说明不会长期保存完整聊天内容"));
+            Assert.That(
+                provider.LastRequest.Messages[0].Content,
+                Does.Contain("不得声称记得、忘记或讨论过任何旧聊天"));
             Assert.That(provider.LastRequest.Messages[0].Content, Does.Not.Contain("CANONICAL EVIDENCE"));
         }
 

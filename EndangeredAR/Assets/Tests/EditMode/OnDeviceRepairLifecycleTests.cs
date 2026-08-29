@@ -92,6 +92,39 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(provider.Requests[1].Messages[0].Content, Does.Contain("STRICT RESPONSE REPAIR"));
         }
 
+        [Test]
+        public void HistoryBoundaryRepair_UsesDedicatedContractAndAcceptsSafeParaphrase()
+        {
+            var provider = new SequencedProvider(
+                "我记得你提过一些关于珍稀及受保护野生动物的问题。",
+                "我不会长期保存完整对话内容，所以无法准确告诉你以前具体问过什么。");
+            var composer = new OnDeviceAIResponseComposer(provider, OnDevicePromptBudget.FirstProduction);
+            var request = new AIRequest
+            {
+                requestId = "history_boundary_repair_1",
+                animalId = "sensen",
+                message = "你记得我以前问过什么吗？",
+                ContentAuthority = ContentAuthority.SystemPolicy,
+                MemoryUseMode = MemoryUseMode.HistoryBoundary,
+                MemoryContext = ReadOnlyCharacterMemoryContext.EmptyFor("sensen")
+            };
+
+            var outcome = Send(composer, request);
+
+            Assert.That(outcome.Error, Is.Null);
+            Assert.That(outcome.Response.reply, Does.Contain("不会长期保存完整对话内容"));
+            Assert.That(provider.SendCount, Is.EqualTo(2));
+            Assert.That(
+                provider.Requests[1].Messages[0].Content,
+                Does.Contain("回答要求：必须明确说明不会长期保存完整聊天内容"));
+            Assert.That(
+                provider.Requests[1].Messages[0].Content,
+                Does.Contain("不得声称记得、忘记或讨论过任何旧聊天"));
+            Assert.That(
+                provider.Requests[1].Messages[0].Content,
+                Does.Contain("修复要求：回复中必须包含“不会长期保存完整聊天内容”"));
+        }
+
         private static AIRequest ScientificNameRequest()
         {
             return new AIRequest

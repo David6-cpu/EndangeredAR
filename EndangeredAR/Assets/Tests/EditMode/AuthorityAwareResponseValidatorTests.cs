@@ -112,6 +112,7 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [TestCase("我不会长期保存完整聊天内容，所以无法准确说出以前问过什么。", true)]
+        [TestCase("我不会长期保存完整对话内容，所以无法准确告诉你以前具体问过什么。", true)]
         [TestCase("你之前问过我的食物和学名。", false)]
         public void HistoryBoundary_RequiresNoHistoryClaim(string reply, bool expected)
         {
@@ -121,6 +122,19 @@ namespace EndangeredAR.Tests.EditMode
             var result = AuthorityAwareResponseValidator.Validate(request, null, reply);
 
             Assert.That(result.IsValid, Is.EqualTo(expected));
+        }
+
+        [TestCase("我记得你提过一些关于珍稀及受保护野生动物的问题。")]
+        [TestCase("对不起，我现在好像忘记了我们之前讨论过的内容。")]
+        public void HistoryBoundary_RejectsClaimsThatPriorConversationExisted(string reply)
+        {
+            var request = Request("你记得我以前问过什么吗？", ContentAuthority.SystemPolicy);
+            request.MemoryUseMode = MemoryUseMode.HistoryBoundary;
+
+            var result = AuthorityAwareResponseValidator.Validate(request, null, reply);
+
+            Assert.That(result.IsValid, Is.False);
+            Assert.That(result.ErrorCode, Is.EqualTo("chat_history_claim_not_authorized"));
         }
 
         [TestCase("我愿意陪你聊一会儿。", true)]

@@ -19,13 +19,15 @@ namespace EndangeredAR.AI.Validation
                 throw new ArgumentException("A structured trusted prompt is required.");
             }
 
+            var code = SanitizeCode(validationCode);
             var messages = Copy(original);
             messages[0] = new OnDeviceChatMessage(
                 "system",
                 messages[0].Content +
                 "\n\n<STRICT RESPONSE REPAIR>\n" +
                 "上一次输出未通过应用校验。只根据同一可信上下文重新回答；不得新增事实、数字、名称、时间、聊天历史或动作。" +
-                "校验类别：" + SanitizeCode(validationCode) +
+                "校验类别：" + code +
+                BuildAuthorityRepair(code) +
                 "\n</STRICT RESPONSE REPAIR>");
 
             while (true)
@@ -77,6 +79,15 @@ namespace EndangeredAR.AI.Validation
             }
 
             return value;
+        }
+
+        private static string BuildAuthorityRepair(string validationCode)
+        {
+            return validationCode == "chat_history_claim_not_authorized" ||
+                   validationCode == "history_boundary_missing"
+                ? "\n修复要求：回复中必须包含“不会长期保存完整聊天内容”；" +
+                  "只能说明无法准确回答旧聊天，不得声称记得、忘记或讨论过任何旧聊天。"
+                : string.Empty;
         }
     }
 }

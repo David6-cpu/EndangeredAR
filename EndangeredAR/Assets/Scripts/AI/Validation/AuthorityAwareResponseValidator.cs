@@ -176,12 +176,26 @@ namespace EndangeredAR.AI.Validation
 
         private static AIResponseValidationResult ValidateHistoryBoundary(string reply)
         {
-            if (ContainsAny(reply, "你之前问过", "我记得我们聊过", "你曾经跟我说过"))
+            if (ContainsAny(
+                    reply,
+                    "你之前问过",
+                    "我记得你",
+                    "我还记得",
+                    "我记得我们聊过",
+                    "你曾经跟我说过",
+                    "你提过",
+                    "我们聊过",
+                    "我们讨论过",
+                    "之前讨论过",
+                    "我忘记",
+                    "实时更新",
+                    "最近的记忆"))
             {
                 return AIResponseValidationResult.Reject("chat_history_claim_not_authorized");
             }
 
-            return reply.Contains("聊天") && ContainsAny(reply, "不保存", "没有保存", "不会长期保存")
+            return ContainsAny(reply, "聊天", "对话") &&
+                   ContainsAny(reply, "不保存", "没有保存", "不会长期保存", "未保存")
                 ? AIResponseValidationResult.Valid
                 : AIResponseValidationResult.Reject("history_boundary_missing");
         }
