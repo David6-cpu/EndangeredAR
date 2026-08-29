@@ -19,7 +19,7 @@
 - [x] The generated iOS project supports portrait orientation only.
 - [x] The minimum iOS deployment target is 15.0.
 - [x] The final build compiles and includes `glTF/PbrMetallicRoughness`.
-- [x] The local proxy responds on `127.0.0.1:8000` and `192.168.2.147:8000`.
+- [x] The local proxy responded on loopback and the selected development LAN endpoint; the machine-specific address is omitted from the current public record.
 - [x] A proxy chat request returned a character-specific Moonshot response without exposing the provider key to Unity.
 
 ## Build Notes

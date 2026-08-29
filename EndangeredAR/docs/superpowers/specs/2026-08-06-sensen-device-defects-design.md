@@ -22,7 +22,7 @@
 
 真机开发阶段采用 Mac 局域网代理：
 
-- Unity `ApiConfig.baseUrl` 指向 Mac 当前局域网地址 `http://192.168.2.147:8000`。
+- Unity `ApiConfig.baseUrl` 在开发时指向 Mac 当前局域网代理；具体地址保留在本机配置中，不写入仓库。
 - 复用现有安全后端代理和 `.env.local` 中的 Moonshot 配置。
 - API Key 只由后端读取，不写入 Unity 资源、日志、测试或提交记录。
 - 后端监听 `0.0.0.0:8000`，提供 `/health` 和 `/chat`。

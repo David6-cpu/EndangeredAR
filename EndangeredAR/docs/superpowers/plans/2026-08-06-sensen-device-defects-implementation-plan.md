@@ -243,8 +243,10 @@ MOONSHOT_MODEL=moonshot-v1-8k
 `content/animals/sensen.json` contains the committed species facts and no user data or secrets. Update `LocalApiConfig.asset` to:
 
 ```yaml
-baseUrl: http://192.168.2.147:8000
+baseUrl: http://<development-host>:8000
 ```
+
+Replace `<development-host>` at development time with the current machine's LAN host; do not commit the resolved local address.
 
 - [ ] **Step 5: Run backend and security tests**
 
@@ -277,8 +279,9 @@ python3 server/dev_server.py
 Verify:
 
 ```bash
+: "${DEVELOPMENT_HOST:?Set DEVELOPMENT_HOST to the current development machine host}"
 curl -sS http://127.0.0.1:8000/health
-curl -sS http://192.168.2.147:8000/health
+curl -sS "http://$DEVELOPMENT_HOST:8000/health"
 curl -sS -X POST http://127.0.0.1:8000/chat \
   -H 'Content-Type: application/json' \
   -d '{"animalId":"sensen","message":"你住在哪里？","history":[]}'
