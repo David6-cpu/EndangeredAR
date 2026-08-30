@@ -31,7 +31,8 @@ namespace EndangeredAR.AI.Validation
                 "校验类别：" + code +
                 authorityRepair +
                 "\n</STRICT RESPONSE REPAIR>");
-            if (IsCurrentProgressValidation(code) || IsSystemPolicyValidation(code))
+            if (IsCurrentProgressValidation(code) || IsMemoryValidation(code) ||
+                IsSystemPolicyValidation(code))
             {
                 messages[messages.Count - 1] = new OnDeviceChatMessage(
                     "user",
@@ -100,7 +101,8 @@ namespace EndangeredAR.AI.Validation
                        "不会长期保存完整聊天内容，所以无法准确回答你以前问过什么。";
             }
 
-            if (!IsCurrentProgressValidation(validationCode))
+            if (!IsCurrentProgressValidation(validationCode) &&
+                !IsMemoryValidation(validationCode))
             {
                 if (!IsSystemPolicyValidation(validationCode))
                 {
@@ -111,7 +113,7 @@ namespace EndangeredAR.AI.Validation
             if (string.IsNullOrWhiteSpace(exactRepairResponse) || exactRepairResponse.Length > 320 ||
                 exactRepairResponse.IndexOfAny(new[] { '\r', '\n' }) >= 0)
             {
-                throw new ArgumentException("A bounded current-progress repair response is required.");
+                throw new ArgumentException("A bounded exact repair response is required.");
             }
 
             return "\n修复要求：只输出下面这一句，不得添加其他内容：" +
@@ -130,6 +132,14 @@ namespace EndangeredAR.AI.Validation
         private static bool IsSystemPolicyValidation(string validationCode)
         {
             return validationCode == "system_policy_response_not_exact";
+        }
+
+        private static bool IsMemoryValidation(string validationCode)
+        {
+            return validationCode == "memory_claim_not_authorized" ||
+                   validationCode == "memory_anchor_missing" ||
+                   validationCode == "memory_empty_claim_missing" ||
+                   validationCode == "memory_unavailable_claim_missing";
         }
     }
 }

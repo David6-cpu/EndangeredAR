@@ -101,17 +101,20 @@ namespace EndangeredAR.AI.OnDevice
                 OnDeviceLLMRequest nativeRequest;
                 try
                 {
-                    var isStrictRepair = attempt > 0 &&
-                                         (request.ContentAuthority == ContentAuthority.CurrentProgress ||
-                                          request.ContentAuthority == ContentAuthority.SystemPolicy);
+                    var isDeterministicRepair = attempt > 0 &&
+                                                (request.ContentAuthority == ContentAuthority.CurrentProgress ||
+                                                 request.ContentAuthority == ContentAuthority.CharacterMemory ||
+                                                 request.ContentAuthority == ContentAuthority.SystemPolicy);
+                    var isShortRepair = isDeterministicRepair &&
+                                        request.ContentAuthority != ContentAuthority.CharacterMemory;
                     nativeRequest = new OnDeviceLLMRequest(
                         SafeGenerationId(request.requestId + (attempt == 0 ? string.Empty : "_repair")),
                         messages,
-                        isStrictRepair
+                        isShortRepair
                             ? Math.Min(promptBudget.ReservedGenerationTokens, StrictRepairMaxTokens)
                             : promptBudget.ReservedGenerationTokens,
-                        isStrictRepair ? 0f : 0.7f,
-                        isStrictRepair ? 1f : 0.8f,
+                        isDeterministicRepair ? 0f : 0.7f,
+                        isDeterministicRepair ? 1f : 0.8f,
                         1.05f,
                         7u);
                 }
@@ -287,6 +290,15 @@ namespace EndangeredAR.AI.OnDevice
             if (request.ContentAuthority == ContentAuthority.CurrentProgress)
             {
                 return BuildCurrentProgressConclusion(request.Context);
+            }
+
+            if (request.ContentAuthority == ContentAuthority.CharacterMemory)
+            {
+                return request.MemoryUseMode == MemoryUseMode.Reunion
+                    ? CharacterMemoryAnswerBuilder.BuildReunion(
+                        request.MemoryContext,
+                        SafeReunionTailGuard.FallbackTail)
+                    : CharacterMemoryAnswerBuilder.BuildExplicitRecall(request.MemoryContext);
             }
 
             return request.ContentAuthority == ContentAuthority.SystemPolicy &&

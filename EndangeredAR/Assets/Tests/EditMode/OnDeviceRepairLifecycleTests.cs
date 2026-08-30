@@ -98,6 +98,58 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
+        public void MemoryPositiveReunionRepair_UsesExactTrustedSingleMilestoneReply()
+        {
+            const string trustedReply =
+                "欢迎回来！你此前完成过“帮森森寻找食物”。很高兴又见到你！";
+            var provider = new SequencedProvider(
+                "森森，你好！我听你最近在找食物，有没有找到？",
+                trustedReply);
+            var composer = new OnDeviceAIResponseComposer(provider, OnDevicePromptBudget.FirstProduction);
+            var request = new AIRequest
+            {
+                requestId = "memory_reunion_repair_1",
+                animalId = "sensen",
+                message = "森森，我又来看你了。",
+                ContentAuthority = ContentAuthority.CharacterMemory,
+                MemoryUseMode = MemoryUseMode.Reunion,
+                MemoryContext = ReadOnlyCharacterMemoryContext.Create(
+                    "sensen",
+                    CharacterMemoryContextStatus.Available,
+                    true,
+                    1,
+                    1,
+                    1,
+                    new[]
+                    {
+                        new ReadOnlyCharacterMemoryMilestone(
+                            CharacterMemoryContextMilestoneKind.MissionCompleted,
+                            "帮森森寻找食物")
+                    })
+            };
+
+            var outcome = Send(composer, request);
+
+            Assert.That(outcome.Error, Is.Null);
+            Assert.That(outcome.Response.reply, Is.EqualTo(trustedReply));
+            Assert.That(provider.SendCount, Is.EqualTo(2));
+            Assert.That(
+                provider.Requests[1].Messages[0].Content,
+                Does.Contain("修复要求：只输出下面这一句，不得添加其他内容：" + trustedReply));
+            Assert.That(
+                provider.Requests[1].Messages[provider.Requests[1].Messages.Count - 1].Content,
+                Does.Contain(trustedReply));
+            Assert.That(
+                provider.Requests[1].Messages[provider.Requests[1].Messages.Count - 1].Content,
+                Does.Not.Contain("森森，我又来看你了。"));
+            Assert.That(provider.Requests[1].Temperature, Is.EqualTo(0f));
+            Assert.That(provider.Requests[1].TopP, Is.EqualTo(1f));
+            Assert.That(
+                provider.Requests[1].MaxTokens,
+                Is.EqualTo(OnDevicePromptBudget.FirstProduction.ReservedGenerationTokens));
+        }
+
+        [Test]
         public void HistoryBoundaryRepair_UsesDedicatedContractAndAcceptsSafeParaphrase()
         {
             var provider = new SequencedProvider(
