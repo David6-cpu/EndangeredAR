@@ -1,0 +1,175 @@
+{
+  "experimentVersion": "r3.4a-v1",
+  "seed": 3401,
+  "cpedFiles": {
+    "train": {
+      "name": "train_split.csv",
+      "sha256": "7bce6a11f0bf0ac353d28e96f6cfa03ff5e83b95810647abb55d18ff7299e487"
+    },
+    "dev": {
+      "name": "valid_split.csv",
+      "sha256": "f434a04d21640bb38c849f3e9598c2b7b2fbdb49be6a7365b2ae016019bd389b"
+    },
+    "test": {
+      "name": "test_split.csv",
+      "sha256": "a4bcde678438ba1f95224d8e772e40f1f1df7c72f348796b3fafd421c2443a53"
+    }
+  },
+  "dataset": {
+    "rawCounts": {
+      "train": 94187,
+      "dev": 11137,
+      "test": 27438
+    },
+    "filteredCounts": {
+      "test": 27401,
+      "dev": 10053,
+      "train": 84983
+    },
+    "removedForCrossSplitOrGoldContamination": {
+      "test": 37,
+      "dev": 1084,
+      "train": 9204
+    },
+    "groupCounts": {
+      "train": 8086,
+      "dev": 934,
+      "test": 2815
+    },
+    "dialogueDistribution": {
+      "test": {
+        "Appreciation": 162,
+        "Comfort": 110,
+        "Greeting": 60,
+        "Neutral": 20015,
+        "Other": 1577,
+        "Question": 5477
+      },
+      "dev": {
+        "Appreciation": 31,
+        "Comfort": 85,
+        "Greeting": 11,
+        "Neutral": 7430,
+        "Other": 619,
+        "Question": 1877
+      },
+      "train": {
+        "Appreciation": 375,
+        "Comfort": 428,
+        "Greeting": 88,
+        "Neutral": 63945,
+        "Other": 4884,
+        "Question": 15263
+      }
+    },
+    "emotionDistribution": {
+      "test": {
+        "Anger": 3031,
+        "Joy": 2586,
+        "Neutral": 7984,
+        "Other": 2829,
+        "Sadness": 3322,
+        "Surprise": 1433,
+        "Warm": 3857,
+        "Worry": 2359
+      },
+      "dev": {
+        "Anger": 1482,
+        "Joy": 329,
+        "Neutral": 2799,
+        "Other": 1707,
+        "Sadness": 1571,
+        "Surprise": 243,
+        "Warm": 1206,
+        "Worry": 716
+      },
+      "train": {
+        "Anger": 12362,
+        "Joy": 3066,
+        "Neutral": 28619,
+        "Other": 10170,
+        "Sadness": 11087,
+        "Surprise": 1994,
+        "Warm": 10306,
+        "Worry": 7379
+      }
+    }
+  },
+  "goldCount": 72,
+  "environment": {
+    "python": "3.12.13",
+    "numpy": "2.2.6",
+    "scikitLearn": "1.7.1",
+    "torch": "2.8.0",
+    "platform": "Darwin",
+    "machine": "arm64"
+  },
+  "config": {
+    "experimentVersion": "r3.4a-v1",
+    "seed": 3401,
+    "inputForms": [
+      "reply_only",
+      "user_reply_pair"
+    ],
+    "metadataInputStatus": "not_evaluated_no_owned_labeled_variation",
+    "tokenizer": {
+      "type": "unicode_character",
+      "vocabSize": 4096,
+      "maxSequenceLength": 96,
+      "truncation": "preserve_assistant_reply_then_user_tail",
+      "padding": "right",
+      "specialTokenIds": {
+        "PAD": 0,
+        "UNK": 1,
+        "USER": 2,
+        "ASSISTANT": 3,
+        "SEP": 4,
+        "MODE": 5,
+        "AUTHORITY": 6
+      }
+    },
+    "linear": {
+      "features": "character_tfidf_1_to_3_grams",
+      "maxFeatures": 30000,
+      "classifier": "logistic_regression",
+      "classWeight": "balanced",
+      "maxIterations": 400
+    },
+    "textCnn": {
+      "embeddingDimension": 48,
+      "channelsPerKernel": 48,
+      "kernelSizes": [
+        2,
+        3,
+        4
+      ],
+      "dropout": 0.2
+    },
+    "biLstm": {
+      "embeddingDimension": 48,
+      "hiddenDimension": 64,
+      "layers": 1,
+      "bidirectional": true,
+      "dropout": 0.2
+    },
+    "training": {
+      "optimizer": "AdamW",
+      "learningRate": 0.001,
+      "batchSize": 256,
+      "epochs": 8,
+      "earlyStoppingPatience": 2,
+      "classWeights": "inverse_sqrt_frequency"
+    },
+    "onnx": {
+      "batch": 1,
+      "sequenceLength": 96,
+      "inputDtype": "int64",
+      "inputName": "input_ids",
+      "outputNames": [
+        "dialogue_logits",
+        "emotion_logits"
+      ],
+      "opset": 17
+    }
+  }
+}

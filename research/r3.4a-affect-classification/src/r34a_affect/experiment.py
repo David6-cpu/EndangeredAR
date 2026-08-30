@@ -357,12 +357,20 @@ def run_neural(
     return RunOutput(f"{model_name}-{input_form}", model_name, input_form, metrics, predict_gold)
 
 
-def _selection_key(run: RunOutput) -> tuple[float, float, float, int]:
+def _selection_key(run: RunOutput) -> tuple[float, float, float, float, int]:
     gate = run.metrics["greetingGate"]["dev"]
     dev = run.metrics["dev"]
+    precision = float(gate["precision"])
+    recall = float(gate["recall"])
+    beta_squared = 0.25
+    greeting_f05 = (
+        (1.0 + beta_squared) * precision * recall / (beta_squared * precision + recall)
+        if precision + recall > 0.0
+        else 0.0
+    )
     combined_macro = (dev["dialogue"]["macroF1"] + dev["emotion"]["macroF1"]) / 2.0
     size = int(run.metrics.get("onnx", {}).get("bytes", run.metrics.get("artifactBytes", 0)))
-    return float(gate["precision"]), float(combined_macro), float(gate["recall"]), -size
+    return greeting_f05, precision, float(combined_macro), recall, -size
 
 
 def _gold_metrics(run: RunOutput, schema: LabelSchema) -> dict[str, object]:
@@ -445,7 +453,7 @@ def main() -> int:
     selected = max(runs, key=_selection_key)
     selected_gold = _gold_metrics(selected, schema)
     summary = {
-        "selectionRule": "dev gated Greeting precision, then combined dual-head Macro-F1, Greeting recall, then smaller artifact",
+        "selectionRule": "dev gated Greeting F0.5, then precision, combined dual-head Macro-F1, recall, then smaller artifact",
         "selected": selected.key,
         "goldEvaluatedOnlyAfterSelection": True,
         "gold": selected_gold,
