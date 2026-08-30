@@ -113,15 +113,48 @@ namespace EndangeredAR.AI.Validation
         {
             context ??= ReadOnlyCharacterContext.Empty;
             var task = context.Task;
-            if (!string.IsNullOrEmpty(task.TaskTitle) && !ContainsTaskAnchor(reply, task.TaskTitle))
+            if (string.IsNullOrEmpty(task.TaskTitle))
+            {
+                if (!ContainsAny(reply, "没有提供任务", "没有当前任务", "暂无任务"))
+                {
+                    return AIResponseValidationResult.Reject("current_task_missing");
+                }
+            }
+            else if (!ContainsTaskAnchor(reply, task.TaskTitle))
             {
                 return AIResponseValidationResult.Reject("current_task_missing");
+            }
+
+            if (task.Completed &&
+                !ContainsAny(reply, "已经完成", "已完成", "完成了", "任务完成"))
+            {
+                return AIResponseValidationResult.Reject("current_task_state_missing");
             }
 
             if ((!task.Completed && ContainsAny(reply, "已经完成", "任务完成了", "已完成任务")) ||
                 (task.Completed && ContainsAny(reply, "尚未完成", "还没完成", "未完成任务")))
             {
                 return AIResponseValidationResult.Reject("current_task_state_conflict");
+            }
+
+            if (task.Completed && ContainsAny(
+                    reply,
+                    "建议",
+                    "可以去",
+                    "可以再",
+                    "可以先",
+                    "可以继续",
+                    "继续完成",
+                    "重新",
+                    "再次挑战",
+                    "去找",
+                    "去寻找",
+                    "寻找一些",
+                    "比如",
+                    "例如",
+                    "尝试"))
+            {
+                return AIResponseValidationResult.Reject("current_task_guidance_not_authorized");
             }
 
             var authority = string.Join("|", new[]

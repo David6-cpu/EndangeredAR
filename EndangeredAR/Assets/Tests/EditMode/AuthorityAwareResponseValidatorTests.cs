@@ -84,6 +84,24 @@ namespace EndangeredAR.Tests.EditMode
                 "你可以继续完成拍照记录任务。").IsValid, Is.False);
         }
 
+        [TestCase("你已经完成了帮森森寻找食物，当前状态没有提供新的任务。", true)]
+        [TestCase("我建议你可以去森林里找一些食物，比如树叶、果实和小动物。", false)]
+        [TestCase("你已经完成了帮森森寻找食物，可以再去找一些小动物。", false)]
+        public void CurrentProgress_CompletedTaskRejectsUntrustedNextStep(
+            string reply,
+            bool expected)
+        {
+            var request = Request("我下一步该做什么？", ContentAuthority.CurrentProgress);
+            request.Context = ReadOnlyCharacterContext.Create(
+                new ReadOnlyCharacterState("sensen", true, 1, 1),
+                new ReadOnlyTaskState("sensen-food", "帮森森寻找食物", true),
+                ReadOnlyInteractionState.Empty);
+
+            var result = AuthorityAwareResponseValidator.Validate(request, null, reply);
+
+            Assert.That(result.IsValid, Is.EqualTo(expected));
+        }
+
         [TestCase("你以前完成过1项保护任务。", true)]
         [TestCase("你以前完成过10项保护任务。", false)]
         [TestCase("你昨天刚刚完成过1项保护任务。", false)]

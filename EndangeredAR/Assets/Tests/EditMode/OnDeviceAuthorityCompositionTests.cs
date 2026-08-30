@@ -70,6 +70,29 @@ namespace EndangeredAR.Tests.EditMode
         }
 
         [Test]
+        public void CompletedCurrentProgress_ProvidesOnlyBoundedAnswerConclusion()
+        {
+            var provider = new FakeOnDeviceProvider(
+                "你已经完成了帮森森寻找食物，当前状态没有提供新的任务。");
+            var composer = new OnDeviceAIResponseComposer(provider, OnDevicePromptBudget.FirstProduction);
+            var request = Request("我下一步该做什么？", ContentAuthority.CurrentProgress);
+            request.Context = ReadOnlyCharacterContext.Create(
+                new ReadOnlyCharacterState("sensen", true, 1, 1),
+                new ReadOnlyTaskState("sensen-food", "帮森森寻找食物", true),
+                ReadOnlyInteractionState.Empty);
+
+            var response = Send(composer, request);
+
+            Assert.That(response.reply, Does.Contain("已经完成"));
+            Assert.That(
+                provider.LastRequest.Messages[0].Content,
+                Does.Contain("可回答结论：帮森森寻找食物已完成；当前状态没有提供新的任务。"));
+            Assert.That(
+                provider.LastRequest.Messages[0].Content,
+                Does.Contain("不得提供任务步骤、可选物品、奖励、重玩建议或新任务"));
+        }
+
+        [Test]
         public void ExplicitMemory_UsesBoundedPastFactsAndNoGroundingMetadata()
         {
             var provider = new FakeOnDeviceProvider("你以前完成过一项保护任务。");

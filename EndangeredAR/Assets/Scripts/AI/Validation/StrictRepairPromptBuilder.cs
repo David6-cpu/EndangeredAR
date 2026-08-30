@@ -83,10 +83,19 @@ namespace EndangeredAR.AI.Validation
 
         private static string BuildAuthorityRepair(string validationCode)
         {
-            return validationCode == "chat_history_claim_not_authorized" ||
-                   validationCode == "history_boundary_missing"
-                ? "\n修复要求：只输出下面这一句，不得添加其他内容：" +
-                  "不会长期保存完整聊天内容，所以无法准确回答你以前问过什么。"
+            if (validationCode == "chat_history_claim_not_authorized" ||
+                validationCode == "history_boundary_missing")
+            {
+                return "\n修复要求：只输出下面这一句，不得添加其他内容：" +
+                       "不会长期保存完整聊天内容，所以无法准确回答你以前问过什么。";
+            }
+
+            return validationCode == "current_task_missing" ||
+                   validationCode == "current_task_state_missing" ||
+                   validationCode == "current_task_state_conflict" ||
+                   validationCode == "current_task_guidance_not_authorized" ||
+                   validationCode == "current_state_count_conflict"
+                ? "\n修复要求：只输出 CURRENT READ-ONLY STATE 中的‘可回答结论’，不得添加其他内容。"
                 : string.Empty;
         }
     }

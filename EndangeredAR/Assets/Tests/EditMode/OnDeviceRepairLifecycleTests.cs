@@ -134,6 +134,38 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(provider.Requests[1].MaxTokens, Is.LessThanOrEqualTo(64));
         }
 
+        [Test]
+        public void CompletedCurrentProgressRepair_UsesBoundedStateContract()
+        {
+            var provider = new SequencedProvider(
+                "我建议你可以去森林里找一些食物，比如树叶、果实和小动物。",
+                "你已经完成了帮森森寻找食物，当前状态没有提供新的任务。");
+            var composer = new OnDeviceAIResponseComposer(provider, OnDevicePromptBudget.FirstProduction);
+            var request = new AIRequest
+            {
+                requestId = "current_progress_repair_1",
+                animalId = "sensen",
+                message = "我下一步该做什么？",
+                ContentAuthority = ContentAuthority.CurrentProgress,
+                Context = ReadOnlyCharacterContext.Create(
+                    new ReadOnlyCharacterState("sensen", true, 1, 1),
+                    new ReadOnlyTaskState("sensen-food", "帮森森寻找食物", true),
+                    ReadOnlyInteractionState.Empty)
+            };
+
+            var outcome = Send(composer, request);
+
+            Assert.That(outcome.Error, Is.Null);
+            Assert.That(outcome.Response.reply, Does.Contain("已经完成"));
+            Assert.That(provider.SendCount, Is.EqualTo(2));
+            Assert.That(
+                provider.Requests[1].Messages[0].Content,
+                Does.Contain("只输出 CURRENT READ-ONLY STATE 中的‘可回答结论’"));
+            Assert.That(provider.Requests[1].Temperature, Is.EqualTo(0f));
+            Assert.That(provider.Requests[1].TopP, Is.EqualTo(1f));
+            Assert.That(provider.Requests[1].MaxTokens, Is.LessThanOrEqualTo(64));
+        }
+
         private static AIRequest ScientificNameRequest()
         {
             return new AIRequest

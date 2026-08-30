@@ -99,17 +99,18 @@ namespace EndangeredAR.AI.OnDevice
                 OnDeviceLLMRequest nativeRequest;
                 try
                 {
-                    var isHistoryBoundaryRepair = attempt > 0 &&
-                                                  request.ContentAuthority == ContentAuthority.SystemPolicy &&
-                                                  request.MemoryUseMode == MemoryUseMode.HistoryBoundary;
+                    var isStrictRepair = attempt > 0 &&
+                                         (request.ContentAuthority == ContentAuthority.CurrentProgress ||
+                                          request.ContentAuthority == ContentAuthority.SystemPolicy &&
+                                          request.MemoryUseMode == MemoryUseMode.HistoryBoundary);
                     nativeRequest = new OnDeviceLLMRequest(
                         SafeGenerationId(request.requestId + (attempt == 0 ? string.Empty : "_repair")),
                         messages,
-                        isHistoryBoundaryRepair
+                        isStrictRepair
                             ? Math.Min(promptBudget.ReservedGenerationTokens, StrictRepairMaxTokens)
                             : promptBudget.ReservedGenerationTokens,
-                        isHistoryBoundaryRepair ? 0f : 0.7f,
-                        isHistoryBoundaryRepair ? 1f : 0.8f,
+                        isStrictRepair ? 0f : 0.7f,
+                        isStrictRepair ? 1f : 0.8f,
                         1.05f,
                         7u);
                 }
@@ -262,13 +263,31 @@ namespace EndangeredAR.AI.OnDevice
             context ??= ReadOnlyCharacterContext.Empty;
             var character = context.Character;
             var task = context.Task;
-            return new StringBuilder()
+            var builder = new StringBuilder()
                 .Append("当前动物：").Append(character.AnimalId).Append('\n')
                 .Append("当前已解锁：").Append(character.Unlocked ? "是" : "否").Append('\n')
                 .Append("当前已学习知识数：").Append(character.LearnedKnowledgeCount).Append('\n')
                 .Append("当前已获得徽章数：").Append(character.EarnedBadgeCount).Append('\n')
                 .Append("当前任务：").Append(string.IsNullOrEmpty(task.TaskTitle) ? "无" : task.TaskTitle).Append('\n')
-                .Append("当前任务完成：").Append(task.Completed ? "是" : "否").Append('\n')
+                .Append("当前任务完成：").Append(task.Completed ? "是" : "否").Append('\n');
+
+            if (string.IsNullOrEmpty(task.TaskTitle))
+            {
+                builder.Append("可回答结论：当前状态没有提供任务。\n");
+            }
+            else if (task.Completed)
+            {
+                builder.Append("可回答结论：").Append(task.TaskTitle)
+                    .Append("已完成；当前状态没有提供新的任务。\n");
+            }
+            else
+            {
+                builder.Append("可回答结论：当前任务是").Append(task.TaskTitle)
+                    .Append("，尚未完成。\n");
+            }
+
+            return builder
+                .Append("只可自然重述可回答结论；不得提供任务步骤、可选物品、奖励、重玩建议或新任务。\n")
                 .Append("这些是当前只读状态，不是长期记忆；不得声称修改了任何状态。")
                 .ToString();
         }
