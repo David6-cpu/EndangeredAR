@@ -1,0 +1,60 @@
+{
+  "version": "r3.4a-taxonomy-v1",
+  "dialogueActs": [
+    "Neutral",
+    "Greeting",
+    "Comfort",
+    "Appreciation",
+    "Question",
+    "Other"
+  ],
+  "emotionTones": [
+    "Neutral",
+    "Joy",
+    "Warm",
+    "Sadness",
+    "Worry",
+    "Anger",
+    "Surprise",
+    "Other"
+  ],
+  "cpedDialogueActMapping": {
+    "greeting": "Greeting",
+    "comfort": "Comfort",
+    "appreciation": "Appreciation",
+    "thanking": "Appreciation",
+    "question": "Question",
+    "answer": "Neutral",
+    "statement-opinion": "Neutral",
+    "statement-non-opinion": "Neutral",
+    "acknowledge": "Neutral",
+    "agreement": "Neutral",
+    "conventional-closing": "Neutral",
+    "apology": "Other",
+    "command": "Other",
+    "disagreement": "Other",
+    "interjection": "Other",
+    "quotation": "Other",
+    "reject": "Other",
+    "irony": "Other",
+    "other": "Other"
+  },
+  "cpedEmotionMapping": {
+    "neutral": "Neutral",
+    "happy": "Joy",
+    "grateful": "Warm",
+    "relaxed": "Warm",
+    "positive-other": "Warm",
+    "sadness": "Sadness",
+    "depress": "Sadness",
+    "worried": "Worry",
+    "fear": "Worry",
+    "anger": "Anger",
+    "astonished": "Surprise",
+    "disgust": "Other",
+    "negative-other": "Other"
+  },
+  "excludedCandidateLabels": {
+    "Encouragement": "CPED has no reliable source class and the project gold set must not be used as training data. Revisit only with sufficient project-owned training examples."
+  }
+}

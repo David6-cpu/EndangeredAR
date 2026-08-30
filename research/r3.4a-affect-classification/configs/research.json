@@ -1,0 +1,58 @@
+{
+  "experimentVersion": "r3.4a-v1",
+  "seed": 3401,
+  "inputForms": ["reply_only", "user_reply_pair"],
+  "metadataInputStatus": "not_evaluated_no_owned_labeled_variation",
+  "tokenizer": {
+    "type": "unicode_character",
+    "vocabSize": 4096,
+    "maxSequenceLength": 96,
+    "truncation": "preserve_assistant_reply_then_user_tail",
+    "padding": "right",
+    "specialTokenIds": {
+      "PAD": 0,
+      "UNK": 1,
+      "USER": 2,
+      "ASSISTANT": 3,
+      "SEP": 4,
+      "MODE": 5,
+      "AUTHORITY": 6
+    }
+  },
+  "linear": {
+    "features": "character_tfidf_1_to_3_grams",
+    "maxFeatures": 30000,
+    "classifier": "logistic_regression",
+    "classWeight": "balanced",
+    "maxIterations": 400
+  },
+  "textCnn": {
+    "embeddingDimension": 48,
+    "channelsPerKernel": 48,
+    "kernelSizes": [2, 3, 4],
+    "dropout": 0.2
+  },
+  "biLstm": {
+    "embeddingDimension": 48,
+    "hiddenDimension": 64,
+    "layers": 1,
+    "bidirectional": true,
+    "dropout": 0.2
+  },
+  "training": {
+    "optimizer": "AdamW",
+    "learningRate": 0.001,
+    "batchSize": 256,
+    "epochs": 8,
+    "earlyStoppingPatience": 2,
+    "classWeights": "inverse_sqrt_frequency"
+  },
+  "onnx": {
+    "batch": 1,
+    "sequenceLength": 96,
+    "inputDtype": "int64",
+    "inputName": "input_ids",
+    "outputNames": ["dialogue_logits", "emotion_logits"],
+    "opset": 17
+  }
+}

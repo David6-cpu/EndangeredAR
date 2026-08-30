@@ -1,0 +1,52 @@
+{
+  "auditVersion": "r3.4a-2026-08-30",
+  "datasets": [
+    {
+      "name": "CPED",
+      "publisher": "South China University of Technology researchers",
+      "paper": "https://arxiv.org/abs/2205.14727",
+      "officialSource": "https://github.com/scutcyr/CPED",
+      "pinnedCommit": "1e4b81c28a123f22387e06664f37e5dc9322380f",
+      "language": "zh-CN",
+      "textType": "multi-turn television dialogue",
+      "dialogueActLabels": 19,
+      "emotionLabels": 13,
+      "licenseFile": "Apache-2.0 repository license",
+      "underlyingTextRights": "unclear",
+      "commercialUse": "not approved",
+      "redistribution": "not approved",
+      "privacyRisk": "person and speaker attributes present but excluded",
+      "decision": "local_research_only"
+    },
+    {
+      "name": "Ren-CECps",
+      "publisher": "Changqin Quan and Fuji Ren",
+      "paper": "https://aclanthology.org/D09-1150/",
+      "officialSource": "paper-linked institutional distribution",
+      "language": "zh-CN",
+      "textType": "blogs",
+      "dialogueActLabels": 0,
+      "emotionLabels": 8,
+      "licenseFile": "separate author license agreement required",
+      "commercialUse": "unclear",
+      "redistribution": "not approved",
+      "privacyRisk": "user-authored blog content",
+      "decision": "rejected"
+    },
+    {
+      "name": "NLPCC 2013/2014 Emotion Classification",
+      "publisher": "NLPCC shared-task organizers",
+      "paper": "https://coai.cs.tsinghua.edu.cn/hml/media/files/Overview_of_the_NLPCC_2017_Shared_Task__Emotion_Generation_Challenge.pdf",
+      "officialSource": "historical NLPCC task distribution",
+      "language": "zh-CN",
+      "textType": "Sina Weibo posts",
+      "dialogueActLabels": 0,
+      "emotionLabels": 7,
+      "licenseFile": "no clear current commercial or redistribution grant located",
+      "commercialUse": "unclear",
+      "redistribution": "not approved",
+      "privacyRisk": "social-media handles and personal content",
+      "decision": "rejected"
+    }
+  ]
+}

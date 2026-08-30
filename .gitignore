@@ -31,3 +31,10 @@
 sysinfo.txt
 /EndangeredAR/Assets/AddressableAssetsData/link.xml
 /EndangeredAR/Assets/AddressableAssetsData/link.xml.meta
+
+# R3.4A local-only research inputs and generated model artifacts.
+/research/r3.4a-affect-classification/data/third_party/
+/research/r3.4a-affect-classification/artifacts/
+/research/r3.4a-affect-classification/checkpoints/
+/research/r3.4a-affect-classification/cache/
+/research/r3.4a-affect-classification/runs/
