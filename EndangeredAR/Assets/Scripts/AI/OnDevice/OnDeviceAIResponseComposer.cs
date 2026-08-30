@@ -156,7 +156,8 @@ namespace EndangeredAR.AI.OnDevice
                         prompt.Messages,
                         provider,
                         promptBudget,
-                        validation.ErrorCode);
+                        validation.ErrorCode,
+                        BuildExactRepairResponse(request));
                 }
                 catch (OnDevicePromptBudgetExceededException)
                 {
@@ -271,25 +272,32 @@ namespace EndangeredAR.AI.OnDevice
                 .Append("当前任务：").Append(string.IsNullOrEmpty(task.TaskTitle) ? "无" : task.TaskTitle).Append('\n')
                 .Append("当前任务完成：").Append(task.Completed ? "是" : "否").Append('\n');
 
-            if (string.IsNullOrEmpty(task.TaskTitle))
-            {
-                builder.Append("可回答结论：当前状态没有提供任务。\n");
-            }
-            else if (task.Completed)
-            {
-                builder.Append("可回答结论：").Append(task.TaskTitle)
-                    .Append("已完成；当前状态没有提供新的任务。\n");
-            }
-            else
-            {
-                builder.Append("可回答结论：当前任务是").Append(task.TaskTitle)
-                    .Append("，尚未完成。\n");
-            }
+            builder.Append("可回答结论：").Append(BuildCurrentProgressConclusion(context)).Append('\n');
 
             return builder
                 .Append("只可自然重述可回答结论；不得提供任务步骤、可选物品、奖励、重玩建议或新任务。\n")
                 .Append("这些是当前只读状态，不是长期记忆；不得声称修改了任何状态。")
                 .ToString();
+        }
+
+        private static string BuildExactRepairResponse(AIRequest request)
+        {
+            return request.ContentAuthority == ContentAuthority.CurrentProgress
+                ? BuildCurrentProgressConclusion(request.Context)
+                : string.Empty;
+        }
+
+        private static string BuildCurrentProgressConclusion(ReadOnlyCharacterContext context)
+        {
+            var task = (context ?? ReadOnlyCharacterContext.Empty).Task;
+            if (string.IsNullOrEmpty(task.TaskTitle))
+            {
+                return "当前状态没有提供任务。";
+            }
+
+            return task.Completed
+                ? task.TaskTitle + "已完成；当前状态没有提供新的任务。"
+                : "当前任务是" + task.TaskTitle + "，尚未完成。";
         }
 
         private static OnDeviceChatMessage[] BuildHistory(EndangeredAR.API.ChatMessage[] history)

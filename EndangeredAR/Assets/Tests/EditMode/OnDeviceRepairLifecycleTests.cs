@@ -160,10 +160,47 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(provider.SendCount, Is.EqualTo(2));
             Assert.That(
                 provider.Requests[1].Messages[0].Content,
-                Does.Contain("只输出 CURRENT READ-ONLY STATE 中的‘可回答结论’"));
+                Does.Contain(
+                    "修复要求：只输出下面这一句，不得添加其他内容：" +
+                    "帮森森寻找食物已完成；当前状态没有提供新的任务。"));
+            Assert.That(
+                provider.Requests[1].Messages[0].Content,
+                Does.Not.Contain("只输出 CURRENT READ-ONLY STATE 中的‘可回答结论’"));
             Assert.That(provider.Requests[1].Temperature, Is.EqualTo(0f));
             Assert.That(provider.Requests[1].TopP, Is.EqualTo(1f));
             Assert.That(provider.Requests[1].MaxTokens, Is.LessThanOrEqualTo(64));
+        }
+
+        [Test]
+        public void CompletedCurrentProgressRepair_UsesDynamicTrustedTaskTitle()
+        {
+            var provider = new SequencedProvider(
+                "我建议你继续完成任务。",
+                "寻找水源已完成；当前状态没有提供新的任务。");
+            var composer = new OnDeviceAIResponseComposer(provider, OnDevicePromptBudget.FirstProduction);
+            var request = new AIRequest
+            {
+                requestId = "current_progress_dynamic_repair_1",
+                animalId = "sensen",
+                message = "我下一步该做什么？",
+                ContentAuthority = ContentAuthority.CurrentProgress,
+                Context = ReadOnlyCharacterContext.Create(
+                    new ReadOnlyCharacterState("sensen", true, 2, 1),
+                    new ReadOnlyTaskState("sensen-water", "寻找水源", true),
+                    ReadOnlyInteractionState.Empty)
+            };
+
+            var outcome = Send(composer, request);
+
+            Assert.That(outcome.Error, Is.Null);
+            Assert.That(outcome.Response.reply, Is.EqualTo("寻找水源已完成；当前状态没有提供新的任务。"));
+            Assert.That(provider.SendCount, Is.EqualTo(2));
+            Assert.That(
+                provider.Requests[1].Messages[0].Content,
+                Does.Contain(
+                    "修复要求：只输出下面这一句，不得添加其他内容：" +
+                    "寻找水源已完成；当前状态没有提供新的任务。"));
+            Assert.That(provider.Requests[1].Messages[0].Content, Does.Not.Contain("帮森森寻找食物已完成"));
         }
 
         private static AIRequest ScientificNameRequest()

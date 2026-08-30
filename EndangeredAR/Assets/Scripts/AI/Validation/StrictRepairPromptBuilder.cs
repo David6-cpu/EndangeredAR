@@ -11,7 +11,8 @@ namespace EndangeredAR.AI.Validation
             IReadOnlyList<OnDeviceChatMessage> original,
             IOnDeviceTokenCounter tokenCounter,
             OnDevicePromptBudget budget,
-            string validationCode)
+            string validationCode,
+            string exactRepairResponse)
         {
             if (original == null || original.Count < 2 || tokenCounter == null || budget == null ||
                 original[0]?.Role != "system" || original[original.Count - 1]?.Role != "user")
@@ -27,7 +28,7 @@ namespace EndangeredAR.AI.Validation
                 "\n\n<STRICT RESPONSE REPAIR>\n" +
                 "上一次输出未通过应用校验。只根据同一可信上下文重新回答；不得新增事实、数字、名称、时间、聊天历史或动作。" +
                 "校验类别：" + code +
-                BuildAuthorityRepair(code) +
+                BuildAuthorityRepair(code, exactRepairResponse) +
                 "\n</STRICT RESPONSE REPAIR>");
 
             while (true)
@@ -81,7 +82,7 @@ namespace EndangeredAR.AI.Validation
             return value;
         }
 
-        private static string BuildAuthorityRepair(string validationCode)
+        private static string BuildAuthorityRepair(string validationCode, string exactRepairResponse)
         {
             if (validationCode == "chat_history_claim_not_authorized" ||
                 validationCode == "history_boundary_missing")
@@ -90,13 +91,28 @@ namespace EndangeredAR.AI.Validation
                        "不会长期保存完整聊天内容，所以无法准确回答你以前问过什么。";
             }
 
+            if (!IsCurrentProgressValidation(validationCode))
+            {
+                return string.Empty;
+            }
+
+            if (string.IsNullOrWhiteSpace(exactRepairResponse) || exactRepairResponse.Length > 320 ||
+                exactRepairResponse.IndexOfAny(new[] { '\r', '\n' }) >= 0)
+            {
+                throw new ArgumentException("A bounded current-progress repair response is required.");
+            }
+
+            return "\n修复要求：只输出下面这一句，不得添加其他内容：" +
+                   exactRepairResponse.Trim();
+        }
+
+        private static bool IsCurrentProgressValidation(string validationCode)
+        {
             return validationCode == "current_task_missing" ||
                    validationCode == "current_task_state_missing" ||
                    validationCode == "current_task_state_conflict" ||
                    validationCode == "current_task_guidance_not_authorized" ||
-                   validationCode == "current_state_count_conflict"
-                ? "\n修复要求：只输出 CURRENT READ-ONLY STATE 中的‘可回答结论’，不得添加其他内容。"
-                : string.Empty;
+                   validationCode == "current_state_count_conflict";
         }
     }
 }
