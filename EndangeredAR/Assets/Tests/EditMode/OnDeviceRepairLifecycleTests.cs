@@ -166,6 +166,15 @@ namespace EndangeredAR.Tests.EditMode
             Assert.That(
                 provider.Requests[1].Messages[0].Content,
                 Does.Not.Contain("只输出 CURRENT READ-ONLY STATE 中的‘可回答结论’"));
+            Assert.That(
+                provider.Requests[1].Messages[provider.Requests[1].Messages.Count - 1].Content,
+                Does.Contain("逐字复制以下唯一允许的回复"));
+            Assert.That(
+                provider.Requests[1].Messages[provider.Requests[1].Messages.Count - 1].Content,
+                Does.Contain("帮森森寻找食物已完成；当前状态没有提供新的任务。"));
+            Assert.That(
+                provider.Requests[1].Messages[provider.Requests[1].Messages.Count - 1].Content,
+                Does.Not.Contain("我下一步该做什么？"));
             Assert.That(provider.Requests[1].Temperature, Is.EqualTo(0f));
             Assert.That(provider.Requests[1].TopP, Is.EqualTo(1f));
             Assert.That(provider.Requests[1].MaxTokens, Is.LessThanOrEqualTo(64));
@@ -201,6 +210,12 @@ namespace EndangeredAR.Tests.EditMode
                     "修复要求：只输出下面这一句，不得添加其他内容：" +
                     "寻找水源已完成；当前状态没有提供新的任务。"));
             Assert.That(provider.Requests[1].Messages[0].Content, Does.Not.Contain("帮森森寻找食物已完成"));
+            Assert.That(
+                provider.Requests[1].Messages[provider.Requests[1].Messages.Count - 1].Content,
+                Does.Contain("寻找水源已完成；当前状态没有提供新的任务。"));
+            Assert.That(
+                provider.Requests[1].Messages[provider.Requests[1].Messages.Count - 1].Content,
+                Does.Not.Contain("我下一步该做什么？"));
         }
 
         private static AIRequest ScientificNameRequest()

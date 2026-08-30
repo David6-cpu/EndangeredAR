@@ -22,14 +22,23 @@ namespace EndangeredAR.AI.Validation
 
             var code = SanitizeCode(validationCode);
             var messages = Copy(original);
+            var authorityRepair = BuildAuthorityRepair(code, exactRepairResponse);
             messages[0] = new OnDeviceChatMessage(
                 "system",
                 messages[0].Content +
                 "\n\n<STRICT RESPONSE REPAIR>\n" +
                 "上一次输出未通过应用校验。只根据同一可信上下文重新回答；不得新增事实、数字、名称、时间、聊天历史或动作。" +
                 "校验类别：" + code +
-                BuildAuthorityRepair(code, exactRepairResponse) +
+                authorityRepair +
                 "\n</STRICT RESPONSE REPAIR>");
+            if (IsCurrentProgressValidation(code))
+            {
+                messages[messages.Count - 1] = new OnDeviceChatMessage(
+                    "user",
+                    "这是一次格式修复。不要回答之前的问题。" +
+                    "逐字复制以下唯一允许的回复，不得改写、解释或添加内容：\n" +
+                    exactRepairResponse.Trim());
+            }
 
             while (true)
             {
