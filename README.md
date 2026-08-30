@@ -4,7 +4,7 @@
 
 [![Unity](https://img.shields.io/badge/Unity-6000.0.76f1-222C37?logo=unity)](https://unity.com/releases/editor/archive)
 ![Platform](https://img.shields.io/badge/Platform-iOS%2027%20%7C%20Unity%20Editor-2E6245)
-![Status](https://img.shields.io/badge/Status-R3.3C%20On--device%20Dialogue%20In%20Validation-5EBB78)
+![Status](https://img.shields.io/badge/Status-R3.3C%20Fully%20Accepted-5EBB78)
 ![Repository](https://img.shields.io/badge/Repository-Public-C9A33A)
 
 ## 项目简介
@@ -28,7 +28,7 @@
 - **只读业务上下文**：AI 可读取有限的解锁、知识、徽章和任务完成状态，但没有业务写权限。
 - **事件型角色记忆**：应用会在真实业务状态成功保存后，以强类型、幂等且有界的事件记录动物发现、任务完成、知识学习和徽章获得等里程碑。记忆独立保存在本地，可清除、可恢复，并与核心业务进度隔离。
 - **受控记忆对话**：长期里程碑经最小化投影后可供本机 Qwen 组织回复；模型不读取原始事件，也不能写 Memory 或 Progress。
-- **真机验证**：已在 iOS 27 与 Unity 6000.0.76f1 环境通过 R3.3C0 本机推理 Spike、R3.3C1 Production Chat 核心 Gate 和 History Boundary 稳定性 Gate；完整 R3.3C A-H 仍待继续。
+- **真机验证**：已在 iOS 27 与 Unity 6000.0.76f1 环境完成 R3.3C 自动化、断网正式聊天与 Memory-positive clean-container 真机验收，完整 A-H 已通过。
 
 ## 当前角色：森森
 
@@ -64,7 +64,7 @@ Trusted citations / Action metadata
 UI / Character
 ```
 
-核心原则是：**模型负责表达，知识库负责事实，应用层负责权限。** 正式 iOS 聊天在设备上完成检索、Prompt 构造、Qwen 推理和回答校验，不依赖 Python、HTTP、Mac、局域网或 Cloud。模型不能决定引用、业务写入权限或直接调用 Animator。
+核心原则是：**模型负责表达，知识库负责事实，应用层负责权限。** Qwen 负责语言表达，R2 提供科学事实，R3.3A 提供实时业务状态，R3.3B 提供历史里程碑，应用层拥有引用和动作权限。正式 iOS 聊天在设备上完成检索、Prompt 构造、Qwen 推理和回答校验，不依赖 Python、HTTP、Mac、局域网或 Cloud。模型不能决定引用、业务写入权限或直接调用 Animator。
 
 ## 技术栈
 
@@ -87,14 +87,14 @@ UI / Character
 - **R3.3C1 核心 Gate 已完成**：正式底部 Chat UI 已接入 Unity 本地事实权限、Trusted Prompt Builder、`OnDeviceLLMProvider`、iPhone Qwen 和 Unity Response Validator。正式聊天对 Python、HTTP、Mac、LAN、Cloud 和 Unity fallback chat 的运行时依赖均为 0。
 - **AI Route Provenance 与 Local-LLM-only Gate 已完成**：Development 面板可区分事实权限、语言生成器和最终来源；正式 iOS 本机模型失败时显示 `system_status`，不会以 Cloud、server response 或 Unity 固定话术伪装成正常角色回复。
 - **History Boundary 稳定性 Gate 已通过**：`你记得我以前问过什么吗？` 与 `你记得我以前问过你吃什么吗？` 已在真机多次由 `on_device_llm` 按 SystemPolicy 回答；没有编造聊天历史、误入 Diet Grounding 或触发 Eat/Taunt。
-- **完整 R3.3C A-H 尚未完成，因此 R3.3C 尚未 fully accepted。** 当前功能分支仍处于最终验收阶段。
+- **R3.3C 已 fully accepted**：完整自动化、断网正式聊天和 Memory-positive clean-container 真机验收均已通过。长期 Memory 只记录真实业务里程碑；AI 不能写 Memory、Progress、任务、徽章或动作权限。
 
 ## 当前限制
 
 - 当前 on-device 闭环仅完成 iOS；Android 端本机推理尚未接入。
 - 当前完整角色闭环主要围绕森森实现，尚未完成大规模多物种扩展。
 - 森森为卡通化数字角色原型，后续仍可继续进行物种特征和美术精修。
-- R3.3C1 已将受控长期记忆投影接入 iPhone 本机 Qwen，但完整 R3.3C A-H 最终验收仍待继续。
+- R3.3C 已完成当前范围验收，但长时间 thermal、内存压力与商业发布治理仍属于后续工作。
 - 角色记忆目前仅记录由真实业务状态产生的结构化里程碑，不保存完整聊天、用户自由文本、LLM 回复、昵称、好感度或情绪值。
 - 当前仍为单一本地 Profile，不代表已经支持账号、多用户、云同步或跨设备记忆。
 - 正式商业化所需的长期性能监控、隐私政策和多用户体系仍属于后续工作。
@@ -269,11 +269,11 @@ mkdir -p TestResults
 
 | 验证项 | 结果 |
 | --- | ---: |
-| Unity EditMode | 552 / 552 passed |
+| Unity EditMode | 562 / 562 passed |
 | Unity PlayMode | 39 / 39 passed |
 | Python backend | 130 / 130 passed |
 | iOS 构建 | Unity 6 导出、Xcode 签名构建与真机安装成功 |
-| 真机范围 | R3.3C0、R3.3C1 核心 Gate 与 History Boundary 稳定性 Gate 已通过；完整 A-H pending |
+| 真机范围 | R3.3C 完整 A-H、断网正式聊天与 Memory-positive clean-container 验收已通过 |
 
 真机构建背景、设备检查项和已知边界见 [`Sensen iPhone Device Acceptance`](EndangeredAR/docs/verification/2026-08-06-sensen-device-acceptance.md)。自动化测试不能替代相机比例、模型材质、手势、PNG 输出等真机人工检查。
 
@@ -286,7 +286,7 @@ mkdir -p TestResults
 
 ## Roadmap
 
-1. 完成 R3.3C 剩余 A-H 真机验收，再决定是否合并到稳定 `main`。
+1. 维护 R3.3C 稳定基线，并补充长时间 thermal、内存压力与商业发布治理验证。
 2. 完成第二动物的数据资产、独立任务、角色 Prompt 和模型验收。
 3. 将扫描解锁与图鉴入口扩展为真正的多动物选择闭环。
 4. 为第二动物建立同一 Canonical Knowledge Schema，并先完成来源核验再录入事实。
@@ -320,6 +320,7 @@ mkdir -p TestResults
 - [R3.3C AI Route Provenance Gate](EndangeredAR/docs/verification/2026-08-26-r3.3c-ai-route-provenance-gate.md)
 - [R3.3C0 iPhone On-device LLM Spike 验收说明](EndangeredAR/docs/verification/2026-08-27-r3.3c0-on-device-llm-spike.md)
 - [R3.3C1 Production On-device Chat Integration 验收说明](EndangeredAR/docs/verification/2026-08-27-r3.3c1-production-on-device-chat-integration.md)
+- [R3.3C Final Memory-aware Dialogue 验收说明](EndangeredAR/docs/verification/2026-08-27-r3.3c-memory-aware-dialogue-acceptance.md)
 - [UI Design System](EndangeredAR/DESIGN.md)
 
 ---
