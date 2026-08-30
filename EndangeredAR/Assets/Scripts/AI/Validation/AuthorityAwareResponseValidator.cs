@@ -9,6 +9,8 @@ namespace EndangeredAR.AI.Validation
     public static class AuthorityAwareResponseValidator
     {
         private const int MaximumReplyCharacters = 320;
+        private const string SystemPolicyResponse =
+            "这条请求超出可信动物科普或应用权限；我不会编造事实或修改任何状态。";
         private static readonly Regex NumberPattern = new Regex(@"\d+(?:\.\d+)?", RegexOptions.CultureInvariant);
         private static readonly Regex CountPattern = new Regex(@"[零一二三四五六七八九十百]+(?:项|枚|个)", RegexOptions.CultureInvariant);
         private static readonly Regex LatinBinomialPattern = new Regex(@"\b[A-Z][a-z]+\s+[a-z]{3,}\b", RegexOptions.CultureInvariant);
@@ -37,7 +39,7 @@ namespace EndangeredAR.AI.Validation
                 case ContentAuthority.SystemPolicy:
                     return request.MemoryUseMode == MemoryUseMode.HistoryBoundary
                         ? ValidateHistoryBoundary(text)
-                        : AIResponseValidationResult.Valid;
+                        : ValidateSystemPolicy(text);
                 case ContentAuthority.None:
                 default:
                     return ContainsUnauthorizedScientificClaim(text)
@@ -231,6 +233,13 @@ namespace EndangeredAR.AI.Validation
                    ContainsAny(reply, "不保存", "没有保存", "不会长期保存", "未保存")
                 ? AIResponseValidationResult.Valid
                 : AIResponseValidationResult.Reject("history_boundary_missing");
+        }
+
+        private static AIResponseValidationResult ValidateSystemPolicy(string reply)
+        {
+            return string.Equals(reply, SystemPolicyResponse, StringComparison.Ordinal)
+                ? AIResponseValidationResult.Valid
+                : AIResponseValidationResult.Reject("system_policy_response_not_exact");
         }
 
         private static string BuildCanonicalAuthority(CanonicalEvidencePackage evidence)

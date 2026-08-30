@@ -31,7 +31,7 @@ namespace EndangeredAR.AI.Validation
                 "校验类别：" + code +
                 authorityRepair +
                 "\n</STRICT RESPONSE REPAIR>");
-            if (IsCurrentProgressValidation(code))
+            if (IsCurrentProgressValidation(code) || IsSystemPolicyValidation(code))
             {
                 messages[messages.Count - 1] = new OnDeviceChatMessage(
                     "user",
@@ -102,7 +102,10 @@ namespace EndangeredAR.AI.Validation
 
             if (!IsCurrentProgressValidation(validationCode))
             {
-                return string.Empty;
+                if (!IsSystemPolicyValidation(validationCode))
+                {
+                    return string.Empty;
+                }
             }
 
             if (string.IsNullOrWhiteSpace(exactRepairResponse) || exactRepairResponse.Length > 320 ||
@@ -122,6 +125,11 @@ namespace EndangeredAR.AI.Validation
                    validationCode == "current_task_state_conflict" ||
                    validationCode == "current_task_guidance_not_authorized" ||
                    validationCode == "current_state_count_conflict";
+        }
+
+        private static bool IsSystemPolicyValidation(string validationCode)
+        {
+            return validationCode == "system_policy_response_not_exact";
         }
     }
 }
