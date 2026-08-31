@@ -23,10 +23,28 @@ trigger, memory write, progress write, or business command.
 - The generated training corpus is project-controlled but remains outside Git.
 - Gold v2 is project-authored and contains no private chat, device log, Memory,
   Progress, identity, or third-party source text.
-- Gold v2 is agent-reviewed and still awaits user or project-member review. It
-  must not be described as fully human-reviewed.
+- Gold v2 has completed a blind 320/320 project-member review. The original
+  agent-reviewed rows remain under `data/history/`, and the non-sensitive
+  review evidence is recorded in `manifests/gold-v2-project-review-manifest.json`.
 - Checkpoints, vectorizers, vocabularies, ONNX files, package imports, and build
   output remain local until every applicable gate passes.
+
+## Current gate status
+
+- The Dev-locked TextCNN Pair still passes Test at precision `1.0000`, recall
+  `0.7889`, and zero safety-critical false positives.
+- The human-reviewed Gold v2 passes at precision `1.0000`, recall `0.9909`,
+  and zero safety-critical false positives.
+- PyTorch/ONNX Runtime parity and isolated Unity Inference Engine 2.4.1 CPU
+  parity pass for the reviewed checkpoint.
+- Unity completed a local 1,000-inference Editor loop, but this is not counted
+  as the required device loop.
+- The separate signed iPhone build is blocked because Xcode CLI has no usable
+  account/profile for the isolated bundle ID. Existing R3.3C profiles were not
+  reused because doing so would replace an accepted installed app.
+
+R3.4A is therefore not fully accepted, and R3.4B remains closed. No Wave,
+Animator, capability, action, or completion integration was added.
 
 ## Reproduction
 
