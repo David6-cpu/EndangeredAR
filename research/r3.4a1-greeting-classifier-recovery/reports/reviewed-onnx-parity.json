@@ -1,0 +1,42 @@
+{
+  "artifactPolicy": "local_only_pending_explicit_public_weight_approval",
+  "candidate": "textcnn-user_reply_pair",
+  "checkpointSha256": "7dadb70b6c62b25e476212c11571507d70861754663af38d76a20fbe842866b4",
+  "fixedBatchSize": 1,
+  "fixedSequenceLength": 96,
+  "humanReviewedGoldSampleCount": 320,
+  "inputDtype": "int64",
+  "inputName": "input_ids",
+  "inputShape": [
+    1,
+    96
+  ],
+  "maxAbsoluteLogitError": 9.5367431640625e-07,
+  "meanAbsoluteLogitError": 1.8261853540479933e-07,
+  "modelVersion": "r3.4a2-greeting-textcnn-pair-v1",
+  "nodeCount": 13,
+  "onnxBytes": 112393,
+  "onnxSha256": "c73b1f05134b9e947cbfc35404637f26d0142ee5a2ffbcb07f6804febe6695c3",
+  "operators": [
+    "Concat",
+    "Conv",
+    "Gather",
+    "Gemm",
+    "ReduceMax",
+    "Relu",
+    "Transpose"
+  ],
+  "opset": 17,
+  "outputName": "greeting_logits",
+  "outputShape": [
+    1,
+    2
+  ],
+  "parityPassed": true,
+  "paritySampleCount": 640,
+  "parityTolerance": 1e-05,
+  "runtime": "onnxruntime-cpu",
+  "schemaVersion": "r3.4a2-reviewed-greeting-onnx-v1",
+  "testSampleCount": 320,
+  "vocabSha256": "4f2ac1077a00f075db3843b0d2ed38e0de46112eb9dba6008dcc91f30e0cee22"
+}

@@ -1,0 +1,21 @@
+{
+  "animatorIntegration": false,
+  "completionIntegration": false,
+  "deviceInstallPassed": false,
+  "deviceLatencyMeasured": false,
+  "deviceMemoryMeasured": false,
+  "deviceStabilityIterations": 0,
+  "fullyOfflineInferencePassed": false,
+  "iosBuildExportErrors": 0,
+  "iosBuildExportPassed": true,
+  "modelVersion": "r3.4a2-greeting-textcnn-pair-v1",
+  "onnxSha256": "c73b1f05134b9e947cbfc35404637f26d0142ee5a2ffbcb07f6804febe6695c3",
+  "provisioningFailure": "xcode_cli_no_accounts_and_no_profile_for_isolated_bundle",
+  "qwenArCoexistencePassed": false,
+  "r3_3cInstalledAppProfileReuseRejected": true,
+  "reason": "Existing profiles belong to installed R3.3C apps; reusing them would replace an accepted app.",
+  "schemaVersion": "r3.4a2-reviewed-greeting-iphone-gate-v1",
+  "signedBuildPassed": false,
+  "thermalMeasured": false,
+  "unityVersion": "6000.0.76f1"
+}
