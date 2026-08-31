@@ -1,9 +1,9 @@
 {
-  "version": "r3.4a1-greeting-data-v1",
+  "version": "r3.4a2-greeting-data-v2",
   "sourceType": "project_authored_synthetic",
   "generationMethod": "curated_semantic_composition",
   "rightsStatus": "project_controlled_no_third_party_text",
-  "reviewStatus": "agent_reviewed_pending_project_review",
+  "reviewStatus": "project_corpus_agent_reviewed_gold_v2_project_member_reviewed",
   "containsThirdPartyText": false,
   "containsPrivateUserChat": false,
   "corpus": {
@@ -76,8 +76,11 @@
       "NotGreeting": 210
     },
     "safetyCriticalNegative": 210,
-    "fullyHumanReviewed": false,
-    "sha256": "711c048b9c3f4708ad59b21fda8b81140d7ac96c7cb1d2432c839aff0ac412c3"
+    "reviewStatus": "project_member_reviewed",
+    "fullyHumanReviewed": true,
+    "sha256": "c77964215101ff6c3804a94c75545ef92efdfe69436dde11c61fe1a7ea4d3839",
+    "reviewManifestSha256": "699c2a5405317d99f715c947a8378aa84c995b148b21b667757adc53772ef9e0",
+    "agentReviewedHistorySha256": "711c048b9c3f4708ad59b21fda8b81140d7ac96c7cb1d2432c839aff0ac412c3"
   },
   "groupSplitFields": [
     "scenarioFamily",

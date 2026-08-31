@@ -1,0 +1,32 @@
+{
+  "ambiguousCount": 0,
+  "ambiguousResolvedCount": 0,
+  "automatedLabelingUsed": false,
+  "blindToOriginalLabelsAndModelOutputs": true,
+  "changedLabelCount": 0,
+  "completedCount": 320,
+  "datasetVersion": "r3.4a2-greeting-gold-v2-project-reviewed-v1",
+  "disagreementCount": 0,
+  "finalGoldSha256": "c77964215101ff6c3804a94c75545ef92efdfe69436dde11c61fe1a7ea4d3839",
+  "finalGreetingCount": 110,
+  "finalNotGreetingCount": 210,
+  "fullyHumanReviewed": true,
+  "greetingToNotGreetingCount": 0,
+  "invalidCount": 0,
+  "labelsIdenticalToAgentBaseline": true,
+  "messagesVerified": true,
+  "notGreetingToGreetingCount": 0,
+  "originalGoldSha256": "711c048b9c3f4708ad59b21fda8b81140d7ac96c7cb1d2432c839aff0ac412c3",
+  "privacyScanPassed": true,
+  "reviewFileSha256": "f84e74455a256ed9a6829b969c4455b7cea056e4d58dd385e7b9043504e53c5d",
+  "reviewIdMappingVerified": true,
+  "reviewSchemaVersion": "r3.4a2-gold-v2-project-review-v1",
+  "reviewedAtUtc": "2026-08-31T13:36:43Z",
+  "reviewerConfidenceCounts": {
+    "high": 320
+  },
+  "reviewerNoteCount": 0,
+  "reviewerRole": "project_owner",
+  "rowCount": 320,
+  "sourceReviewArtifactSha256": "e77f95b11317da864e7f546023adee47c2a7ddaa4a05ac218f4c6e482f3b42c9"
+}
