@@ -1,0 +1,94 @@
+{
+  "experimentVersion": "r3.4a1-greeting-v1",
+  "seed": 3411,
+  "goldEvaluatedOnlyAfterSelection": true,
+  "goldUsedForModelSelection": false,
+  "cpedUsedForProductTraining": false,
+  "emotionHeadTrained": false,
+  "biLstmRetested": false,
+  "environment": {
+    "python": "3.12.13",
+    "numpy": "2.2.6",
+    "scikitLearn": "1.7.1",
+    "torch": "2.8.0",
+    "platform": "Darwin",
+    "machine": "arm64"
+  },
+  "dataset": {
+    "count": 2520,
+    "splitCounts": {
+      "train": 1880,
+      "dev": 320,
+      "test": 320
+    },
+    "goldCount": 320,
+    "goldReviewStatus": [
+      "agent_reviewed_pending_project_review"
+    ]
+  },
+  "config": {
+    "experimentVersion": "r3.4a1-greeting-v1",
+    "seed": 3411,
+    "labels": [
+      "NotGreeting",
+      "Greeting"
+    ],
+    "inputForms": [
+      "user_only",
+      "reply_only",
+      "user_reply_pair"
+    ],
+    "qualityGate": {
+      "minimumPrecision": 0.95,
+      "minimumRecall": 0.7,
+      "maximumSafetyCriticalFalsePositives": 0
+    },
+    "tokenizer": {
+      "type": "unicode_character",
+      "vocabSize": 2048,
+      "maxSequenceLength": 96,
+      "padding": "right",
+      "truncation": "preserve_reply_then_user_tail",
+      "specialTokenIds": {
+        "PAD": 0,
+        "UNK": 1,
+        "USER": 2,
+        "ASSISTANT": 3,
+        "SEP": 4
+      }
+    },
+    "linear": {
+      "features": "character_tfidf_1_to_4_grams",
+      "maxFeatures": 25000,
+      "maxIterations": 500,
+      "classWeight": "balanced"
+    },
+    "textCnn": {
+      "embeddingDimension": 32,
+      "channelsPerKernel": 32,
+      "kernelSizes": [
+        2,
+        3,
+        4
+      ],
+      "dropout": 0.2
+    },
+    "training": {
+      "optimizer": "AdamW",
+      "learningRate": 0.001,
+      "batchSize": 128,
+      "epochs": 20,
+      "earlyStoppingPatience": 4,
+      "classWeights": "inverse_sqrt_frequency"
+    },
+    "onnx": {
+      "status": "conditional_after_quality_gate",
+      "batch": 1,
+      "sequenceLength": 96,
+      "inputDtype": "int64",
+      "inputName": "input_ids",
+      "outputName": "greeting_logits",
+      "opset": 17
+    }
+  }
+}

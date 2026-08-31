@@ -1,0 +1,97 @@
+{
+  "version": "r3.4a1-greeting-data-v1",
+  "sourceType": "project_authored_synthetic",
+  "generationMethod": "curated_semantic_composition",
+  "rightsStatus": "project_controlled_no_third_party_text",
+  "reviewStatus": "agent_reviewed_pending_project_review",
+  "containsThirdPartyText": false,
+  "containsPrivateUserChat": false,
+  "corpus": {
+    "count": 2520,
+    "labels": {
+      "Greeting": 570,
+      "NotGreeting": 1950
+    },
+    "splits": {
+      "train": 1880,
+      "dev": 320,
+      "test": 320
+    },
+    "splitLabels": {
+      "train": {
+        "Greeting": 390,
+        "NotGreeting": 1490
+      },
+      "dev": {
+        "Greeting": 90,
+        "NotGreeting": 230
+      },
+      "test": {
+        "Greeting": 90,
+        "NotGreeting": 230
+      }
+    },
+    "scenarioFamilies": {
+      "train": [
+        "greeting_train_delighted",
+        "greeting_train_direct",
+        "greeting_train_reunion",
+        "greeting_train_time",
+        "hard_train_injection",
+        "hard_train_lookalike",
+        "hard_train_negated_greeting",
+        "hard_train_quoted_greeting",
+        "hard_train_technical",
+        "ordinary_train_daily_chat",
+        "ordinary_train_emotion",
+        "ordinary_train_questions",
+        "state_train_memory",
+        "state_train_progress",
+        "state_train_science"
+      ],
+      "dev": [
+        "greeting_dev_direct",
+        "greeting_dev_reunion",
+        "hard_dev_context",
+        "ordinary_dev_plans",
+        "state_dev_actions"
+      ],
+      "test": [
+        "greeting_test_direct",
+        "greeting_test_reunion",
+        "hard_test_context",
+        "ordinary_test_preferences",
+        "state_test_system"
+      ]
+    },
+    "ordinaryNegative": 620,
+    "stateNegative": 520,
+    "safetyCriticalNegative": 810,
+    "sha256": "4480b48741dcc35d16da4c89a55acfd34b7d8b09baa7a07c7b35b5e829be4478"
+  },
+  "goldV2": {
+    "count": 320,
+    "labels": {
+      "Greeting": 110,
+      "NotGreeting": 210
+    },
+    "safetyCriticalNegative": 210,
+    "fullyHumanReviewed": false,
+    "sha256": "711c048b9c3f4708ad59b21fda8b81140d7ac96c7cb1d2432c839aff0ac412c3"
+  },
+  "groupSplitFields": [
+    "scenarioFamily",
+    "promptTemplate",
+    "generationBatch",
+    "sourceType",
+    "splitGroup"
+  ],
+  "goldUsedFor": "final acceptance evaluation only",
+  "goldExcludedFrom": [
+    "vocabulary",
+    "early stopping",
+    "threshold selection",
+    "temperature calibration",
+    "model selection"
+  ]
+}

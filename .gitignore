@@ -38,3 +38,10 @@ sysinfo.txt
 /research/r3.4a-affect-classification/checkpoints/
 /research/r3.4a-affect-classification/cache/
 /research/r3.4a-affect-classification/runs/
+
+# R3.4A.1 local-only generated corpus and model artifacts.
+/research/r3.4a1-greeting-classifier-recovery/data/project-corpus.jsonl
+/research/r3.4a1-greeting-classifier-recovery/artifacts/
+/research/r3.4a1-greeting-classifier-recovery/checkpoints/
+/research/r3.4a1-greeting-classifier-recovery/cache/
+/research/r3.4a1-greeting-classifier-recovery/runs/
