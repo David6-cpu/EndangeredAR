@@ -1,0 +1,137 @@
+{
+  "artifactVerification": {
+    "baselineMetricsSha256": "4c028fd0ac380c80e89df5e26c4300719e8e963fcb6c57076ec8fa3cf2f122b6",
+    "checkpointSha256": "7dadb70b6c62b25e476212c11571507d70861754663af38d76a20fbe842866b4",
+    "corpusSha256": "4480b48741dcc35d16da4c89a55acfd34b7d8b09baa7a07c7b35b5e829be4478",
+    "testMetricsMatchLockedBaseline": true,
+    "vocabSha256": "4f2ac1077a00f075db3843b0d2ed38e0de46112eb9dba6008dcc91f30e0cee22"
+  },
+  "candidate": {
+    "checkpointSha256": "7dadb70b6c62b25e476212c11571507d70861754663af38d76a20fbe842866b4",
+    "confidenceThreshold": 0.5,
+    "corpusSha256": "4480b48741dcc35d16da4c89a55acfd34b7d8b09baa7a07c7b35b5e829be4478",
+    "inputForm": "user_reply_pair",
+    "marginThreshold": 0.0,
+    "maxSequenceLength": 96,
+    "model": "character_textcnn",
+    "name": "textcnn-user_reply_pair",
+    "parameterCount": 27618,
+    "temperature": 0.5,
+    "vocabSha256": "4f2ac1077a00f075db3843b0d2ed38e0de46112eb9dba6008dcc91f30e0cee22",
+    "vocabSize": 566
+  },
+  "goldUsedForFinalEvaluationOnly": true,
+  "humanReviewedGoldV2": {
+    "gate": {
+      "accepted": 109,
+      "acceptedPositiveCount": 109,
+      "confusionMatrix": [
+        [
+          210,
+          0
+        ],
+        [
+          1,
+          109
+        ]
+      ],
+      "f0.5": 0.9981684981684982,
+      "falseNegative": 1,
+      "falsePositive": 0,
+      "positiveCount": 110,
+      "precision": 1.0,
+      "recall": 0.990909090909091,
+      "safetyCriticalFalsePositive": 0,
+      "truePositive": 109
+    },
+    "negativeCount": 210,
+    "positiveCount": 110,
+    "raw": {
+      "accuracy": 0.996875,
+      "averagePrecision": 1.0,
+      "confusionMatrix": [
+        [
+          210,
+          0
+        ],
+        [
+          1,
+          109
+        ]
+      ],
+      "ece10": 0.02071784507375011,
+      "f0.5": 0.9981684981684982,
+      "meanTop1Top2Margin": 0.9523143098524998,
+      "precision": 1.0,
+      "recall": 0.990909090909091
+    },
+    "rowCount": 320
+  },
+  "noThresholdSelectionPerformed": true,
+  "noTrainingPerformed": true,
+  "qualityGate": {
+    "goldV2ProjectMemberReviewGate": "passed",
+    "humanReviewedGoldPassed": true,
+    "passed": true,
+    "target": {
+      "maximumSafetyCriticalFalsePositives": 0,
+      "minimumPrecision": 0.95,
+      "minimumRecall": 0.7
+    },
+    "testPassed": true
+  },
+  "reviewEvidence": {
+    "changedLabelCount": 0,
+    "finalGoldSha256": "c77964215101ff6c3804a94c75545ef92efdfe69436dde11c61fe1a7ea4d3839",
+    "fullyHumanReviewed": true,
+    "reviewerRole": "project_owner",
+    "rowCount": 320
+  },
+  "schemaVersion": "r3.4a2-locked-quality-reevaluation-v1",
+  "test": {
+    "gate": {
+      "accepted": 71,
+      "acceptedPositiveCount": 71,
+      "confusionMatrix": [
+        [
+          230,
+          0
+        ],
+        [
+          19,
+          71
+        ]
+      ],
+      "f0.5": 0.9491978609625669,
+      "falseNegative": 19,
+      "falsePositive": 0,
+      "positiveCount": 90,
+      "precision": 1.0,
+      "recall": 0.7888888888888889,
+      "safetyCriticalFalsePositive": 0,
+      "truePositive": 71
+    },
+    "negativeCount": 230,
+    "positiveCount": 90,
+    "raw": {
+      "accuracy": 0.98125,
+      "averagePrecision": 0.9987415982547069,
+      "confusionMatrix": [
+        [
+          230,
+          0
+        ],
+        [
+          6,
+          84
+        ]
+      ],
+      "ece10": 0.021387360890594252,
+      "f0.5": 0.9859154929577465,
+      "meanTop1Top2Margin": 0.9484975079200921,
+      "precision": 1.0,
+      "recall": 0.9333333333333333
+    },
+    "rowCount": 320
+  }
+}
