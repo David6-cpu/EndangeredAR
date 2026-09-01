@@ -4,7 +4,7 @@
 
 [![Unity](https://img.shields.io/badge/Unity-6000.0.76f1-222C37?logo=unity)](https://unity.com/releases/editor/archive)
 ![Platform](https://img.shields.io/badge/Platform-iOS%2027%20%7C%20Unity%20Editor-2E6245)
-![Status](https://img.shields.io/badge/Status-R3.3C%20Fully%20Accepted-5EBB78)
+![Status](https://img.shields.io/badge/Status-R3.4A%20Research%20Accepted-5EBB78)
 ![Repository](https://img.shields.io/badge/Repository-Public-C9A33A)
 
 ## 项目简介
@@ -89,6 +89,12 @@ UI / Character
 - **History Boundary 稳定性 Gate 已通过**：`你记得我以前问过什么吗？` 与 `你记得我以前问过你吃什么吗？` 已在真机多次由 `on_device_llm` 按 SystemPolicy 回答；没有编造聊天历史、误入 Diet Grounding 或触发 Eat/Taunt。
 - **R3.3C 已 fully accepted**：完整自动化、断网正式聊天和 Memory-positive clean-container 真机验收均已通过。长期 Memory 只记录真实业务里程碑；AI 不能写 Memory、Progress、任务、徽章或动作权限。
 
+### R3.4A 对话行为研究
+
+R3.4A 已完成轻量文本分类与确定性问候策略研究。Linear、TextCNN 和 BiLSTM 已完成训练、ONNX、Unity 及 iPhone 端侧兼容验证，但 learned classifier 在真实 Qwen 回复域中没有稳定超过确定性策略，因此不进入 Wave v1 产品链路。
+
+Wave v1 最终选择 `DeterministicGreetingIntent + ProductScopeGate`。该策略在项目成员人工审核的独立 Gold v1 上达到 Precision 1.0000、Recall 0.9423，且 safety-critical false positive 为 0。R3.4B Wave 动画资产阶段已经开放，但 Wave 尚未制作或接入。
+
 ## 当前限制
 
 - 当前 on-device 闭环仅完成 iOS；Android 端本机推理尚未接入。
@@ -97,6 +103,9 @@ UI / Character
 - R3.3C 已完成当前范围验收，但长时间 thermal、内存压力与商业发布治理仍属于后续工作。
 - 角色记忆目前仅记录由真实业务状态产生的结构化里程碑，不保存完整聊天、用户自由文本、LLM 回复、昵称、好感度或情绪值。
 - 当前仍为单一本地 Profile，不代表已经支持账号、多用户、云同步或跨设备记忆。
+- 当前尚无 Wave Clip，Animator 仍只有 Idle、Taunt 和 Eat。
+- Greeting 策略尚未连接正式 completion，也不会产生 Wave 动作候选。
+- Learned affect classifier 仅作为研究证据保留，不代表已经部署通用情绪识别或情绪驱动动画。
 - 正式商业化所需的长期性能监控、隐私政策和多用户体系仍属于后续工作。
 
 
@@ -269,9 +278,10 @@ mkdir -p TestResults
 
 | 验证项 | 结果 |
 | --- | ---: |
-| Unity EditMode | 562 / 562 passed |
+| Unity EditMode | 629 / 629 passed |
 | Unity PlayMode | 39 / 39 passed |
 | Python backend | 130 / 130 passed |
+| R3.4 research suites | 53 / 53 passed |
 | iOS 构建 | Unity 6 导出、Xcode 签名构建与真机安装成功 |
 | 真机范围 | R3.3C 完整 A-H、断网正式聊天与 Memory-positive clean-container 验收已通过 |
 
@@ -286,12 +296,13 @@ mkdir -p TestResults
 
 ## Roadmap
 
-1. 维护 R3.3C 稳定基线，并补充长时间 thermal、内存压力与商业发布治理验证。
-2. 完成第二动物的数据资产、独立任务、角色 Prompt 和模型验收。
-3. 将扫描解锁与图鉴入口扩展为真正的多动物选择闭环。
-4. 为第二动物建立同一 Canonical Knowledge Schema，并先完成来源核验再录入事实。
-5. 在稳定包基线之上评估恢复 ARFoundation 图片追踪。
-6. 完成 App Store 图标、隐私清单、性能与长时间真机测试。
+1. 在不改变 Greeting 策略和正式 completion 的前提下，进入独立 R3.4B Wave 动画资产阶段；Wave 当前尚未制作。
+2. 维护 R3.3C 稳定基线，并补充长时间 thermal、内存压力与商业发布治理验证。
+3. 完成第二动物的数据资产、独立任务、角色 Prompt 和模型验收。
+4. 将扫描解锁与图鉴入口扩展为真正的多动物选择闭环。
+5. 为第二动物建立同一 Canonical Knowledge Schema，并先完成来源核验再录入事实。
+6. 在稳定包基线之上评估恢复 ARFoundation 图片追踪。
+7. 完成 App Store 图标、隐私清单、性能与长时间真机测试。
 
 ## 参与项目
 
@@ -321,6 +332,7 @@ mkdir -p TestResults
 - [R3.3C0 iPhone On-device LLM Spike 验收说明](EndangeredAR/docs/verification/2026-08-27-r3.3c0-on-device-llm-spike.md)
 - [R3.3C1 Production On-device Chat Integration 验收说明](EndangeredAR/docs/verification/2026-08-27-r3.3c1-production-on-device-chat-integration.md)
 - [R3.3C Final Memory-aware Dialogue 验收说明](EndangeredAR/docs/verification/2026-08-27-r3.3c-memory-aware-dialogue-acceptance.md)
+- [R3.4A Deterministic Greeting Gate 最终验收说明](EndangeredAR/docs/verification/2026-09-01-r3.4a5-deterministic-greeting-gate.md)
 - [UI Design System](EndangeredAR/DESIGN.md)
 
 ---
