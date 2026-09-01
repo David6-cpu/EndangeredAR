@@ -25,3 +25,34 @@ The policy is frozen before the independent user-only Gold v1 review package
 is built. Gold v1 may be evaluated once after project-member review, but it
 must not be used to change the rule. A failed Gold v1 requires a new policy
 version and a new unpolluted Gold set.
+
+## Gold v1 blind review
+
+The tracked candidate manifest contains 150 unique project-authored,
+non-private user messages: a 50/100 greeting/non-greeting design target with
+70 safety-critical coverage items. It contains no expected labels, rule
+results, assistant replies, model outputs, confidence, or margins. Candidate
+messages are normalized and checked against both the R3.4A.4 Pilot and the
+pair-level Gold v2 before a package can be built.
+
+Generate the manifest reproducibly:
+
+```bash
+PYTHONPATH=research/r3.4a5-deterministic-greeting-gate/src \
+python3 research/r3.4a5-deterministic-greeting-gate/tools/materialize_gold_v1_candidates.py \
+  --output research/r3.4a5-deterministic-greeting-gate/data/deterministic-greeting-gold-v1-candidates.json
+```
+
+Build the reviewer package into a new directory outside the repository:
+
+```bash
+PYTHONPATH=research/r3.4a5-deterministic-greeting-gate/src \
+python3 research/r3.4a5-deterministic-greeting-gate/tools/build_gold_v1_blind_review.py \
+  --project-root "$PWD" \
+  --output-directory /path/outside/repository
+```
+
+Only the CSV and instructions are reviewer-facing. The stable-ID mapping and
+package manifest remain local evidence. All reviewer fields start blank, and
+`fullyHumanReviewed` remains `false` until a real project member reviews every
+row and resolves any `ambiguous` or `invalid` decision.
