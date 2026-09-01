@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "r3.4a5-model-selection-v1",
+  "decisionStatus": "locked_pending_independent_gold",
+  "learnedGreetingProductRoute": "terminated",
+  "learnedArtifactsDisposition": "research_only_local_weights",
+  "selectedDecisionMethod": "deterministic_greeting_intent_plus_product_scope_gate",
+  "waveV1RequiresUnityInferenceEngine": false,
+  "waveV1RequiresOnnx": false,
+  "waveV1RequiresClassifierWorker": false,
+  "newQwenDomainTrainingAuthorized": false,
+  "goldV3Authorized": false,
+  "formalCompletionIntegrated": false,
+  "animatorModified": false,
+  "r3_4aAccepted": false,
+  "r3_4bOpen": false
+}

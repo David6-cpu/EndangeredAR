@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "r3.4a5-policy-sha-v1",
+  "greetingPolicyVersion": "r3.4a5-greeting-intent-v1",
+  "greetingPolicySha256": "ec0d5d57b8bc044194e28402ec441fe9c385e39ba0ff377f4b040c4fda7e03e3",
+  "productScopeVersion": "r3.4a5-greeting-scope-v1",
+  "productScopeSha256": "eb0ce7a1b42767b04c98765d606077ea27d93480c6b53968d92a47e487385ad0",
+  "frozenBeforeGoldReview": true
+}
