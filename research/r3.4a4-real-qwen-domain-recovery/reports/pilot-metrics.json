@@ -1,0 +1,107 @@
+{
+  "schemaVersion": "r3.4a4-pilot-metrics-v1",
+  "corpus": {
+    "rowCount": 80,
+    "greetingCount": 30,
+    "hardNegativeCount": 30,
+    "productNegativeCount": 20,
+    "trainCount": 32,
+    "devCount": 24,
+    "testCount": 24,
+    "reviewStatus": "agent_reviewed_pilot_not_project_reviewed",
+    "generatedOutputSha256": "861dbaf55e874ede2c052dea55ae597ad7819b102b37d69f3c2a800e2584d7c5"
+  },
+  "evaluationPolicy": {
+    "trainingPerformed": false,
+    "thresholdTuned": false,
+    "temperatureTuned": false,
+    "ruleChanged": false,
+    "modelReselected": false,
+    "pilotUsedAsGold": false
+  },
+  "ruleOnly": {
+    "precision": 1.0,
+    "recall": 0.8666666666666667,
+    "f0_5": 0.9701492537313434,
+    "acceptedPositiveCount": 26,
+    "positiveCount": 30,
+    "confusionMatrix": [[50, 0], [4, 26]],
+    "safetyCriticalFalsePositive": 0
+  },
+  "frozenCandidates": {
+    "linearUserOnly": {
+      "learnedOnlyPrecision": 0.8571428571428571,
+      "learnedOnlyRecall": 1.0,
+      "learnedOnlySafetyCriticalFalsePositive": 3,
+      "dualGatePrecision": 1.0,
+      "dualGateRecall": 0.8666666666666667,
+      "dualGateSafetyCriticalFalsePositive": 0,
+      "ece10": 0.05708126637450194
+    },
+    "textcnnUserOnly": {
+      "learnedOnlyPrecision": 0.9333333333333333,
+      "learnedOnlyRecall": 0.9333333333333333,
+      "learnedOnlySafetyCriticalFalsePositive": 2,
+      "dualGatePrecision": 1.0,
+      "dualGateRecall": 0.8333333333333334,
+      "dualGateSafetyCriticalFalsePositive": 0,
+      "ece10": 0.04435919374227523
+    },
+    "linearReplyOnly": {
+      "learnedOnlyPrecision": 0.7368421052631579,
+      "learnedOnlyRecall": 0.9333333333333333,
+      "learnedOnlySafetyCriticalFalsePositive": 10,
+      "dualGatePrecision": 1.0,
+      "dualGateRecall": 0.8333333333333334,
+      "dualGateSafetyCriticalFalsePositive": 0,
+      "ece10": 0.04327717437373521
+    },
+    "textcnnReplyOnly": {
+      "learnedOnlyPrecision": 1.0,
+      "learnedOnlyRecall": 0.03333333333333333,
+      "learnedOnlySafetyCriticalFalsePositive": 0,
+      "dualGatePrecision": 1.0,
+      "dualGateRecall": 0.03333333333333333,
+      "dualGateSafetyCriticalFalsePositive": 0,
+      "ece10": 0.3091514505445957
+    },
+    "linearPair": {
+      "learnedOnlyPrecision": 0.875,
+      "learnedOnlyRecall": 0.9333333333333333,
+      "learnedOnlySafetyCriticalFalsePositive": 4,
+      "dualGatePrecision": 1.0,
+      "dualGateRecall": 0.8333333333333334,
+      "dualGateSafetyCriticalFalsePositive": 0,
+      "ece10": 0.029975907158297226
+    },
+    "textcnnPair": {
+      "learnedOnlyPrecision": 1.0,
+      "learnedOnlyRecall": 0.16666666666666666,
+      "learnedOnlySafetyCriticalFalsePositive": 0,
+      "dualGatePrecision": 1.0,
+      "dualGateRecall": 0.16666666666666666,
+      "dualGateSafetyCriticalFalsePositive": 0,
+      "ece10": 0.21156486123800283
+    },
+    "ruleTextcnnUserReplyGuard": {
+      "precision": 1.0,
+      "recall": 0.8333333333333334,
+      "safetyCriticalFalsePositive": 0
+    }
+  },
+  "knownFailureProbe": {
+    "pairSha256": "81d80274ad8aa080899542973b108e32dfb25254e7114c48da4d517822aa1277",
+    "pairStillFails": true,
+    "userOnlyPasses": true,
+    "ruleOnlyPasses": true,
+    "byteIdenticalToHistoricalDevicePairClaimed": false
+  },
+  "decision": {
+    "pairDomainShiftConfirmed": true,
+    "learnedStrategyClearlyBeatsRuleOnly": false,
+    "continueToFullQwenDomainRetraining": false,
+    "recommendedResearchGate": "deterministic_rule_only",
+    "r3_4aFullyAccepted": false,
+    "r3_4bOpen": false
+  }
+}

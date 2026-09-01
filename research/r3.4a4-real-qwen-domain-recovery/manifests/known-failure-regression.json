@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "r3.4a4-known-failure-v1",
+  "promptId": "r34a4-greeting-hello",
+  "historicalDeviceEvidence": {
+    "prediction": "NotGreeting",
+    "confidence": 0.7337920665740967,
+    "margin": 0.46758416295051575,
+    "finalGreetingEligible": false,
+    "requiredGreetingEligible": true,
+    "historicalPairTextRetained": false
+  },
+  "pilotReproduction": {
+    "pairSha256": "81d80274ad8aa080899542973b108e32dfb25254e7114c48da4d517822aa1277",
+    "pairPrediction": "NotGreeting",
+    "pairConfidence": 0.868894413113594,
+    "pairMargin": 0.7377888262271881,
+    "pairEligible": false,
+    "userOnlyEligible": true,
+    "ruleOnlyEligible": true
+  },
+  "byteIdenticalReproductionClaimed": false,
+  "interpretation": "Same production-semantics Qwen response domain reproduced the Pair failure; the historical iPhone reply was not persisted, so byte identity is not claimed."
+}

@@ -192,6 +192,14 @@ class TokenizerTests(unittest.TestCase):
         self.assertIn("专", pair.token_to_id)
         self.assertEqual((1, 32), pair.encode_many(rows, "user_reply_pair").shape)
 
+    def test_pair_boundary_always_respects_fixed_sequence_length(self) -> None:
+        rows = [sample("one", "你好", "回" * 94, "Greeting", "f", "t", "b")]
+        tokenizer = CharacterTokenizer.build(rows, 128, 96, "user_reply_pair")
+        encoded = tokenizer.encode("你好", "回" * 94, "user_reply_pair")
+        self.assertEqual((96,), encoded.shape)
+        self.assertEqual(tokenizer.token_to_id["<USER>"], int(encoded[0]))
+        self.assertEqual(tokenizer.token_to_id["<ASSISTANT>"], int(encoded[2]))
+
 
 class GateTests(unittest.TestCase):
     def test_dev_gate_prioritizes_precision_without_collapsing_recall(self) -> None:

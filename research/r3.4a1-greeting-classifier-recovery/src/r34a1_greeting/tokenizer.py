@@ -69,7 +69,7 @@ class CharacterTokenizer:
                 ids = [self.token_to_id["<USER>"]] + user_ids + [
                     self.token_to_id["<SEP>"],
                     assistant_id,
-                ] + reply_ids
+                ] + reply_ids[: self.max_length - 3]
         else:
             raise ValueError(f"unsupported input form: {input_form}")
         ids.extend([self.pad_id] * (self.max_length - len(ids)))
