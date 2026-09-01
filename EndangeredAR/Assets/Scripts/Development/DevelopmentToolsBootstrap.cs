@@ -11,6 +11,7 @@ namespace EndangeredAR.Development
         private static AnimalAnimationDebugPanel animationInstance;
         private static CharacterMemoryDebugPanel memoryInstance;
         private static AIProvenanceDebugPanel provenanceInstance;
+        private static SafeResearchPairCapturePanel pairCaptureInstance;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
@@ -19,6 +20,7 @@ namespace EndangeredAR.Development
             animationInstance = null;
             memoryInstance = null;
             provenanceInstance = null;
+            pairCaptureInstance = null;
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -29,7 +31,8 @@ namespace EndangeredAR.Development
 
         private static AnimalAnimationDebugPanel EnsureInitialized()
         {
-            if (animationInstance != null && memoryInstance != null && provenanceInstance != null)
+            if (animationInstance != null && memoryInstance != null && provenanceInstance != null &&
+                pairCaptureInstance != null)
             {
                 return animationInstance;
             }
@@ -43,6 +46,9 @@ namespace EndangeredAR.Development
             provenanceInstance = provenanceInstance != null
                 ? provenanceInstance
                 : Object.FindFirstObjectByType<AIProvenanceDebugPanel>(FindObjectsInactive.Include);
+            pairCaptureInstance = pairCaptureInstance != null
+                ? pairCaptureInstance
+                : Object.FindFirstObjectByType<SafeResearchPairCapturePanel>(FindObjectsInactive.Include);
             rootInstance = animationInstance != null
                 ? animationInstance.gameObject
                 : memoryInstance != null
@@ -66,6 +72,10 @@ namespace EndangeredAR.Development
                 ? provenanceInstance
                 : rootInstance.GetComponent<AIProvenanceDebugPanel>() ??
                   rootInstance.AddComponent<AIProvenanceDebugPanel>();
+            pairCaptureInstance = pairCaptureInstance != null
+                ? pairCaptureInstance
+                : rootInstance.GetComponent<SafeResearchPairCapturePanel>() ??
+                  rootInstance.AddComponent<SafeResearchPairCapturePanel>();
             return animationInstance;
         }
 

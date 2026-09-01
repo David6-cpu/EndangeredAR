@@ -1626,6 +1626,9 @@ namespace EndangeredAR.UI
             }
 
             var request = chatRequestState.Begin(CurrentAnimalId);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            EndangeredAR.Development.SafeResearchPairCapture.BeginCompletion(request.Generation);
+#endif
             SetChatInputEnabled(false);
             AppendChatLine("你", message);
             AppendChatLine(CurrentShortName, ThinkingLine);
@@ -1759,6 +1762,9 @@ namespace EndangeredAR.UI
                     out var validatedAction,
                     out var validationResult))
             {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                EndangeredAR.Development.SafeResearchPairCapture.Invalidate(request.Generation);
+#endif
                 return;
             }
 
@@ -1766,6 +1772,12 @@ namespace EndangeredAR.UI
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             EndangeredAR.Development.AIResponseProvenanceRecorder.TryRecord(response);
+            EndangeredAR.Development.SafeResearchPairCapture.TryRecordAccepted(
+                request.Generation,
+                userMessage,
+                reply,
+                response,
+                true);
 #endif
 
             ReplaceLastThinkingLine($"{CurrentShortName}：{reply}");
@@ -1803,6 +1815,10 @@ namespace EndangeredAR.UI
             {
                 return;
             }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            EndangeredAR.Development.SafeResearchPairCapture.Invalidate(request.Generation);
+#endif
 
             StopCloudAnswerTimeout();
             var errorCode = AIProvenanceProtocol.SanitizeReasonCode(error?.Code);
