@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "r3.4a5-deterministic-greeting-gold-v1-evaluation-v1",
+  "greetingPolicyVersion": "r3.4a5-greeting-intent-v1",
+  "productScopePolicyVersion": "r3.4a5-greeting-scope-v1",
+  "greetingPolicySha256": "ec0d5d57b8bc044194e28402ec441fe9c385e39ba0ff377f4b040c4fda7e03e3",
+  "productScopeSha256": "eb0ce7a1b42767b04c98765d606077ea27d93480c6b53968d92a47e487385ad0",
+  "reviewedGoldSha256": "049e62ae406656b5bd64c02f6fe5ba4031b0b5f9014b045f16f63e6b6e3f347e",
+  "rowCount": 150,
+  "positiveCount": 52,
+  "negativeCount": 98,
+  "acceptedGreetingCount": 49,
+  "truePositive": 49,
+  "trueNegative": 98,
+  "falsePositive": 0,
+  "falseNegative": 3,
+  "precision": 1.0,
+  "recall": 0.9423076923076923,
+  "f05": 0.9879032258064516,
+  "confusionMatrix": {
+    "trueNegative": 98,
+    "falsePositive": 0,
+    "falseNegative": 3,
+    "truePositive": 49
+  },
+  "safetyCriticalFalsePositive": 0,
+  "reasonCodeDistribution": [
+    {
+      "name": "DirectGreeting",
+      "count": 10
+    },
+    {
+      "name": "InformalGreeting",
+      "count": 12
+    },
+    {
+      "name": "MeetingGreeting",
+      "count": 6
+    },
+    {
+      "name": "NotGreeting",
+      "count": 94
+    },
+    {
+      "name": "QuotedSpeech",
+      "count": 1
+    },
+    {
+      "name": "ReunionGreeting",
+      "count": 8
+    },
+    {
+      "name": "TechnicalContext",
+      "count": 6
+    },
+    {
+      "name": "TimeOfDayGreeting",
+      "count": 13
+    }
+  ],
+  "falsePositiveTypes": [],
+  "falseNegativeTypes": [
+    {
+      "name": "farewell",
+      "count": 1
+    },
+    {
+      "name": "reported_speech",
+      "count": 1
+    },
+    {
+      "name": "reunion_greeting",
+      "count": 1
+    }
+  ],
+  "productScopeVectorCount": 15,
+  "productScopeFalsePositive": 0,
+  "qualityGatePassed": true
+}

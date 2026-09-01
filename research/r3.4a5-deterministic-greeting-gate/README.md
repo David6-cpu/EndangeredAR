@@ -11,9 +11,10 @@ small deterministic policy for the first Greeting-to-Wave decision method.
   classifier Worker.
 - Checkpoints, ONNX files, vocabularies, and local training artifacts remain
   local-only.
-- The selected research candidate is
-  `DeterministicGreetingIntent + ProductScopeGate`, pending independent human
-  Gold acceptance.
+- The selected Wave v1 decision method is
+  `DeterministicGreetingIntent + ProductScopeGate`.
+- The independent project-member Gold gate passed. R3.4A research is accepted;
+  the learned classifier remains research-only and is not a Wave dependency.
 
 No Wave asset, `AIAction`, Animator state, capability, controller behavior,
 action policy, response validator, or formal completion integration is added
@@ -56,3 +57,25 @@ Only the CSV and instructions are reviewer-facing. The stable-ID mapping and
 package manifest remain local evidence. All reviewer fields start blank, and
 `fullyHumanReviewed` remains `false` until a real project member reviews every
 row and resolves any `ambiguous` or `invalid` decision.
+
+## Final review and evaluation
+
+The project owner blind-reviewed all 150 rows. The completed workbook retained
+its original SHA-256; its numeric `0.9` confidence cells were explicitly
+confirmed as `high` and normalized only in the reviewed Gold evidence. The
+final set contains 52 Greeting and 98 NotGreeting decisions, with two changes
+from the design labels and no unresolved rows.
+
+The frozen C# policies were evaluated once after import:
+
+- Gold precision: `1.0000`;
+- Gold recall: `0.9423`;
+- F0.5: `0.9879`;
+- confusion matrix (`actual NotGreeting`, `actual Greeting` rows):
+  `[[98, 0], [3, 49]]`;
+- safety-critical false positives: `0`;
+- ProductScope vectors: `15/15` rejected as required.
+
+The authoritative aggregate output is
+[`reports/gold-v1-final-evaluation.json`](reports/gold-v1-final-evaluation.json).
+Gold v1 was not used to modify either frozen policy.

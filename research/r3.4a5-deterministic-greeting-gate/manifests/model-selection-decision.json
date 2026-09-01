@@ -1,6 +1,6 @@
 {
   "schemaVersion": "r3.4a5-model-selection-v1",
-  "decisionStatus": "locked_pending_independent_gold",
+  "decisionStatus": "accepted_deterministic_selected",
   "learnedGreetingProductRoute": "terminated",
   "learnedArtifactsDisposition": "research_only_local_weights",
   "selectedDecisionMethod": "deterministic_greeting_intent_plus_product_scope_gate",
@@ -11,6 +11,12 @@
   "goldV3Authorized": false,
   "formalCompletionIntegrated": false,
   "animatorModified": false,
-  "r3_4aAccepted": false,
-  "r3_4bOpen": false
+  "independentGoldReview": "passed",
+  "independentGoldPrecision": 1.0,
+  "independentGoldRecall": 0.9423076923076923,
+  "independentGoldSafetyCriticalFalsePositive": 0,
+  "productScopeVectorCount": 15,
+  "productScopeFalsePositive": 0,
+  "r3_4aAccepted": true,
+  "r3_4bOpen": true
 }

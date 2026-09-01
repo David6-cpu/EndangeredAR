@@ -1,0 +1,37 @@
+{
+  "ambiguousCount": 0,
+  "automatedLabelingUsed": false,
+  "blindToRuleResultsAndMetrics": true,
+  "changedLabelCount": 2,
+  "completedCount": 150,
+  "confidenceNormalization": {
+    "confirmedByRole": "project_owner",
+    "method": "numeric_0.9_confirmed_as_high",
+    "normalizedCount": 150,
+    "sourceArtifactPreserved": true
+  },
+  "datasetVersion": "r3.4a5-deterministic-greeting-gold-v1",
+  "disagreementCount": 2,
+  "finalGoldSha256": "049e62ae406656b5bd64c02f6fe5ba4031b0b5f9014b045f16f63e6b6e3f347e",
+  "finalGreetingCount": 52,
+  "finalNotGreetingCount": 98,
+  "fullyHumanReviewed": true,
+  "greetingToNotGreetingCount": 0,
+  "invalidCount": 0,
+  "mappingSha256": "cc24bd0479fb79dce947ad8f88e727161e68efe2cffbddeb49f2da5395939647",
+  "messagesVerified": true,
+  "notGreetingToGreetingCount": 2,
+  "originalCandidateManifestSha256": "11bf9d1b20922acafd87be25a1af8c0ec654dbbfe31dc9f229b6f0083f38e39b",
+  "privacyScanPassed": true,
+  "reviewExtractionSha256": "54455539d6413f0e9731f98f178039e47f5f559f90bbae627abd676753eb76e7",
+  "reviewFileSha256": "6f2926afcbcd1a38ad010d39680e9238f53ce32922099e75335d6397cab3288f",
+  "reviewIdMappingVerified": true,
+  "reviewSchemaVersion": "r3.4a5-deterministic-greeting-gold-v1-project-review-v1",
+  "reviewedAtUtc": "2026-09-01T14:21:21Z",
+  "reviewerConfidenceCounts": {
+    "high": 150
+  },
+  "reviewerNoteCount": 0,
+  "reviewerRole": "project_owner",
+  "rowCount": 150
+}
