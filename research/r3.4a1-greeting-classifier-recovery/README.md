@@ -37,14 +37,20 @@ trigger, memory write, progress write, or business command.
   and zero safety-critical false positives.
 - PyTorch/ONNX Runtime parity and isolated Unity Inference Engine 2.4.1 CPU
   parity pass for the reviewed checkpoint.
-- Unity completed a local 1,000-inference Editor loop, but this is not counted
-  as the required device loop.
-- The separate signed iPhone build is blocked because Xcode CLI has no usable
-  account/profile for the isolated bundle ID. Existing R3.3C profiles were not
-  reused because doing so would replace an accepted installed app.
+- The independent full-App Development build signed, installed, launched, and
+  completed a fully offline 1,000/1,000 CPU inference loop on iPhone. Fixed
+  fixtures, runtime parity, Worker reload, Product Scope, and Qwen/AR
+  coexistence checks passed.
+- The required real final validated Qwen greeting did not pass: deterministic
+  intent and product scope were true, but the locked TextCNN predicted
+  `NotGreeting`. The science Qwen pair was not recorded by the exact fixture
+  matcher, leaving the required real-Qwen evidence at 2/3 pairs.
 
 R3.4A is therefore not fully accepted, and R3.4B remains closed. No Wave,
 Animator, capability, action, or completion integration was added.
+
+See the sanitized signed-device outcome in
+[`2026-08-31-r3.4a3-signed-iphone-classifier-acceptance.md`](../../EndangeredAR/docs/verification/2026-08-31-r3.4a3-signed-iphone-classifier-acceptance.md).
 
 ## Reproduction
 
